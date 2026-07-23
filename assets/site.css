@@ -1,11 +1,11 @@
 /* ============================================================
    hkk.fyi — exactly three hues, everything else is a tint:
-   paper (cream), ink (near-black), sig (smith-chart red)
+   paper (cream), ink (near-black), sig (blueprint blue)
    ============================================================ */
 :root{
   --paper:#F4EFE4;
   --ink:#1C1B1A;
-  --sig:#D9482B;
+  --sig:#2B59C3;
   --bg:var(--paper);
   --fg:var(--ink);
   --font-sans:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;

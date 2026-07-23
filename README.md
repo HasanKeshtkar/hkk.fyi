@@ -4,7 +4,7 @@ Personal site of **Hassan Keshtkar** — electrical engineering @ University of 
 Applied electromagnetics · RF & microwave · bioelectromagnetics.
 
 Static site, no build step, no frameworks, exactly three colors
-(paper `#F4EFE4`, ink `#1C1B1A`, signal red `#D9482B`).
+(paper `#F4EFE4`, ink `#1C1B1A`, blueprint blue `#2B59C3`).
 
 ## Structure
 
