@@ -26,7 +26,9 @@ body{
   font-size:17px;
   line-height:1.65;
   -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
+  /* NOTE: no overflow-x here — html already hides it; setting it on body too
+     forces body's overflow-y to compute to auto, spawning a second nested
+     vertical scrollbar on desktop. */
 }
 
 /* faint engineering-paper grid over the whole page */
