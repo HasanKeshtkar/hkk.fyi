@@ -255,6 +255,10 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
   overflow:hidden; border-radius:4.5px 0 0 4.5px;
 }
 .project-preview iframe{
+  /* absolutely positioned so the 200% layout box (transforms don't shrink
+     the box, only the paint) is out of flow and simply clipped by the
+     card's overflow:hidden — otherwise it breaks the card on mobile */
+  position:absolute; top:0; left:0;
   width:200%; height:200%;
   transform:scale(.5); transform-origin:0 0;
   border:0; pointer-events:none;
@@ -474,11 +478,6 @@ html.ink .chip.solid{
   .topbar{ gap:.8rem; }
   .nav{ gap:.8rem; }
   .project-preview{ border-radius:4.5px 4.5px 0 0; }
-  /* the 200%/scale(.5) "zoomed-out desktop preview" trick is unreliable on
-     mobile browsers (percentage-width iframe + aspect-ratio + transform can
-     miscompute and push the box past its own container) — use a plain
-     100% iframe here instead */
-  .project-preview iframe{ width:100%; height:100%; transform:none; }
 }
 @media (max-width: 560px){
   body{ font-size:16px; }
