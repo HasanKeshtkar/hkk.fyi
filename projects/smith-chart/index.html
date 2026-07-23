@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smith Chart Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23f7f3e8' stroke='%23c0392b' stroke-width='3'/><circle cx='42' cy='32' r='18' fill='none' stroke='%23555' stroke-width='2'/><circle cx='50' cy='32' r='10' fill='none' stroke='%23555' stroke-width='2'/><path d='M4 32h56' stroke='%23555' stroke-width='2'/></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" fill="#f7f3e8" stroke="#e4573d" stroke-width="4"/>
+      <circle cx="42" cy="32" r="18" fill="none" stroke="#6b7688" stroke-width="2.4"/>
+      <circle cx="50" cy="32" r="10" fill="none" stroke="#6b7688" stroke-width="2.4"/>
+      <path d="M4 32h56" stroke="#6b7688" stroke-width="2.4"/>
+      <circle cx="26" cy="20" r="4" fill="#e4573d"/>
+    </svg>
+    <div>
+      <h1>Smith Chart Studio</h1>
+      <span class="tagline">Interactive Smith chart &amp; tutor · created by <b>Hassan Keshtkar</b></span>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="explore">Explore</button>
+    <button class="tab-btn" data-tab="learn">Learn</button>
+  </nav>
+  <div class="top-actions">
+    <a href="../../" class="ghost-btn" id="homeLink" style="text-decoration:none" title="hkk.fyi — for your information">← hkk.fyi</a>
+    <script>if (top !== self) document.getElementById('homeLink').style.display = 'none';</script>
+    <button id="themeToggle" class="ghost-btn" title="Switch chart style">Chart: Dark</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ EXPLORE TAB ============ -->
+  <section id="tab-explore" class="tab-panel active">
+    <div class="chart-wrap">
+      <canvas id="exploreCanvas" tabindex="0"></canvas>
+      <div class="chart-note">Outer ring: wavelengths toward <b>generator</b> (clockwise) &nbsp;·&nbsp; middle: toward <b>load</b> &nbsp;·&nbsp; inner: ∠Γ in degrees</div>
+    </div>
+    <aside class="sidebar">
+
+      <div class="card">
+        <h2>System</h2>
+        <div class="field-grid">
+          <label>Z<sub>0</sub> (Ω)<input type="number" id="exZ0" value="50" min="1" step="1"></label>
+          <label>Frequency
+            <span class="joined">
+              <input type="number" id="exFreq" value="1" min="0" step="any">
+              <select id="exFreqUnit">
+                <option>kHz</option><option>MHz</option><option selected>GHz</option>
+              </select>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Load / Point</h2>
+        <label class="preset-row">Preset
+          <select id="exPreset">
+            <option value="">— choose an example —</option>
+            <option value="50,0">Matched load (50 Ω)</option>
+            <option value="0,0">Short circuit</option>
+            <option value="1e9,0">Open circuit</option>
+            <option value="25,0">25 Ω resistive</option>
+            <option value="100,0">100 Ω resistive</option>
+            <option value="75,25">Antenna 75 + j25 Ω</option>
+            <option value="25,-50">25 − j50 Ω</option>
+            <option value="100,100">100 + j100 Ω</option>
+            <option value="10,30">10 + j30 Ω</option>
+          </select>
+        </label>
+        <div class="field-grid">
+          <label>R (Ω)<input type="number" id="exR" step="any" value="25"></label>
+          <label>X (Ω)<input type="number" id="exX" step="any" value="-50"></label>
+          <label>r (norm.)<input type="number" id="exr" step="any"></label>
+          <label>x (norm.)<input type="number" id="exx" step="any"></label>
+          <label>|Γ|<input type="number" id="exGm" step="any" min="0" max="1"></label>
+          <label>∠Γ (°)<input type="number" id="exGa" step="any"></label>
+        </div>
+        <p class="hint">Edit any field, or <b>drag the red point</b> on the chart — everything stays in sync. Arrow keys nudge the point.</p>
+      </div>
+
+      <div class="card">
+        <h2>Readouts</h2>
+        <dl class="readouts" id="exReadouts"></dl>
+      </div>
+
+      <div class="card">
+        <h2>Transmission line</h2>
+        <div class="radio-row">
+          <label><input type="radio" name="exDir" value="gen" checked> Toward generator</label>
+          <label><input type="radio" name="exDir" value="load"> Toward load</label>
+        </div>
+        <div class="slider-row">
+          <input type="range" id="exLen" min="0" max="0.5" step="0.001" value="0">
+          <input type="number" id="exLenNum" min="0" max="0.5" step="0.001" value="0" class="narrow">
+          <span class="unit">λ</span>
+        </div>
+        <dl class="readouts" id="exLineReadouts"></dl>
+        <div class="btn-row">
+          <button id="exApplyLine" class="small-btn">Make this the new load</button>
+          <button id="exResetLine" class="small-btn ghost">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Display</h2>
+        <div class="check-grid">
+          <label><input type="checkbox" id="opZGrid" checked> Impedance grid (Z)</label>
+          <label><input type="checkbox" id="opYGrid"> Admittance grid (Y)</label>
+          <label><input type="checkbox" id="opSWR" checked> SWR circle</label>
+          <label><input type="checkbox" id="opYPoint"> Admittance point</label>
+          <label><input type="checkbox" id="opScales" checked> Outer scales</label>
+          <label><input type="checkbox" id="opHover" checked> Hover guides</label>
+        </div>
+      </div>
+
+      <details class="card">
+        <summary>Quick reference</summary>
+        <ul class="ref-list">
+          <li>z = Z / Z<sub>0</sub>&nbsp;&nbsp;(normalized impedance)</li>
+          <li>Γ = (z − 1) / (z + 1)</li>
+          <li>z = (1 + Γ) / (1 − Γ)</li>
+          <li>SWR = (1 + |Γ|) / (1 − |Γ|)</li>
+          <li>Return loss = −20·log<sub>10</sub>|Γ| dB</li>
+          <li>y = 1/z — point diametrically opposite Γ</li>
+          <li>Moving ℓ toward generator: Γ·e<sup>−j4πℓ/λ</sup> (clockwise)</li>
+          <li>Full circle around the chart = 0.5 λ</li>
+          <li>Upper half: inductive (x &gt; 0) · lower half: capacitive (x &lt; 0)</li>
+        </ul>
+      </details>
+
+    </aside>
+  </section>
+
+  <!-- ============ LEARN TAB ============ -->
+  <section id="tab-learn" class="tab-panel">
+    <aside class="lesson-nav">
+      <h2>Lessons</h2>
+      <ul id="lessonNav"></ul>
+      <button id="lessonResetProgress" class="small-btn ghost">Reset progress</button>
+    </aside>
+    <div class="chart-wrap">
+      <canvas id="learnCanvas"></canvas>
+    </div>
+    <aside class="sidebar lesson-panel">
+      <div id="lessonHeader" class="card lesson-head"></div>
+      <div class="card lesson-body-card">
+        <div id="lessonBody" class="lesson-body"></div>
+        <div id="lessonTask"></div>
+        <div id="lessonFeedback" class="feedback"></div>
+        <div id="lessonControls" class="btn-row"></div>
+      </div>
+      <div id="lessonProgress" class="progress-dots"></div>
+    </aside>
+  </section>
+
+</main>
+
+<footer class="statusbar">
+  <span id="statusHover">Move the mouse over the chart to read impedances…</span>
+  <span class="status-right">Smith Chart Studio · created by Hassan Keshtkar</span>
+</footer>
+
+<script src="js/smithmath.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/explore.js"></script>
+<script src="js/lessons.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

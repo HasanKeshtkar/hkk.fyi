@@ -1,0 +1,14 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local editor/tooling config
+.claude/
+.vscode/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key

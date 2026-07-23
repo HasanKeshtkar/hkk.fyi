@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hassan Keshtkar — applied electromagnetics</title>
+<meta name="description" content="Hassan Keshtkar — electrical engineering at the University of Tehran. In love with electromagnetic waves: RF, microwave, antennas. Interactive tools that run in your browser.">
+<meta property="og:title" content="Hassan Keshtkar">
+<meta property="og:description" content="Electromagnetic waves · RF & microwave · antennas · interactive instruments that run in your browser.">
+<meta property="og:url" content="https://hkk.fyi">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23F4EFE4' stroke='%23D9482B' stroke-width='5'/><circle cx='43' cy='32' r='17' fill='none' stroke='%231C1B1A' stroke-width='2.5'/><circle cx='51' cy='32' r='9' fill='none' stroke='%231C1B1A' stroke-width='2.5'/><path d='M4 32h56' stroke='%231C1B1A' stroke-width='2.5'/><circle cx='27' cy='19' r='5' fill='%23D9482B'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>
+/* Set theme before first paint to avoid a flash */
+(function(){try{var t=localStorage.getItem('hkk-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';if(t==='ink')document.documentElement.classList.add('ink');}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<a class="skip" href="#about">Skip to content</a>
+
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="hkk.fyi — home">
+    <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" fill="none" stroke="var(--sig)" stroke-width="5"/>
+      <circle cx="43" cy="32" r="17" fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="51" cy="32" r="9"  fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <path d="M4 32h56" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="27" cy="19" r="5" fill="var(--sig)"/>
+    </svg>
+    <span class="brand-name">hkk<span class="dim tip" data-tip="for your information">.fyi</span></span>
+  </a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#about">About</a>
+    <a href="#lab">Lab</a>
+    <a href="#cv">CV</a>
+    <a href="#contact">Contact</a>
+  </nav>
+  <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch between light and dark" title="Toggle light / dark">
+    <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  </button>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" id="about" aria-label="About">
+    <div class="hero-grid">
+      <div class="hero-text">
+        <h1>Everything<br>is a wave.</h1>
+        <div class="hero-body">
+        <p class="lede">
+          Electromagnetic waves are what pull me in — the way they radiate,
+          guide, and interfere. I chase them across the spectrum: microwave
+          circuits and antennas on one side, photonics on the other.
+          Same physics, different wavelengths.
+        </p>
+        <p class="lede">
+          EE undergraduate at the <a class="hcard-link" href="https://en.wikipedia.org/wiki/University_of_Tehran" target="_blank" rel="noopener">University of Tehran<span class="hcard uni-card" aria-hidden="true"><img class="hcard-img" src="assets/ut-gate.jpg" alt=""><span class="hcard-body"><b>University of Tehran</b><span class="hcard-facts">Iran's oldest modern university — the “Mother University.” Est. 1934 · ~50,000 students · ranked <b>#1 in Iran</b>, QS 2026.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>;
+          my thesis aims those waves at non-invasive
+          <a class="hcard-link" href="https://en.wikipedia.org/wiki/Deep_brain_stimulation" target="_blank" rel="noopener">deep brain stimulation<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-fg" cx="32" cy="32" r="26"/><path class="hc-sig" d="M10 32h10l4-9 6 18 5-13 3 4h16"/></svg><span class="hcard-body"><b>Deep brain stimulation</b><span class="hcard-facts">A neurostimulation therapy: an implanted pulse generator delivers controlled electrical impulses through electrodes to targets deep in the brain — an established treatment for Parkinson's, essential tremor, dystonia and OCD.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>.
+          The details live in the <a href="#cv">CV</a> — the instruments run
+          live in the <a href="#lab">Lab</a>.
+        </p>
+        </div>
+      </div>
+      <figure class="portrait">
+        <img src="assets/hassan.jpg" alt="Hassan Keshtkar"
+             onerror="this.closest('.portrait').classList.add('noimg')">
+        <span class="portrait-mono" aria-hidden="true">HK</span>
+        <figcaption class="mono-label">HASSAN KESHTKAR · TEHRAN</figcaption>
+      </figure>
+    </div>
+
+    <figure class="wave" aria-hidden="true">
+      <svg id="waveSvg" preserveAspectRatio="none"></svg>
+    </figure>
+  </section>
+
+  <!-- ================= LAB / PROJECTS ================= -->
+  <section id="lab" class="section">
+    <h2>
+      <span class="secnum">01</span> Lab
+      <svg class="secsym" viewBox="0 0 34 16" aria-hidden="true"><path d="M0 8h5l2-6 4 12 4-12 4 12 4-12 2 6h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+    <p class="section-intro">Instruments I've built. They aren't screenshots — everything here runs live, in this page, offline-capable, no frameworks.</p>
+
+    <!-- To add a project: put its app in projects/<name>/ and duplicate this card. -->
+    <article class="project card">
+      <div class="project-preview">
+        <iframe src="projects/smith-chart/" title="Live preview of Smith Chart Studio" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
+        <button class="preview-hit" type="button" data-launch="projects/smith-chart/" data-title="Smith Chart Studio">
+          <span class="mono-label">▶ RUN</span>
+        </button>
+      </div>
+      <div class="project-info">
+        <h3>Smith Chart Studio</h3>
+        <p class="mono-label proj-tags">RF · canvas · teaching tool · 0 dependencies</p>
+        <p>
+          A full interactive <a class="hcard-link" href="https://en.wikipedia.org/wiki/Smith_chart" target="_blank" rel="noopener">Smith chart<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-sig" style="stroke-width:4" cx="32" cy="32" r="27"/><circle class="hc-fg" cx="42.5" cy="32" r="16.5"/><circle class="hc-fg" cx="50" cy="32" r="9"/><path class="hc-fg" d="M5 32h54"/><circle class="uni-emblem" cx="27" cy="19" r="4.5"/></svg><span class="hcard-body"><b>The Smith chart</b><span class="hcard-facts">Invented in 1939 by Phillip H. Smith at Bell Labs — still every RF engineer's favorite circle, 87 years on.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a> with a built-in tutor. Drag the reflection
+          point and watch Z, Γ, SWR and return loss stay in sync; rotate along a
+          transmission line; flip impedance/admittance grids — then work through
+          seven guided lessons, from “what is this chart” to L-network matching.
+        </p>
+        <div class="btn-row">
+          <button class="btn solid" type="button" data-launch="projects/smith-chart/" data-title="Smith Chart Studio">Launch here</button>
+          <a class="btn" href="projects/smith-chart/" target="_blank" rel="noopener">Open in new tab ↗</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="project-slot card" aria-label="Reserved slot for the next instrument">
+      <p class="mono-label">NEXT INSTRUMENT</p>
+      <p>On the bench. This slot is reserved — the lab is never finished.</p>
+    </article>
+  </section>
+
+  <!-- ================= CV ================= -->
+  <section id="cv" class="section">
+    <h2>
+      <span class="secnum">02</span> Curriculum Vitae
+      <svg class="secsym" viewBox="0 0 28 16" aria-hidden="true"><path d="M0 8h9M11 2v12M17 2v12M19 8h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+
+    <div class="cv-head">
+      <p class="mono-label">DOC. HK-CV · REV 2026.07 · SHEET 1 OF 1</p>
+      <span class="cv-head-actions">
+        <button id="cvToggleAll" class="btn" type="button">Expand all ▾</button>
+        <button id="printBtn" class="btn" type="button" title="Prints only this CV section">Print / save PDF ⎙</button>
+      </span>
+    </div>
+
+    <!-- ---- Education ---- -->
+    <div class="cv-block">
+      <details class="cv-fold" open>
+        <summary class="cv-title">Education <span class="fold-hint" aria-hidden="true">▾</span></summary>
+        <div class="cv-entry">
+        <div class="cv-row">
+          <div>
+            <strong>B.Sc. in Electrical Engineering — <a class="hcard-link" href="https://en.wikipedia.org/wiki/University_of_Tehran" target="_blank" rel="noopener">University of Tehran<span class="hcard uni-card" aria-hidden="true"><img class="hcard-img" src="assets/ut-gate.jpg" alt=""><span class="hcard-body"><b>University of Tehran</b><span class="hcard-facts">Iran's oldest modern university — the “Mother University.” Est. 1934 · ~50,000 students · ranked <b>#1 in Iran</b>, QS 2026.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a></strong>
+            <p class="cv-sub">Faculty of Electrical &amp; Computer Engineering · Ranked #1 in Iran, QS World University Rankings 2026</p>
+          </div>
+          <span class="cv-when">Sep 2022 – Sep 2026 (exp.)</span>
+        </div>
+        <p>GPA <strong>18.05 / 20</strong> · ranked <strong>13<sup>th</sup> of 128</strong> — top 10% of cohort</p>
+        <p>Thesis: <em>Improving Spatial Focality in Temporal Interference Deep Brain Stimulation via Phase Modulation</em> — supervised by Prof. Hoda Ameri</p>
+
+        <details class="courses">
+          <summary class="mono-label">SELECTED COURSES ▾</summary>
+          <ul class="course-grid">
+            <li>Filter &amp; Circuit Synthesis <b>20</b></li>
+            <li>Engineering Mathematics <b>20</b></li>
+            <li>Linear Control Systems <b>20</b></li>
+            <li>Electronics II <b>20</b></li>
+            <li>Microwave I <b>19.8</b></li>
+            <li>Signals &amp; Systems <b>19.74</b></li>
+            <li>Microwave Lab <b>19.54</b></li>
+            <li>Electric Circuits I <b>19</b></li>
+            <li>Communication Systems <b>18.8</b></li>
+            <li>Electronics I <b>18.5</b></li>
+            <li>Electromagnetics <b>18.26</b></li>
+            <li>Fields &amp; Waves <b>18.1</b></li>
+          </ul>
+          <p class="cv-sub">In progress: Antenna I · Wireless Communications · Communication Circuits · EMC</p>
+        </details>
+        </div>
+      </details>
+    </div>
+
+    <!-- ---- Research ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Research experience <span class="fold-hint" aria-hidden="true">▾</span></summary>
+        <div class="cv-entry">
+        <div class="cv-row">
+          <div>
+            <strong>Bioelectromagnetics Laboratory — University of Tehran</strong>
+            <p class="cv-sub">Undergraduate research intern · Profs. R. Faraji-Dana, H. Ameri &amp; A. Mataji-Kojouri</p>
+          </div>
+          <span class="cv-when">Jun 2025 – Nov 2025</span>
+        </div>
+        <ul class="cv-list">
+          <li>Developed a non-invasive deep brain stimulation technique that targets deep neural circuits without surgical implants.</li>
+          <li>Proposed <strong>PM-TI</strong>, a phase-modulated temporal-interference method that reduces unintended stimulation spread by ≈70%, sharpening spatial focus.</li>
+          <li>Simulated electric-field distributions in biological phantoms with COMSOL Multiphysics to validate the focused hotspot.</li>
+          <li>Built a 2-channel high-precision current source (enhanced Howland architecture) to generate the stimulation signals in hardware.</li>
+          <li>Co-authored the PM-TI methodology paper, accepted at ICEE 2026.</li>
+        </ul>
+        </div>
+      </details>
+    </div>
+
+    <!-- ---- Publications ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Publications <span class="fold-hint" aria-hidden="true">▾</span></summary>
+      <ol class="pub-list">
+        <li>
+          <strong>H. Keshtkar</strong>, M. Moltamesi, H. Ameri, A. Mataji-Kojouri, R. Faraji-Dana,
+          “Spatial Focusing of Temporal Interference Deep Brain Stimulation via Phase Modulation,”
+          <em>34th Int. Conference on Electrical Engineering (<a class="hcard-link" href="https://iceeconf.ir/2026/en" target="_blank" rel="noopener">ICEE<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><rect class="hc-fg" x="14" y="7" width="36" height="50" rx="5"/><path class="hc-fg" d="M22 18h20M22 26h20"/><path class="hc-sig" d="M20 44h6l3-7 5 12 3-5h7"/></svg><span class="hcard-body"><b>ICEE</b><span class="hcard-facts">Iran's largest annual EE conference — the 34th edition (2026) hosted by Amirkabir University of Technology, Tehran. Proceedings indexed by IEEE.</span><span class="hcard-more">iceeconf.ir ↗</span></span></span></a>)</em>, 2026.
+          <span class="pub-note">accepted — pending IEEE indexing</span>
+        </li>
+        <li>
+          M. Moltamesi, <strong>H. Keshtkar</strong>, et al.,
+          “Seizure Suppression in a Neural Mass Model via Input–Output Feedback Linearization and Backstepping Control,”
+          <em>34th Int. Conference on Electrical Engineering (<a class="hcard-link" href="https://iceeconf.ir/2026/en" target="_blank" rel="noopener">ICEE<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><rect class="hc-fg" x="14" y="7" width="36" height="50" rx="5"/><path class="hc-fg" d="M22 18h20M22 26h20"/><path class="hc-sig" d="M20 44h6l3-7 5 12 3-5h7"/></svg><span class="hcard-body"><b>ICEE</b><span class="hcard-facts">Iran's largest annual EE conference — the 34th edition (2026) hosted by Amirkabir University of Technology, Tehran. Proceedings indexed by IEEE.</span><span class="hcard-more">iceeconf.ir ↗</span></span></span></a>)</em>, 2026.
+          <span class="pub-note">accepted — pending IEEE indexing</span>
+        </li>
+      </ol>
+      </details>
+    </div>
+
+    <!-- ---- Honors ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Honors &amp; awards <span class="fold-hint" aria-hidden="true">▾</span></summary>
+      <ul class="cv-list">
+        <li>Top <strong>0.5% nationwide</strong> in Iran's university entrance exam (Konkur, Math &amp; Physics) among 146,000+ participants — 2022.</li>
+        <li>Ranked 13<sup>th</sup> of 128 in the electrical engineering cohort.</li>
+        <li>Exam-exempt admission to the M.Sc. program at the University of Tehran, reserved for top-ranked undergraduates.</li>
+      </ul>
+      </details>
+    </div>
+
+    <!-- ---- Teaching ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Teaching assistant <span class="fold-hint" aria-hidden="true">▾</span></summary>
+        <table class="cv-table">
+          <tbody>
+            <tr><td>Electromagnetics</td><td>Prof. Hoda Ameri</td><td>University of Tehran</td><td class="cv-when">Fall 2025</td></tr>
+            <tr><td>Electromagnetics</td><td>Prof. Asghar Keshtkar</td><td>Imam Khomeini Int. University</td><td class="cv-when">Fall 2025</td></tr>
+            <tr><td>Electric Circuits I</td><td>Prof. Moein Abedini</td><td>University of Tehran</td><td class="cv-when">Fall 2024</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+
+    <!-- ---- Skills ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Skills <span class="fold-hint" aria-hidden="true">▾</span></summary>
+      <div class="chips">
+        <span class="chip solid"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4h-3v16h3M16.5 4h3v16h-3"/><circle class="f" cx="10" cy="9.5" r="1.2"/><circle class="f" cx="14" cy="9.5" r="1.2"/><circle class="f" cx="10" cy="14.5" r="1.2"/><circle class="f" cx="14" cy="14.5" r="1.2"/></svg>MATLAB</span><span class="chip solid"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10V7a4 4 0 0 1 8 0h-7"/><path d="M16 14v3a4 4 0 0 1-8 0h7"/><circle class="f" cx="10.2" cy="6" r="1"/><circle class="f" cx="13.8" cy="18" r="1"/></svg>Python</span><span class="chip solid"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 8.5a5.5 5.5 0 1 0 0 7"/></svg>C</span><span class="chip solid"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="6" width="8" height="12" rx="1.5"/><path d="M8 9H5M8 12H5M8 15H5M19 9h-3M19 12h-3M19 15h-3"/></svg>Verilog HDL</span>
+        <span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 3 20h18L12 4z"/><path d="M7.5 12h9M12 12l-4.5 8M12 12l4.5 8"/></svg>COMSOL Multiphysics</span><span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V9M12 9 8 5M12 9l4-4"/><path d="M5 8a9 9 0 0 1 2-4M19 8a9 9 0 0 0-2-4"/></svg>Ansys HFSS</span><span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8a5 5 0 0 0 10 0V3"/><path d="M5 6h4M15 6h4"/></svg>Ansys Maxwell</span><span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2.5M10.5 12H13M18.5 12H21"/><rect x="5.5" y="8.5" width="5" height="7"/><rect x="13" y="10" width="5.5" height="4"/></svg>ADS</span><span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7L7 5z"/><path d="M3 9h4M3 15h4M19 12h2"/></svg>NI Multisim</span><span class="chip"><svg class="sk" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="8" cy="12" r="1.9"/><circle cx="15.5" cy="12" r="1.9"/><path d="M6.9 12h2.2M15.5 10.9v2.2M14.4 12h2.2"/></svg>Arduino</span>
+      </div>
+      </details>
+    </div>
+
+    <!-- ---- Languages ---- -->
+    <div class="cv-block">
+      <details class="cv-fold">
+        <summary class="cv-title">Languages <span class="fold-hint" aria-hidden="true">▾</span></summary>
+      <ul class="cv-list plain">
+        <li><strong>English</strong> — professional working proficiency · TOEFL iBT 100/120 · CEFR C1 (May 2026)</li>
+        <li><strong>Persian</strong> — native</li>
+      </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT ================= -->
+  <section id="contact" class="section">
+    <h2>
+      <span class="secnum">03</span> Contact
+      <svg class="secsym" viewBox="0 0 26 16" aria-hidden="true"><path d="M0 8h7" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="8" r="1.6" fill="currentColor"/><path d="M19 8h7" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+    <p class="section-intro">Three ports, all matched — your message won't reflect back.</p>
+
+    <div class="ports">
+      <a class="port card" href="mailto:hasan.keshtkar1382@gmail.com">
+        <span class="port-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7.5 12 13l8.5-5.5"/></svg>
+        </span>
+        <span class="port-body">
+          <span class="mono-label">PORT 1 · EMAIL</span>
+          <span class="port-val">hasan.keshtkar1382@gmail.com</span>
+        </span>
+      </a>
+      <a class="port card" href="mailto:hasan.keshtkar@ut.ac.ir">
+        <span class="port-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4.5"/><path d="M22 9v5"/></svg>
+        </span>
+        <span class="port-body">
+          <span class="mono-label">PORT 2 · ACADEMIC</span>
+          <span class="port-val">hasan.keshtkar@ut.ac.ir</span>
+        </span>
+      </a>
+      <a class="port card" href="https://www.linkedin.com/in/hasan-keshtkar-2b651a283/" target="_blank" rel="noopener">
+        <span class="port-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.76-2.05C20.4 8.65 22 10.9 22 14.3V21h-4v-5.9c0-1.4-.03-3.2-1.95-3.2-1.95 0-2.25 1.52-2.25 3.1V21H9z"/></svg>
+        </span>
+        <span class="port-body">
+          <span class="mono-label">PORT 3 · LINKEDIN</span>
+          <span class="port-val">in/hasan-keshtkar ↗</span>
+        </span>
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>© 2026 Hassan Keshtkar · <span class="mono-label">hkk<span class="tip" data-tip="for your information">.fyi</span></span></span>
+  <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
+</footer>
+
+<!-- Fullscreen launcher for lab instruments -->
+<dialog id="launcher">
+  <div class="launcher-bar">
+    <span class="mono-label" id="launcherTitle">INSTRUMENT</span>
+    <span class="launcher-actions">
+      <a id="launcherExt" class="btn" href="#" target="_blank" rel="noopener">New tab ↗</a>
+      <button id="launcherClose" class="btn solid" type="button">Close ✕</button>
+    </span>
+  </div>
+  <iframe id="launcherFrame" title="Running instrument"></iframe>
+</dialog>
+
+<script src="assets/site.js"></script>
+</body>
+</html>
