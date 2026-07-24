@@ -147,10 +147,27 @@ toggleAllBtn.addEventListener('click', () => {
 cvFolds.forEach(d => d.addEventListener('toggle', syncToggleLabel));
 syncToggleLabel();
 
-/* ============ hover cards: flip when they'd overflow the viewport ============ */
-document.querySelectorAll('.hcard-link').forEach(link => {
-  const card = link.querySelector('.hcard');
-  if (!card) return;
+/* ============ hover cards: flip when they'd overflow the viewport ============
+   Cards are opacity:0/pointer-events:none until hovered, but they still occupy
+   layout space (their container deliberately has no overflow:hidden, so the
+   card can visually escape it on desktop hover). On touch devices "hover"
+   never fires, so an un-flipped card sitting past the viewport edge silently
+   widens the page's scrollable area — the phone can be dragged sideways onto
+   empty space even though nothing is visibly wrong. Fix: compute flip
+   up front for every card (on load + resize), not just on mouseenter. */
+const hcards = Array.from(document.querySelectorAll('.hcard-link')).map(link => ({
+  link, card: link.querySelector('.hcard'),
+})).filter(x => x.card);
+
+function layoutHcards(){
+  hcards.forEach(({ card }) => {
+    card.classList.remove('flip');
+    if (card.getBoundingClientRect().right > innerWidth - 10) card.classList.add('flip');
+  });
+}
+layoutHcards();
+addEventListener('resize', layoutHcards);
+hcards.forEach(({ link, card }) => {
   link.addEventListener('mouseenter', () => {
     card.classList.remove('flip');
     if (card.getBoundingClientRect().right > innerWidth - 10) card.classList.add('flip');
