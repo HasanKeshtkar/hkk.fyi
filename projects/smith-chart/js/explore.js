@@ -7,7 +7,8 @@ var Explore = (function () {
     freqHz: 1e9,
     gamma: SM.gammaFromZ(SM.C(0.5, -1)),   // 25 - j50 over 50Ω
     dir: "gen",
-    len: 0
+    len: 0,
+    alphaDb: 0        // one-way attenuation, dB per wavelength
   };
 
   var R, els = {};
@@ -20,6 +21,7 @@ var Explore = (function () {
     els.gm = $("exGm"); els.ga = $("exGa");
     els.preset = $("exPreset");
     els.len = $("exLen"); els.lenNum = $("exLenNum");
+    els.alpha = $("exAlpha"); els.alphaUnit = $("exAlphaUnit"); els.alphaTotal = $("exAlphaTotal");
     els.readouts = $("exReadouts"); els.lineReadouts = $("exLineReadouts");
     els.status = $("statusHover");
 
@@ -59,11 +61,13 @@ var Explore = (function () {
       refresh("line");
     });
     els.lenNum.addEventListener("input", function () {
-      var v = Math.min(0.5, Math.max(0, parseFloat(this.value) || 0));
+      var v = Math.min(2, Math.max(0, parseFloat(this.value) || 0));
       state.len = v;
       els.len.value = v;
       refresh("line");
     });
+    els.alpha.addEventListener("input", function () { readAlpha(); refresh("alpha"); });
+    els.alphaUnit.addEventListener("change", function () { readAlpha(); refresh("alpha"); });
     $("exApplyLine").addEventListener("click", function () {
       state.gamma = rotated();
       state.len = 0;
@@ -80,6 +84,8 @@ var Explore = (function () {
       $(id).addEventListener("change", applyDisplay);
     });
 
+    readSystem();
+    readAlpha();
     refresh("init");
   }
 
@@ -87,6 +93,12 @@ var Explore = (function () {
     state.z0 = Math.max(0.001, parseFloat(els.z0.value) || 50);
     var f = parseFloat(els.freq.value) || 1;
     state.freqHz = f * SM.FREQ_MULT[els.funit.value];
+  }
+
+  /* α is stored internally in dB per wavelength (one-way) */
+  function readAlpha() {
+    var v = Math.max(0, parseFloat(els.alpha.value) || 0);
+    state.alphaDb = els.alphaUnit.value === "npl" ? v * SM.DB_PER_NP : v;
   }
 
   function num(el) { var v = parseFloat(el.value); return isNaN(v) ? null : v; }
@@ -112,7 +124,7 @@ var Explore = (function () {
   }
 
   function rotated() {
-    return SM.rotate(state.gamma, state.len, state.dir === "gen");
+    return SM.rotateLossy(state.gamma, state.len, state.dir === "gen", state.alphaDb);
   }
 
   function applyDisplay() {
@@ -161,16 +173,44 @@ var Explore = (function () {
     var gr = rotated();
     var zin = SM.zFromGamma(gr);
     var Zin = SM.cscale(zin, state.z0);
-    els.lineReadouts.innerHTML =
+    var lossy = state.alphaDb > 1e-9;
+    var matchedLoss = state.alphaDb * state.len;          // one-way, dB
+    var swrIn = SM.swrFromGamma(gr);
+
+    els.alphaTotal.value = SM.fmt(matchedLoss, 3) + " dB";
+
+    var html =
       row("Electrical length", SM.fmt(state.len * 720, 4) + "°") +
       row("Z<sub>in</sub>", SM.fmtComplex(Zin, "Ω"), true) +
-      row("z<sub>in</sub>", SM.fmtComplex(zin)) +
-      row("SWR (unchanged)", isFinite(swr) ? SM.fmt(swr) : "∞");
+      row("z<sub>in</sub>", SM.fmtComplex(zin));
+
+    if (!lossy) {
+      html += row("SWR (unchanged)", isFinite(swr) ? SM.fmt(swr) : "∞");
+    } else {
+      // whichever end is the load end of the section we just traversed
+      var gLoadEnd = state.dir === "gen" ? g : gr;
+      var totalLoss = SM.lineLossDb(gLoadEnd, state.len, state.alphaDb);
+      html +=
+        row("|Γ<sub>in</sub>|", SM.fmt(SM.cabs(gr), 4) +
+            "  (load " + SM.fmt(m, 4) + ")") +
+        row("SWR at input", isFinite(swrIn) ? SM.fmt(swrIn) : "∞", true) +
+        row("SWR at load", isFinite(swr) ? SM.fmt(swr) : "∞") +
+        row("Matched-line loss", SM.fmt(matchedLoss, 3) + " dB") +
+        row("Total line loss", isFinite(totalLoss) ? SM.fmt(totalLoss, 3) + " dB" : "∞") +
+        row("Added by SWR", isFinite(totalLoss) ?
+            SM.fmt(Math.max(0, totalLoss - matchedLoss), 3) + " dB" : "∞") +
+        row("Power to load", isFinite(totalLoss) ?
+            SM.fmt(Math.pow(10, -totalLoss / 10) * 100, 3) + " %" : "0 %");
+      if (state.dir === "load" && SM.cabs(gr) > 0.9999 && m > 0.0001) {
+        html += row("Note", "|Γ| clipped at 1 — de-embedding past the physical line");
+      }
+    }
+    els.lineReadouts.innerHTML = html;
 
     R.opts.point = g;
     R.opts.ghost = state.len > 0.0005 ? gr : null;
     R.opts.rotation = state.len > 0.0005 ?
-      { from: g, lenLambda: state.len, towardGen: state.dir === "gen" } : null;
+      { from: g, lenLambda: state.len, towardGen: state.dir === "gen", alphaDb: state.alphaDb } : null;
     R.render();
   }
 

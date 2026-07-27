@@ -58,6 +58,43 @@ var SM = (function () {
     return cmul(g, expj(t));
   }
 
+  /* ---------- lossy line ----------
+     Propagation constant γ = α + jβ, so Γ(ℓ) = Γ_L · e^(−2γℓ).
+     α is entered as a ONE-WAY attenuation in dB per wavelength:
+        A_dB = alphaDb · ℓ          (one-way, ℓ in λ)
+        voltage factor  = 10^(−A_dB/20)
+        |Γ| factor      = 10^(−A_dB/10)   (wave goes down AND back)
+     Moving toward the load undoes the loss (|Γ| grows) — clamped at 1. */
+
+  var DB_PER_NP = 8.685889638065035;   // 20·log10(e)
+
+  /* multiplier applied to |Γ| after travelling ℓ wavelengths */
+  function attenFactor(l, towardGen, alphaDb) {
+    var a = (alphaDb || 0) * l;                       // one-way dB
+    if (a === 0) return 1;
+    return Math.pow(10, (towardGen ? -a : a) / 10);
+  }
+
+  /* Γ after ℓ wavelengths of lossy line (spiral instead of circle) */
+  function rotateLossy(g, l, towardGen, alphaDb) {
+    var gr = cscale(rotate(g, l, towardGen), attenFactor(l, towardGen, alphaDb));
+    return clampGamma(gr, 1);
+  }
+
+  /* Total line loss in dB: 10·log10(P_in / P_load), including the extra
+     loss caused by the standing wave (SWR loss). gL = Γ at the load. */
+  function lineLossDb(gL, l, alphaDb) {
+    var A = (alphaDb || 0) * l;                       // one-way matched loss, dB
+    if (A <= 0) return 0;
+    var k = Math.pow(10, -A / 10);                    // power factor e^(−2αℓ)
+    var m2 = Math.min(cabs(gL), 0.999999);
+    m2 = m2 * m2;
+    var num = 1 - m2 * k * k;
+    var den = k * (1 - m2);
+    if (den <= 0) return Infinity;
+    return 10 * Math.log10(num / den);
+  }
+
   /* wavelengths-toward-generator scale: 0 at the short-circuit point (angle 180°) */
   function wtg(g) {
     var d = 180 - carg(g) * 180 / Math.PI;
@@ -174,6 +211,8 @@ var SM = (function () {
     gammaFromZ: gammaFromZ, zFromGamma: zFromGamma, clampGamma: clampGamma,
     swrFromGamma: swrFromGamma, returnLossDb: returnLossDb, mismatchLossDb: mismatchLossDb,
     rotate: rotate, wtg: wtg, wtl: wtl,
+    DB_PER_NP: DB_PER_NP, attenFactor: attenFactor,
+    rotateLossy: rotateLossy, lineLossDb: lineLossDb,
     fmt: fmt, fmtComplex: fmtComplex, fmtEng: fmtEng, fmtDeg: fmtDeg,
     FREQ_MULT: FREQ_MULT, seriesComponent: seriesComponent, shuntComponent: shuntComponent,
     lMatchSolutions: lMatchSolutions, lineInput: lineInput

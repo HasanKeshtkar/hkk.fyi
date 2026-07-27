@@ -172,7 +172,7 @@ details.card summary {
 
 .preset-row { margin-bottom: 8px; }
 
-input[type="number"], select {
+input[type="number"], input[type="text"], select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -182,9 +182,14 @@ input[type="number"], select {
   font-family: var(--mono);
   font-size: 13px;
 }
-input[type="number"]:focus, select:focus {
+input[type="number"]:focus, input[type="text"]:focus, select:focus {
   border-color: var(--accent);
   outline: none;
+}
+input[readonly] {
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
 }
 
 .joined { display: flex; gap: 6px; }

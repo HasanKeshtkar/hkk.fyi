@@ -360,32 +360,59 @@ var SmithRenderer = (function () {
     ctx.setLineDash([]);
   };
 
+  /* Constant-|Γ| circle when α = 0, decaying spiral when the line is lossy. */
   Renderer.prototype._drawRotation = function (ctx, G, T, rot) {
-    var m = Math.min(SM.cabs(rot.from), 1);
-    if (m < 0.004 || rot.lenLambda <= 0) return;
+    var m0 = Math.min(SM.cabs(rot.from), 1);
+    if (m0 < 0.004 || rot.lenLambda <= 0) return;
+    var alphaDb = rot.alphaDb || 0;
     var th0 = SM.carg(rot.from);
     var dth = 4 * Math.PI * rot.lenLambda * (rot.towardGen ? -1 : 1);
     var steps = Math.max(8, Math.ceil(Math.abs(dth) / 0.05));
+
+    // |Γ| along the path (t = 0…1 of the travelled length)
+    function radiusAt(t) {
+      return Math.min(m0 * SM.attenFactor(rot.lenLambda * t, rot.towardGen, alphaDb), 1);
+    }
+
     ctx.strokeStyle = T.ghost;
     ctx.lineWidth = 2.2;
     ctx.beginPath();
     for (var i = 0; i <= steps; i++) {
-      var th = th0 + dth * i / steps;
+      var t = i / steps;
+      var th = th0 + dth * t, m = radiusAt(t);
       var x = G.cx + m * G.R * Math.cos(th), y = G.cy - m * G.R * Math.sin(th);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
-    // arrowhead
-    var thE = th0 + dth, dir = rot.towardGen ? -1 : 1;
-    var tx = -Math.sin(thE) * dir, ty = -Math.cos(thE) * dir; // screen-space tangent
-    var ex = G.cx + m * G.R * Math.cos(thE), ey = G.cy - m * G.R * Math.sin(thE);
+
+    // arrowhead — tangent taken from the last two spiral samples
+    var mE = radiusAt(1), thE = th0 + dth;
+    var mP = radiusAt(1 - 1 / steps), thP = th0 + dth * (1 - 1 / steps);
+    var ex = G.cx + mE * G.R * Math.cos(thE), ey = G.cy - mE * G.R * Math.sin(thE);
+    var px = G.cx + mP * G.R * Math.cos(thP), py = G.cy - mP * G.R * Math.sin(thP);
+    var tx = ex - px, ty = ey - py, L = Math.hypot(tx, ty);
+    if (L < 1e-6) return;
+    tx /= L; ty /= L;
     ctx.fillStyle = T.ghost;
     ctx.beginPath();
-    ctx.moveTo(ex + tx * 11, ey + ty * 11);
-    ctx.lineTo(ex - tx * 3 + ty * 5, ey - ty * 3 - tx * 5);
-    ctx.lineTo(ex - tx * 3 - ty * 5, ey - ty * 3 + tx * 5);
+    ctx.moveTo(ex + tx * 8, ey + ty * 8);
+    ctx.lineTo(ex - tx * 6 + ty * 5, ey - ty * 6 - tx * 5);
+    ctx.lineTo(ex - tx * 6 - ty * 5, ey - ty * 6 + tx * 5);
     ctx.closePath();
     ctx.fill();
+
+    // lossy line: faint circle marking the SWR seen at the far end
+    if (alphaDb > 0 && this.opts.swrCircle && mE > 0.004 && Math.abs(mE - m0) > 0.004) {
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = T.ghost;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      ctx.arc(G.cx, G.cy, mE * G.R, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
   Renderer.prototype._drawArc = function (ctx, G, arc) {
