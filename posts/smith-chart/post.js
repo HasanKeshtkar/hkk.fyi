@@ -1633,6 +1633,68 @@ function pills(host, items, onPick, initial) {
 })();
 
 /* ============================================================
+   Share row — the platform links are plain <a> in the markup and
+   work without any of this. All that is added here is the copy
+   button and, where the browser has one, the native share sheet.
+   ============================================================ */
+(function () {
+  var host = document.querySelector('.share');
+  if (!host) return;
+
+  /* prefer the canonical URL: this page is also reachable as /index.html,
+     and a shared link should always be the one form */
+  var canon = document.querySelector('link[rel=canonical]');
+  var url = (canon && canon.href) || location.href.split('#')[0];
+  var title = (document.querySelector('meta[property="og:title"]') || {}).content
+              || document.title;
+
+  var copy = document.getElementById('shareCopy');
+  var label = document.getElementById('shareCopyLabel');
+  var native = document.getElementById('shareNative');
+
+  function flash(msg) {
+    var was = label.textContent;
+    label.textContent = msg;
+    copy.classList.add('done');
+    clearTimeout(copy._t);
+    copy._t = setTimeout(function () {
+      label.textContent = was === msg ? 'Copy link' : was;
+      copy.classList.remove('done');
+    }, 1800);
+  }
+
+  copy.addEventListener('click', function () {
+    /* clipboard API needs a secure context; file:// and plain http get the
+       textarea fallback rather than a dead button */
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(function () { flash('Copied ✓'); },
+                                             function () { legacy(); });
+    } else legacy();
+  });
+
+  function legacy() {
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    flash(ok ? 'Copied ✓' : 'Press ⌘/Ctrl+C');
+  }
+
+  if (navigator.share) {
+    native.hidden = false;
+    host.classList.add('has-native');
+    native.addEventListener('click', function () {
+      navigator.share({ title: title, url: url })['catch'](function () {});
+    });
+  }
+})();
+
+/* ============================================================
    Reading progress bar
    ============================================================ */
 (function () {

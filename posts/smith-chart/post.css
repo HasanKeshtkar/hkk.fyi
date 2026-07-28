@@ -88,6 +88,32 @@ html:not(.ink) .byline .dot{ opacity:.55; }
 }
 .backlink:hover{ color:var(--sig); opacity:1; }
 
+/* ---------- share row ---------- */
+.share{
+  display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
+  margin-top:1rem; max-width:100%;
+}
+.share-label{ color:var(--sig); margin-right:.15rem; }
+.share-btn{
+  display:inline-flex; align-items:center; gap:.4rem;
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.05em;
+  padding:.36rem .62rem; border-radius:3px;
+  border:1.4px solid color-mix(in srgb, var(--fg) 32%, transparent);
+  background:none; color:var(--fg); text-decoration:none;
+  cursor:pointer; white-space:nowrap;
+}
+.share-btn svg{ width:13px; height:13px; flex:none; }
+.share-btn:hover{ border-color:var(--sig); color:var(--sig); }
+.share-btn:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+/* the copy button confirms in place — no toast to position or dismiss */
+.share-btn.done{ border-color:var(--sig); color:var(--sig); }
+@media (max-width:520px){
+  .share-btn{ padding:.34rem .5rem; }
+  /* on a phone the native sheet already offers every one of these, so keep
+     only the two it cannot replace: copy, and the sheet itself */
+  .share.has-native .share-btn:not(#shareCopy):not(#shareNative){ display:none; }
+}
+
 /* ---------- the 30-second version ----------
    Sits between the hero and the contents: a reader who bounces here should
    still leave with the idea, and a reader who stays knows what they are
