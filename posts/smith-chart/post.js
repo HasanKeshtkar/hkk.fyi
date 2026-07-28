@@ -5,6 +5,34 @@
    using the page's three CSS hues so it follows the theme.
    ============================================================ */
 
+/* ---------------- i18n + canvas text ----------------
+   tr() reads a label out of i18n.js, falling back to the key so a missing
+   string is loud rather than invisible.
+
+   A <canvas> gets no stylesheet, so the two things CSS does for Persian in
+   the page body have to be done by hand here. LBL_FONT keeps the mono face
+   in front — it carries the numbers and keeps the axis labels lined up —
+   with a Persian face behind it, because a monospace family has no Persian
+   glyphs at all and the browser would otherwise pick one that does not join
+   the letters up.
+
+   drawLabel() sets ctx.direction from the string itself. Setting the whole
+   canvas to 'rtl' would turn a Latin label like "−0.5" into "0.5−": the
+   leading sign is bidi-neutral and drifts to the other end. */
+function tr(key) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(key);
+  } catch (e) {}
+  return key;
+}
+var LBL_FONT = 'ui-monospace, "IBM Plex Mono", Estedad, monospace';
+var RTL_RE = /[\u0600-\u06FF]/;
+function drawLabel(ctx, text, x, y, maxW) {
+  ctx.direction = RTL_RE.test(String(text)) ? 'rtl' : 'ltr';
+  if (maxW === undefined) ctx.fillText(text, x, y);
+  else ctx.fillText(text, x, y, maxW);
+}
+
 /* ---------------- theme toggle (this page only) ---------------- */
 (function () {
   var btn = document.getElementById('themeBtn');
@@ -205,26 +233,26 @@ function grid(ctx, G, flip, strong) {
 }
 
 function labelsR(ctx, G) {
-  ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+  ctx.font = '500 10px ' + LBL_FONT;
   ctx.fillStyle = fgA(0.55);
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   [0.2, 0.5, 1, 2, 5].forEach(function (r) {
     var x = G.X(C((r - 1) / (r + 1), 0));
-    ctx.fillText(String(r), x, G.cy + 4);
+    drawLabel(ctx, String(r), x, G.cy + 4);
   });
 }
 function landmarks(ctx, G) {
-  ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+  ctx.font = '500 10px ' + LBL_FONT;
   ctx.textBaseline = 'middle';
   ctx.fillStyle = fgA(0.55);
   /* clear of the real axis by enough that a marker parked on the short- or
      open-circuit point does not stack its own readout on top of these */
-  ctx.textAlign = 'left';  ctx.fillText('SHORT', G.cx - G.R + 5, G.cy - 17);
-  ctx.textAlign = 'right'; ctx.fillText('OPEN',  G.cx + G.R - 5, G.cy - 17);
+  ctx.textAlign = 'left';  drawLabel(ctx, tr('js.short'), G.cx - G.R + 5, G.cy - 17);
+  ctx.textAlign = 'right'; drawLabel(ctx, tr('js.open'),  G.cx + G.R - 5, G.cy - 17);
   ctx.textAlign = 'center';
   ctx.fillStyle = fgA(0.4);
-  ctx.fillText('INDUCTIVE  +jX', G.cx, G.cy - G.R * 0.72);
-  ctx.fillText('CAPACITIVE −jX', G.cx, G.cy + G.R * 0.72);
+  drawLabel(ctx, tr('js.inductive'), G.cx, G.cy - G.R * 0.72);
+  drawLabel(ctx, tr('js.capacitive'), G.cx, G.cy + G.R * 0.72);
 }
 function dot(ctx, x, y, r, fill, ring) {
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -232,13 +260,13 @@ function dot(ctx, x, y, r, fill, ring) {
   if (ring) { ctx.lineWidth = 2; ctx.strokeStyle = ring; ctx.stroke(); }
 }
 function tag(ctx, x, y, text, color) {
-  ctx.font = '500 11px ui-monospace, "IBM Plex Mono", monospace';
+  ctx.font = '500 11px ' + LBL_FONT;
   var w = ctx.measureText(text).width + 10;
   ctx.fillStyle = rgba(pal().bg, 0.88);
   ctx.fillRect(x + 9, y - 9, w, 17);
   ctx.fillStyle = color;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, x + 14, y);
+  drawLabel(ctx, text, x + 14, y);
 }
 /* One small number printed radially, the way a real chart's rim scales are
    set: reading outward from the centre, and flipped on the left half so it
@@ -249,7 +277,7 @@ function radialText(ctx, G, rr, th, txt) {
   ctx.translate(G.cx + rr * Math.cos(th), G.cy - rr * Math.sin(th));
   ctx.rotate(-th + (Math.cos(th) < 0 ? Math.PI : 0));
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(txt, 0, 0);
+  drawLabel(ctx, txt, 0, 0);
   ctx.restore();
 }
 function clear(f) {
@@ -309,7 +337,7 @@ function pills(host, items, onPick, initial) {
     var G = Geo(w, h, Math.min(Math.max(26, w * 0.095), 40));
     var fs = Math.max(6, Math.min(9, G.R / 21));
     var mono = function () {
-      ctx.font = '500 ' + fs.toFixed(1) + 'px ui-monospace, "IBM Plex Mono", monospace';
+      ctx.font = '500 ' + fs.toFixed(1) + 'px ' + LBL_FONT;
     };
     var rTick = G.R + 3,                       // inner edge of the tick band
         rTickL = rTick + fs * 1.5,             // where the long ticks stop
@@ -341,7 +369,7 @@ function pills(host, items, onPick, initial) {
     mono(); ctx.fillStyle = fgA(0.55);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     R_TEXT.forEach(function (r) {
-      ctx.fillText(String(r), G.X(C((r - 1) / (r + 1), 0)), G.cy + 3);
+      drawLabel(ctx, String(r), G.X(C((r - 1) / (r + 1), 0)), G.cy + 3);
     });
 
     ctx.lineWidth = 2.2; ctx.strokeStyle = pal().sig;
@@ -417,11 +445,11 @@ function pills(host, items, onPick, initial) {
 
   var presetHost = document.getElementById('scalePresets');
   pills(presetHost, [
-    { label: '50 Hz mains',   f: 50 },
-    { label: '1 MHz AM',      f: 1e6 },
-    { label: '100 MHz FM',    f: 100e6 },
-    { label: '900 MHz',       f: 900e6 },
-    { label: '2.4 GHz Wi-Fi', f: 2.4e9 }
+    { label: tr('js.preset.50hz'),   f: 50 },
+    { label: tr('js.preset.1mhz'),      f: 1e6 },
+    { label: tr('js.preset.100mhz'),    f: 100e6 },
+    { label: tr('js.preset.900mhz'),       f: 900e6 },
+    { label: tr('js.preset.2_4ghz'), f: 2.4e9 }
   ], function (it) {
     S.f = it.f; sl.value = Math.round(tFromF(it.f)); apply();
   }, 0);
@@ -435,7 +463,7 @@ function pills(host, items, onPick, initial) {
 
   if (play) play.addEventListener('click', function () {
     S.running = !S.running;
-    play.textContent = S.running ? '❙❙ Pause' : '▶ Play';
+    play.textContent = S.running ? tr('js.pause') : tr('js.play');
     play.classList.toggle('on', S.running);
   });
 
@@ -451,7 +479,7 @@ function pills(host, items, onPick, initial) {
     var lam = CLIGHT / S.f, beta = 2 * Math.PI / lam;
     var ratio = LEN / lam;
     var swing = Math.cos(S.phase);
-    var mono = function (s) { ctx.font = '500 ' + s + 'px ui-monospace, "IBM Plex Mono", monospace'; };
+    var mono = function (s) { ctx.font = '500 ' + s + 'px ' + LBL_FONT; };
 
     /* signed standing-wave shape, measured back from the open end at x1 */
     function shapeAt(px) { return Math.cos(beta * ((x1 - px) / span * LEN)); }
@@ -510,24 +538,24 @@ function pills(host, items, onPick, initial) {
       });
       if (nodes.length <= 6) {
         mono(9);
-        var lx = x1 - nodes[0] / LEN * span, lw = ctx.measureText('DEAD SPOT').width;
+        var lx = x1 - nodes[0] / LEN * span, lw = ctx.measureText(tr('js.dead_spot')).width;
         /* the envelope climbs steeply either side of a node — punch a hole in
            it rather than letting the dashes run through the letters */
         ctx.fillStyle = rgba(pal().bg, 0.9);
         ctx.fillRect(lx - lw / 2 - 4, midY - 22, lw + 8, 14);
         ctx.fillStyle = fgA(0.6);
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText('DEAD SPOT', lx, midY - 9);
+        drawLabel(ctx, tr('js.dead_spot'), lx, midY - 9);
       }
     }
 
     /* left-hand scale */
     mono(9); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillText('+MAX', x0 - 6, yOf(1));
-    ctx.fillText('0', x0 - 6, midY);
-    ctx.fillText('−MAX', x0 - 6, yOf(-1));
+    drawLabel(ctx, '+MAX', x0 - 6, yOf(1));
+    drawLabel(ctx, '0', x0 - 6, midY);
+    drawLabel(ctx, '−MAX', x0 - 6, yOf(-1));
     ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
-    ctx.fillText('VOLTAGE RIGHT NOW', x0, wTop - 10);
+    drawLabel(ctx, tr('js.voltage_now'), x0, wTop - 10);
 
     /* the cable itself, brightness = how hard that point ever swings.
        Stepped by 2 px: this now runs every animation frame, and at 1 px the
@@ -541,8 +569,8 @@ function pills(host, items, onPick, initial) {
 
     /* ends */
     mono(9); ctx.fillStyle = fgA(0.55); ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';  ctx.fillText('DRIVEN', x0, wireY + 12);
-    ctx.textAlign = 'right'; ctx.fillText('OPEN END', x1, wireY + 12);
+    ctx.textAlign = 'left';  drawLabel(ctx, tr('js.driven'), x0, wireY + 12);
+    ctx.textAlign = 'right'; drawLabel(ctx, tr('js.open_end'), x1, wireY + 12);
 
     /* metre ruler */
     ctx.textAlign = 'center'; ctx.fillStyle = fgA(0.4);
@@ -550,32 +578,32 @@ function pills(host, items, onPick, initial) {
       var m = i * 0.5, xm = x0 + (m / LEN) * span;
       ctx.strokeStyle = fgA(0.25); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(xm, wireY + 7); ctx.lineTo(xm, wireY + 11); ctx.stroke();
-      if (i % 2 === 0) ctx.fillText(m + ' m', xm, wireY + 24);
+      if (i % 2 === 0) drawLabel(ctx, m + ' m', xm, wireY + 24);
     }
 
     var lo = ratio < 0.25 ? Math.abs(Math.cos(beta * LEN)) : 0;
     var drop = (1 - lo) * 100;
     ro(out, [
-      ['frequency',    '<b>' + fmtHz(S.f) + '</b>'],
-      ['wavelength λ', fmtM(lam)],
-      ['cable length', LEN + ' m'],
-      ['that is',      '<b>' + (ratio < 0.001 ? '≈ 0' : nf(ratio, 3)) + ' λ</b>'],
-      ['end-to-end change', (drop < 0.1 ? '&lt; 0.1' : nf(drop, 3)) + ' %'],
-      ['dead spots',   '<b>' + nodes.length + '</b>']
+      [tr('js.ro.frequency'),    '<b>' + fmtHz(S.f) + '</b>'],
+      [tr('js.ro.wavelength'), fmtM(lam)],
+      [tr('js.ro.cable_length'), LEN + ' m'],
+      [tr('js.ro.that_is'),      '<b>' + (ratio < 0.001 ? '≈ 0' : nf(ratio, 3)) + ' λ</b>'],
+      [tr('js.ro.end_to_end'), (drop < 0.1 ? '&lt; 0.1' : nf(drop, 3)) + ' %'],
+      [tr('js.ro.dead_spots'),   '<b>' + nodes.length + '</b>']
     ]);
 
     note.innerHTML =
-      ratio < 0.01  ? 'The whole cable rises and falls <b>together</b>, like one solid bar. Every point is at the same voltage at the same moment, so the cable may as well not be there. <b>A wire is just a wire.</b>' :
-      ratio < 0.1   ? 'The bar is starting to bend — one end now swings a little harder than the other. You are close to the one-tenth-of-a-wavelength line where ordinary circuit theory quietly stops being true.' :
-      ratio < 0.5   ? '<b>Now watch the middle.</b> Parts of the copper swing hard while other parts barely move. Two points on the same wire, different voltages, same instant. That is a transmission line.' :
-                      '<b>Dead spots.</b> The marked points never move at all — they sit at zero forever — while the voltage a few centimetres away swings between both extremes. Nothing about the cable changed. Only the frequency did.';
+      ratio < 0.01  ? tr('js.note.wire') :
+      ratio < 0.1   ? tr('js.note.bend') :
+      ratio < 0.5   ? tr('js.note.middle') :
+                      tr('js.note.dead');
   });
 
   apply();
 
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     S.running = false;
-    if (play) { play.textContent = '▶ Play'; play.classList.remove('on'); }
+    if (play) { play.textContent = tr('js.play'); play.classList.remove('on'); }
   }
   animate(cv, function (sec) {
     if (!S.running) return;
@@ -635,16 +663,16 @@ function pills(host, items, onPick, initial) {
 
     ctx.fillStyle = INK;
     ctx.textAlign = 'center';
-    ctx.font = '700 13px "IBM Plex Mono", ui-monospace, monospace';
-    ctx.fillText('TRANSMISSION LINE CALCULATOR', cx, h * 0.075);
-    ctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+    ctx.font = '700 13px ' + LBL_FONT;
+    drawLabel(ctx, tr('js.tlc_title'), cx, h * 0.075);
+    ctx.font = '400 10px ' + LBL_FONT;
     ctx.fillStyle = 'rgba(58,49,40,.75)';
-    ctx.fillText('IMPEDANCE  OR  ADMITTANCE  COORDINATES', cx, h * 0.075 + 16);
+    drawLabel(ctx, tr('js.tlc_sub'), cx, h * 0.075 + 16);
     ctx.textAlign = 'left';
-    ctx.fillText('P. H. SMITH', 16, h - 14);
+    drawLabel(ctx, 'P. H. SMITH', 16, h - 14);
     ctx.textAlign = 'right';
     ctx.fillStyle = RED;
-    ctx.fillText('ELECTRONICS · JANUARY 1939', w - 16, h - 14);
+    drawLabel(ctx, tr('js.electronics_1939'), w - 16, h - 14);
   });
 })();
 
@@ -663,13 +691,13 @@ function pills(host, items, onPick, initial) {
   var play = document.getElementById('wavePlay');
 
   var LOADS = [
-    { label: 'Matched 50 Ω', R: 50,  X: 0 },
-    { label: 'Short',        R: 0,   X: 0 },
-    { label: 'Open',         R: 1e7, X: 0 },
-    { label: '25 Ω',         R: 25,  X: 0 },
-    { label: '100 Ω',        R: 100, X: 0 },
-    { label: '25 − j50 Ω',   R: 25,  X: -50 },
-    { label: '100 + j80 Ω',  R: 100, X: 80 }
+    { label: tr('js.preset.matched50'), R: 50,  X: 0 },
+    { label: tr('js.preset.short'),        R: 0,   X: 0 },
+    { label: tr('js.preset.open'),         R: 1e7, X: 0 },
+    { label: tr('js.preset.25ohm'),         R: 25,  X: 0 },
+    { label: tr('js.preset.100ohm'),        R: 100, X: 0 },
+    { label: tr('js.preset.25-j50'),   R: 25,  X: -50 },
+    { label: tr('js.preset.100+j80'),  R: 100, X: 80 }
   ];
   pills(document.getElementById('wavePresets'), LOADS, function (it) {
     S.R = it.R; S.X = it.X; syncInputs(); f.redraw();
@@ -685,7 +713,7 @@ function pills(host, items, onPick, initial) {
   chk.addEventListener('change', function () { S.showParts = chk.checked; f.redraw(); });
   play.addEventListener('click', function () {
     S.running = !S.running;
-    play.textContent = S.running ? '❙❙ Pause' : '▶ Play';
+    play.textContent = S.running ? tr('js.pause') : tr('js.play');
     play.classList.toggle('on', S.running);
   });
 
@@ -768,43 +796,43 @@ function pills(host, items, onPick, initial) {
     ctx.strokeStyle = fgA(0.5); ctx.lineWidth = 1.2;
     ctx.strokeRect(6, mid - 26, 40, 52);
     ctx.fillStyle = fgA(0.7);
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('SOURCE', 26, mid);
+    drawLabel(ctx, tr('js.source'), 26, mid);
 
     ctx.fillStyle = sigA(0.12);
     ctx.fillRect(x1 + 4, mid - 30, 62, 60);
     ctx.strokeStyle = pal().sig; ctx.lineWidth = 1.6;
     ctx.strokeRect(x1 + 4, mid - 30, 62, 60);
     ctx.fillStyle = pal().sig;
-    ctx.fillText('LOAD', x1 + 35, mid - 14);
-    ctx.font = '500 11px ui-monospace, "IBM Plex Mono", monospace';
-    ctx.fillText(S.R >= 1e6 ? '∞' : nf(S.R) + 'Ω', x1 + 35, mid + 2);
-    ctx.fillText((S.X >= 0 ? '+j' : '−j') + nf(Math.abs(S.X)), x1 + 35, mid + 16);
+    drawLabel(ctx, tr('js.load'), x1 + 35, mid - 14);
+    ctx.font = '500 11px ' + LBL_FONT;
+    drawLabel(ctx, S.R >= 1e6 ? '∞' : nf(S.R) + 'Ω', x1 + 35, mid + 2);
+    drawLabel(ctx, (S.X >= 0 ? '+j' : '−j') + nf(Math.abs(S.X)), x1 + 35, mid + 16);
 
     /* scale ticks */
-    ctx.font = '500 9px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 9px ' + LBL_FONT;
     ctx.fillStyle = fgA(0.45); ctx.textBaseline = 'top';
     for (var k = 0; k <= 3; k++) {
       var dd = k * 0.5, xx = x1 - dd / LAM * lw;
       ctx.strokeStyle = fgA(0.22); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(xx, h - 22); ctx.lineTo(xx, h - 17); ctx.stroke();
-      ctx.fillText(dd === 0 ? '0' : dd + 'λ', xx, h - 15);
+      drawLabel(ctx, dd === 0 ? '0' : dd + 'λ', xx, h - 15);
     }
     ctx.textAlign = 'left';
-    ctx.fillText('DISTANCE FROM THE LOAD', x0, 6);
+    drawLabel(ctx, tr('js.distance_from_load'), x0, 6);
 
     ro(out, [
-      ['Γ',            '<b>' + nf(gm, 3) + ' ∠ ' + nf(ga * 180 / Math.PI, 4) + '°</b>'],
-      ['power back',   nf(gm * gm * 100, 3) + ' %'],
-      ['SWR',          isFinite(swrOf(g)) ? nf(swrOf(g), 3) + ' : 1' : '∞ : 1'],
-      ['return loss',  isFinite(rlOf(g)) ? nf(rlOf(g), 3) + ' dB' : '∞ dB']
+      [tr('js.ro.gamma'),            '<b>' + nf(gm, 3) + ' ∠ ' + nf(ga * 180 / Math.PI, 4) + '°</b>'],
+      [tr('js.ro.power_back'),   nf(gm * gm * 100, 3) + ' %'],
+      [tr('js.ro.swr'),          isFinite(swrOf(g)) ? nf(swrOf(g), 3) + ' : 1' : '∞ : 1'],
+      [tr('js.ro.return_loss'),  isFinite(rlOf(g)) ? nf(rlOf(g), 3) + ' dB' : '∞ dB']
     ]);
   });
 
   syncInputs();
   var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) { S.running = false; play.textContent = '▶ Play'; play.classList.remove('on'); }
+  if (reduced) { S.running = false; play.textContent = tr('js.play'); play.classList.remove('on'); }
   animate(cv, function (sec) {
     if (!S.running) return;
     S.phase = sec * 3.2;
@@ -853,9 +881,9 @@ function pills(host, items, onPick, initial) {
   }
 
   var MARKS = [
-    { r: 1,   x: 0,    lb: '50 Ω' },
-    { r: 0,   x: 0,    lb: 'short' },
-    { r: 400, x: 0,    lb: 'open' },
+    { r: 1,   x: 0,    lb: tr('js.mark.50ohm') },
+    { r: 0,   x: 0,    lb: tr('js.mark.short') },
+    { r: 400, x: 0,    lb: tr('js.match.open_word') },
     { r: 0.5, x: 0.5,  lb: '25+j25' },
     { r: 2,   x: -1.6, lb: '100−j80' }
   ];
@@ -897,23 +925,23 @@ function pills(host, items, onPick, initial) {
       var p = pos(m.r, m.x, t);
       var X = G.X(p), Y = G.Y(p);
       dot(ctx, X, Y, 4.5, pal().sig, rgba(pal().bg, 1));
-      ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+      ctx.font = '500 10px ' + LBL_FONT;
       ctx.fillStyle = fgA(0.7);
-      /* "open" sits hard against the right edge at every stage of the fold —
+      /* tr('js.match.open_word') sits hard against the right edge at every stage of the fold —
          flip its label inboard so it is never clipped */
       var right = X + ctx.measureText(m.lb).width + 12 > w;
       ctx.textAlign = right ? 'right' : 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(m.lb, X + (right ? -8 : 8), Y - 9);
+      drawLabel(ctx, m.lb, X + (right ? -8 : 8), Y - 9);
     });
 
     /* stage caption */
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = fgA(0.55);
-    ctx.fillText(t < 0.02 ? 'THE IMPEDANCE PLANE — INFINITE'
-              : t > 0.98 ? 'THE Γ PLANE — A DISK OF RADIUS 1'
-              : 'FOLDING…', w / 2, h - 4);
+    drawLabel(ctx, t < 0.02 ? tr('js.impedance_plane')
+              : t > 0.98 ? tr('js.gamma_plane')
+              : tr('js.folding'), w / 2, h - 4);
   });
 
   function setT(v) { S.t = v; lbl.textContent = Math.round(v * 100) + ' %'; f.redraw(); }
@@ -941,12 +969,12 @@ function pills(host, items, onPick, initial) {
   var out = document.getElementById('readOut');
 
   var LM = [
-    { label: '50 Ω match', z: C(1, 0) },
-    { label: 'Short',      z: C(0, 0) },
-    { label: 'Open',       z: C(400, 0) },
-    { label: '25 + j25',   z: C(0.5, 0.5) },
-    { label: '100 − j80',  z: C(2, -1.6) },
-    { label: '15 + j60',   z: C(0.3, 1.2) }
+    { label: tr('js.preset.50match'), z: C(1, 0) },
+    { label: tr('js.preset.short'),      z: C(0, 0) },
+    { label: tr('js.preset.open'),       z: C(400, 0) },
+    { label: tr('js.preset.25+j25'),   z: C(0.5, 0.5) },
+    { label: tr('js.preset.100-j80'),  z: C(2, -1.6) },
+    { label: tr('js.preset.15+j60'),   z: C(0.3, 1.2) }
   ];
   pills(document.getElementById('readPresets'), LM, function (it) {
     S.g = gOf(it.z); f.redraw();
@@ -984,12 +1012,12 @@ function pills(host, items, onPick, initial) {
 
     var Z = C(z.re * Z0, z.im * Z0);
     ro(out, [
-      ['z = Z/Z₀',   '<b>' + nz(z) + '</b>'],
-      ['Z',          nz(Z, 'Ω')],
-      ['Γ',          nf(m, 3) + ' ∠ ' + nf(carg(g) * 180 / Math.PI, 4) + '°'],
-      ['SWR',        isFinite(swrOf(g)) ? nf(swrOf(g), 3) + ' : 1' : '∞ : 1'],
-      ['return loss', isFinite(rlOf(g)) ? nf(rlOf(g), 3) + ' dB' : '∞ dB'],
-      ['character',  z.im > 0.02 ? 'inductive' : z.im < -0.02 ? 'capacitive' : 'purely resistive']
+      [tr('js.ro.z_norm'),   '<b>' + nz(z) + '</b>'],
+      [tr('js.ro.Z'),          nz(Z, 'Ω')],
+      [tr('js.ro.gamma'),          nf(m, 3) + ' ∠ ' + nf(carg(g) * 180 / Math.PI, 4) + '°'],
+      [tr('js.ro.swr'),        isFinite(swrOf(g)) ? nf(swrOf(g), 3) + ' : 1' : '∞ : 1'],
+      [tr('js.ro.return_loss'), isFinite(rlOf(g)) ? nf(rlOf(g), 3) + ' dB' : '∞ dB'],
+      [tr('js.ro.character'),  z.im > 0.02 ? tr('js.ro.inductive') : z.im < -0.02 ? tr('js.ro.capacitive') : tr('js.ro.purely_resistive')]
     ]);
   });
 
@@ -1019,11 +1047,11 @@ function pills(host, items, onPick, initial) {
   var out = document.getElementById('rotOut'), note = document.getElementById('rotNote');
 
   var LOADS = [
-    { label: 'Short',      z: C(0, 0) },
-    { label: 'Open',       z: C(400, 0) },
-    { label: '25 Ω',       z: C(0.5, 0) },
-    { label: '25 − j50',   z: C(0.5, -1) },
-    { label: '100 + j80',  z: C(2, 1.6) }
+    { label: tr('js.preset.short'),      z: C(0, 0) },
+    { label: tr('js.preset.open'),       z: C(400, 0) },
+    { label: tr('js.preset.25ohm'),       z: C(0.5, 0) },
+    { label: tr('js.preset.25-j50b'),   z: C(0.5, -1) },
+    { label: tr('js.preset.100+j80b'),  z: C(2, 1.6) }
   ];
   pills(document.getElementById('rotPresets'), LOADS, function (it) {
     S.zL = it.z; f.redraw();
@@ -1056,28 +1084,28 @@ function pills(host, items, onPick, initial) {
     landmarks(ctx, G);
     dot(ctx, G.cx, G.cy, 3, fgA(0.5));
     dot(ctx, G.X(gL), G.Y(gL), 5, fgA(0.75), rgba(pal().bg, 1));
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.fillStyle = fgA(0.6); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('LOAD', G.X(gL) + 9, G.Y(gL) + 10);
+    drawLabel(ctx, tr('js.load'), G.X(gL) + 9, G.Y(gL) + 10);
 
     dot(ctx, G.X(gIn), G.Y(gIn), 6.5, pal().sig, rgba(pal().bg, 1));
     var zIn = zOf(gIn);
     tag(ctx, G.X(gIn), G.Y(gIn), nz(C(zIn.re * Z0, zIn.im * Z0), 'Ω'), pal().sig);
 
     ro(out, [
-      ['line length',  '<b>' + nf(S.len, 3) + ' λ</b>'],
-      ['rotated',      nf(S.len * 720, 3) + '°'],
-      ['Z at the input', nz(C(zIn.re * Z0, zIn.im * Z0), 'Ω')],
-      ['|Γ|',          nf(cabs(gIn), 3) + '  (unchanged)'],
-      ['SWR',          isFinite(swrOf(gIn)) ? nf(swrOf(gIn), 3) + ' : 1' : '∞ : 1']
+      [tr('js.ro.line_length'),  '<b>' + nf(S.len, 3) + ' λ</b>'],
+      [tr('js.ro.rotated'),      nf(S.len * 720, 3) + '°'],
+      [tr('js.ro.z_input'), nz(C(zIn.re * Z0, zIn.im * Z0), 'Ω')],
+      [tr('js.ro.gamma_mag'),          nf(cabs(gIn), 3) + tr('js.ro.unchanged')],
+      [tr('js.ro.swr'),          isFinite(swrOf(gIn)) ? nf(swrOf(gIn), 3) + ' : 1' : '∞ : 1']
     ]);
 
     var msg = '';
-    if (Math.abs(S.len - 0.25) < 0.006) msg = '<b>Quarter wavelength.</b> Half of the circle — you are now on the opposite side of the chart. A short circuit looks like an open circuit.';
-    else if (S.len > 0.494) msg = '<b>Half a wavelength.</b> One full circle: the line is electrically invisible. Z is back where it started.';
-    else if (Math.abs(cabs(gIn) - 0) < 0.02) msg = '<b>Matched.</b>';
-    else if (Math.abs(zOf(gIn).im) < 0.03 && S.len > 0.005) msg = 'You crossed the real axis. The input now looks like a <b>pure resistance</b>. This is where a voltage maximum or minimum sits on the line.';
-    note.innerHTML = msg || 'Move the slider. Watch the radius: it never changes.';
+    if (Math.abs(S.len - 0.25) < 0.006) msg = tr('js.rot.quarter');
+    else if (S.len > 0.494) msg = tr('js.rot.half');
+    else if (Math.abs(cabs(gIn) - 0) < 0.02) msg = tr('js.rot.matched');
+    else if (Math.abs(zOf(gIn).im) < 0.03 && S.len > 0.005) msg = tr('js.rot.real_axis');
+    note.innerHTML = msg || tr('js.rot.default');
   });
 
   sl.addEventListener('input', function () {
@@ -1102,12 +1130,12 @@ function pills(host, items, onPick, initial) {
   var chk = document.getElementById('matchY');
 
   var LOADS = [
-    { label: '25 − j50 Ω', z: C(0.5, -1) },
-    { label: '25 Ω',       z: C(0.5, 0) },
-    { label: '100 Ω',      z: C(2, 0) },
-    { label: '100 + j80',  z: C(2, 1.6) },
-    { label: '15 + j60',   z: C(0.3, 1.2) },
-    { label: '150 − j40',  z: C(3, -0.8) }
+    { label: tr('js.preset.25-j50'), z: C(0.5, -1) },
+    { label: tr('js.preset.25ohm'),       z: C(0.5, 0) },
+    { label: tr('js.preset.100ohm'),      z: C(2, 0) },
+    { label: tr('js.preset.100+j80b'),  z: C(2, 1.6) },
+    { label: tr('js.preset.15+j60'),   z: C(0.3, 1.2) },
+    { label: tr('js.preset.150-j40'),  z: C(3, -0.8) }
   ];
 
   function solve(z) {
@@ -1167,19 +1195,19 @@ function pills(host, items, onPick, initial) {
     S.sol = Math.min(S.sol, S.sols.length - 1);
     if (S.sol < 0) S.sol = 0;
     var items = S.sols.map(function (s, i) {
-      return { label: 'Solution ' + (i + 1) + ' · ' +
+      return { label: tr('js.match.sol') + (i + 1) + ' · ' +
         (S.mode === 'stub' ? 'd = ' + nf(s.d, 3) + ' λ'
-                           : (s.order === 'series' ? 'series first' : 'shunt first')) };
+                           : (s.order === 'series' ? tr('js.match.series_first') : tr('js.match.shunt_first'))) };
     });
-    if (!items.length) items = [{ label: S.mode === 'stub' ? 'already matched' : 'no L-network' }];
+    if (!items.length) items = [{ label: S.mode === 'stub' ? tr('js.match.already') : tr('js.match.no_l') }];
     pills(solHost, items, function (it, i) { S.sol = i; S.k = 0; anim(); fckt.redraw(); }, S.sol);
     stubHost.style.display = S.mode === 'stub' ? '' : 'none';
     fckt.redraw();
   }
 
   pills(document.getElementById('matchMode'), [
-    { label: 'Line stub', mode: 'stub' },
-    { label: 'Lumped L–C', mode: 'lc' }
+    { label: tr('js.match.mode.stub'), mode: 'stub' },
+    { label: tr('js.match.mode.lc'), mode: 'lc' }
   ], function (it) { S.mode = it.mode; S.sol = 0; refreshSols(); S.k = 0; anim(); }, 0);
 
   pills(document.getElementById('matchPresets'), LOADS, function (it) {
@@ -1187,8 +1215,8 @@ function pills(host, items, onPick, initial) {
   }, 0);
 
   pills(stubHost, [
-    { label: 'Open stub', shorted: false },
-    { label: 'Shorted stub', shorted: true }
+    { label: tr('js.match.open_stub'), shorted: false },
+    { label: tr('js.match.shorted_stub'), shorted: true }
   ], function (it) { S.stubShort = it.shorted; f.redraw(); fckt.redraw(); }, 0);
 
   chk.addEventListener('change', function () { S.showY = chk.checked; f.redraw(); });
@@ -1240,9 +1268,9 @@ function pills(host, items, onPick, initial) {
 
     var gL = gOf(S.zL);
     dot(ctx, G.cx, G.cy, 5, 'transparent', fgA(0.6));
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.fillStyle = fgA(0.6); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('50 Ω', G.cx, G.cy + 8);
+    drawLabel(ctx, tr('js.mark.50ohm'), G.cx, G.cy + 8);
 
     var sol = S.sols[S.sol];
 
@@ -1275,40 +1303,40 @@ function pills(host, items, onPick, initial) {
       if (S.mode === 'stub') {
         var Ls = stubLen(sol.b, S.stubShort);
         ro(out, [
-          ['load',         '<b>' + nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω') + '</b>'],
-          ['step 1 · line', 'd = &nbsp;<b>' + nf(sol.d, 3) + ' λ</b>'],
-          ['y there',      '1 ' + (sol.b < 0 ? '− j' : '+ j') + nf(Math.abs(sol.b))],
-          ['step 2 · stub', (S.stubShort ? 'shorted' : 'open') + ' &nbsp;<b>ℓ = ' + nf(Ls, 3) + ' λ</b>'],
-          ['result',       '50 + j0 Ω · SWR 1 : 1'],
-          ['every line',   'Z₀ = 50 Ω']
+          [tr('js.ro.load'),         '<b>' + nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω') + '</b>'],
+          [tr('js.ro.step1_line'), 'd = &nbsp;<b>' + nf(sol.d, 3) + ' λ</b>'],
+          [tr('js.ro.y_there'),      '1 ' + (sol.b < 0 ? '− j' : '+ j') + nf(Math.abs(sol.b))],
+          [tr('js.ro.step2_stub'), (S.stubShort ? tr('js.match.shorted') : tr('js.match.open_word')) + ' &nbsp;<b>ℓ = ' + nf(Ls, 3) + ' λ</b>'],
+          [tr('js.ro.result'),       '50 + j0 Ω · SWR 1 : 1'],
+          [tr('js.ro.every_line'),   'Z₀ = 50 Ω']
         ]);
-        note.innerHTML = 'Step 1 is <b>only line</b>: rotate clockwise at the same radius until you reach the dashed <b>g = 1</b> circle. That is the only place where a parallel element can finish the job. Step 2 is the stub: a dead-end piece of the same 50 Ω line, cut to the exact length whose susceptance cancels what is left. No components at all — only copper.';
+        note.innerHTML = tr('js.match.note_stub');
       } else {
         var w0 = 2 * Math.PI * FREQ;
         var Xa = sol.X * Z0, Ba = sol.B / Z0;
-        var c1 = Xa >= 0 ? { k: 'series L', v: eng(Xa / w0, 'H') } : { k: 'series C', v: eng(1 / (w0 * -Xa), 'F') };
-        var c2 = Ba >= 0 ? { k: 'shunt C',  v: eng(Ba / w0, 'F') } : { k: 'shunt L',  v: eng(1 / (w0 * -Ba), 'H') };
+        var c1 = Xa >= 0 ? { k: tr('js.match.series_L'), v: eng(Xa / w0, 'H') } : { k: tr('js.match.series_C'), v: eng(1 / (w0 * -Xa), 'F') };
+        var c2 = Ba >= 0 ? { k: tr('js.match.shunt_C'),  v: eng(Ba / w0, 'F') } : { k: tr('js.match.shunt_L'),  v: eng(1 / (w0 * -Ba), 'H') };
         var first = sol.order === 'series' ? c1 : c2, secondC = sol.order === 'series' ? c2 : c1;
         ro(out, [
-          ['load',       '<b>' + nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω') + '</b>'],
-          ['step 1',     first.k + ' &nbsp;<b>' + first.v + '</b>'],
-          ['step 2',     secondC.k + ' &nbsp;<b>' + secondC.v + '</b>'],
-          ['result',     '50 + j0 Ω · SWR 1 : 1'],
-          ['at',         '1 GHz, Z₀ = 50 Ω']
+          [tr('js.ro.load'),       '<b>' + nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω') + '</b>'],
+          [tr('js.ro.step1'),     first.k + ' &nbsp;<b>' + first.v + '</b>'],
+          [tr('js.ro.step2'),     secondC.k + ' &nbsp;<b>' + secondC.v + '</b>'],
+          [tr('js.ro.result'),     '50 + j0 Ω · SWR 1 : 1'],
+          [tr('js.ro.at'),         '1 GHz, Z₀ = 50 Ω']
         ]);
         note.innerHTML = sol.order === 'series'
-          ? 'Step 1 slides along a <b>constant-resistance</b> circle, because a series part can only change X. Step 2 slides along a <b>constant-conductance</b> circle of the blue admittance grid, because a parallel part can only change B. Two moves, and you are in the centre.'
-          : 'Step 1 slides along a <b>constant-conductance</b> circle of the blue admittance grid, because a parallel part can only change B. Step 2 slides along a <b>constant-resistance</b> circle, because a series part can only change X. Two moves, and you are in the centre.';
+          ? tr('js.match.note_series')
+          : tr('js.match.note_shunt');
       }
     } else {
-      ro(out, [['load', nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω')], ['', 'nothing to match']]);
+      ro(out, [[tr('js.ro.load'), nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω')], ['', tr('js.ro.nothing')]]);
       note.textContent = '';
     }
 
     dot(ctx, G.X(gL), G.Y(gL), 5.5, pal().bg, fgA(0.8));
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.fillStyle = fgA(0.7); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('LOAD', G.X(gL) + 9, G.Y(gL) + 11);
+    drawLabel(ctx, tr('js.load'), G.X(gL) + 9, G.Y(gL) + 11);
   });
 
   /* ---------- the schematic underneath ----------
@@ -1342,29 +1370,29 @@ function pills(host, items, onPick, initial) {
     line(ctx, xa, y, xb, y);
     line(ctx, xa, y - 5, xa, y + 5); line(ctx, xb, y - 5, xb, y + 5);
     head(ctx, xa, y, -1, 0); head(ctx, xb, y, 1, 0);
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     var tw = ctx.measureText(label).width;
     /* a short segment cannot carry its own label without swallowing the
        arrowheads — lift it clear instead of blanking them out */
     if (tw + 10 > xb - xa) {
       ctx.fillStyle = col;
-      ctx.fillText(label, (xa + xb) / 2, y - 6);
+      drawLabel(ctx, label, (xa + xb) / 2, y - 6);
       return;
     }
     ctx.fillStyle = rgba(pal().bg, 1);
     ctx.fillRect((xa + xb) / 2 - tw / 2 - 4, y - 7, tw + 8, 12);
     ctx.fillStyle = col;
-    ctx.fillText(label, (xa + xb) / 2, y + 4);
+    drawLabel(ctx, label, (xa + xb) / 2, y + 4);
   }
   function dimV(ctx, x, ya, yb, label, col, side) {
     ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.1;
     line(ctx, x, ya, x, yb);
     line(ctx, x - 5, ya, x + 5, ya); line(ctx, x - 5, yb, x + 5, yb);
     head(ctx, x, ya, 0, -1); head(ctx, x, yb, 0, 1);
-    ctx.font = '500 10px ui-monospace, "IBM Plex Mono", monospace';
+    ctx.font = '500 10px ' + LBL_FONT;
     ctx.textAlign = side < 0 ? 'right' : 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + (side < 0 ? -8 : 8), (ya + yb) / 2);
+    drawLabel(ctx, label, x + (side < 0 ? -8 : 8), (ya + yb) / 2);
   }
   function ground(ctx, x, y) {
     ctx.lineWidth = 1.6;
@@ -1376,7 +1404,7 @@ function pills(host, items, onPick, initial) {
   /* ---------- single-line (microstrip) view of the stub match ---------- */
   function drawStub(fc, narrow, dw, ox) {
     var ctx = fc.ctx, h = fc.h;
-    var mono = function (s) { ctx.font = '500 ' + s + 'px ui-monospace, "IBM Plex Mono", monospace'; };
+    var mono = function (s) { ctx.font = '500 ' + s + 'px ' + LBL_FONT; };
     var sol = S.sols[S.sol];
     var lineY = 74;
     var x0 = ox + 16, xLoad = ox + dw - 34;
@@ -1391,12 +1419,12 @@ function pills(host, items, onPick, initial) {
     line(ctx, xLoad, lineY + 16, xLoad, lineY + 30);
     ctx.strokeStyle = fgA(0.6); ground(ctx, xLoad, lineY + 30);
     ctx.fillStyle = fgA(0.85); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    mono(12); ctx.fillText('Z', xLoad - 3, lineY);
-    mono(9);  ctx.fillText('L', xLoad + 5, lineY + 4);
+    mono(12); drawLabel(ctx, tr('js.ro.Z'), xLoad - 3, lineY);
+    mono(9);  drawLabel(ctx, 'L', xLoad + 5, lineY + 4);
 
     mono(10); ctx.fillStyle = fgA(0.55); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillText('LOAD', xLoad + 18, h - 30);
-    ctx.fillText(nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω'), xLoad + 18, h - 17);
+    drawLabel(ctx, tr('js.load'), xLoad + 18, h - 30);
+    drawLabel(ctx, nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω'), xLoad + 18, h - 17);
 
     /* the through line */
     ctx.lineWidth = 2.4; ctx.strokeStyle = fgA(0.8);
@@ -1409,11 +1437,11 @@ function pills(host, items, onPick, initial) {
     line(ctx, x0 + 4, 22, x0 + 32, 22);
     head(ctx, x0 + 32, 22, 1, 0);
     mono(10); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('SEES 50 + j0 Ω', x0 + 38, 22);
+    drawLabel(ctx, tr('js.ckt.sees'), x0 + 38, 22);
 
     if (!sol) {
       ctx.fillStyle = fgA(0.6); ctx.textAlign = 'center';
-      ctx.fillText('this load needs no stub', (x0 + boxL) / 2, lineY - 24);
+      drawLabel(ctx, tr('js.ckt.needs_no_stub'), (x0 + boxL) / 2, lineY - 24);
       return;
     }
 
@@ -1438,14 +1466,14 @@ function pills(host, items, onPick, initial) {
     }
     mono(10); ctx.fillStyle = pal().sig;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(S.stubShort ? 'SHORTED' : 'OPEN', xJ, lineY + sPx + (S.stubShort ? 20 : 8));
+    drawLabel(ctx, S.stubShort ? tr('js.ckt.shorted') : tr('js.open'), xJ, lineY + sPx + (S.stubShort ? 20 : 8));
 
     dimH(ctx, xJ, boxL, lineY - 26, 'd = ' + nf(sol.d, 3) + ' λ', fgA(0.7));
     dimV(ctx, xJ - 26, lineY, lineY + sPx, 'ℓ = ' + nf(Ls, 3) + ' λ', sigA(0.9), -1);
 
     mono(10); ctx.fillStyle = fgA(0.5);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText('ALL LINES Z₀ = 50 Ω', x0, h - 17);
+    drawLabel(ctx, tr('js.ckt.all_lines'), x0, h - 17);
   }
 
   function seriesEl(ctx, xc, y, isL) {
@@ -1482,7 +1510,7 @@ function pills(host, items, onPick, initial) {
     var regL = x0 + tlW + 26, regR = xEnd - 40;
     var slotA = regL + (regR - regL) * 0.24, slotB = regL + (regR - regL) * 0.76;
     var sol = S.sols[S.sol];
-    var mono = function (s) { ctx.font = '500 ' + s + 'px ui-monospace, "IBM Plex Mono", monospace'; };
+    var mono = function (s) { ctx.font = '500 ' + s + 'px ' + LBL_FONT; };
 
     ctx.lineWidth = 1.7; ctx.strokeStyle = fgA(0.75); ctx.lineCap = 'round';
     line(ctx, x0, railY, xEnd, railY);
@@ -1501,9 +1529,9 @@ function pills(host, items, onPick, initial) {
 
     mono(10); ctx.fillStyle = fgA(0.55);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('50 Ω FEED', x0 + tlW / 2, gndY + 10);
-    if (!narrow) ctx.fillText('now matched,', x0 + tlW / 2, gndY + 23);
-    ctx.fillText(narrow ? '(invisible)' : 'so invisible', x0 + tlW / 2, gndY + (narrow ? 23 : 36));
+    drawLabel(ctx, tr('js.ckt.feed'), x0 + tlW / 2, gndY + 10);
+    if (!narrow) drawLabel(ctx, tr('js.ckt.now_matched'), x0 + tlW / 2, gndY + 23);
+    drawLabel(ctx, narrow ? tr('js.ckt.invisible') : tr('js.ckt.so_invisible'), x0 + tlW / 2, gndY + (narrow ? 23 : 36));
 
     /* looking-in arrow */
     ctx.strokeStyle = pal().sig; ctx.lineWidth = 1.4;
@@ -1513,7 +1541,7 @@ function pills(host, items, onPick, initial) {
     ctx.closePath(); ctx.fillStyle = pal().sig; ctx.fill();
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = pal().sig;
-    ctx.fillText('SEES 50 + j0 Ω', x0 + 40, railY - 22);
+    drawLabel(ctx, tr('js.ckt.sees'), x0 + 40, railY - 22);
 
     /* the load */
     ctx.lineWidth = 1.7; ctx.strokeStyle = fgA(0.75);
@@ -1522,15 +1550,15 @@ function pills(host, items, onPick, initial) {
     ctx.fillRect(xEnd - 17, ym - 24, 34, 48);
     ctx.strokeRect(xEnd - 17, ym - 24, 34, 48);
     ctx.fillStyle = fgA(0.85); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    mono(12); ctx.fillText('Z', xEnd - 2, ym);
-    mono(9);  ctx.fillText('L', xEnd + 6, ym + 4);
+    mono(12); drawLabel(ctx, tr('js.ro.Z'), xEnd - 2, ym);
+    mono(9);  drawLabel(ctx, 'L', xEnd + 6, ym + 4);
     mono(10); ctx.fillStyle = fgA(0.6); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillText('LOAD', xEnd + 17, gndY + 10);
-    ctx.fillText(nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω'), xEnd + 17, gndY + 23);
+    drawLabel(ctx, tr('js.load'), xEnd + 17, gndY + 10);
+    drawLabel(ctx, nz(C(S.zL.re * Z0, S.zL.im * Z0), 'Ω'), xEnd + 17, gndY + 23);
 
     if (!sol) {
       ctx.fillStyle = fgA(0.6); ctx.textAlign = 'center';
-      ctx.fillText('no two-element solution for this load', (regL + regR) / 2, railY - 30);
+      drawLabel(ctx, tr('js.ckt.no_two'), (regL + regR) / 2, railY - 30);
       return;
     }
 
@@ -1550,10 +1578,10 @@ function pills(host, items, onPick, initial) {
       else       shuntEl(ctx, x, railY, gndY, shu.isL);
       mono(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = pal().sig;
-      ctx.fillText((isSer ? 'SERIES ' : 'SHUNT ') + el.txt.charAt(0), x, gndY + 10);
-      ctx.fillText(el.txt.slice(2), x, gndY + 23);
+      drawLabel(ctx, (isSer ? tr('js.ckt.series') : tr('js.ckt.shunt')) + el.txt.charAt(0), x, gndY + 10);
+      drawLabel(ctx, el.txt.slice(2), x, gndY + 23);
       ctx.fillStyle = fgA(0.5);
-      ctx.fillText('step ' + step, x, gndY + 36);
+      drawLabel(ctx, tr('js.ckt.step') + step, x, gndY + 36);
     }
     place(atSource, slotA, 2);
     place(atLoad,   slotB, 1);
@@ -1586,36 +1614,36 @@ function pills(host, items, onPick, initial) {
   var host = document.getElementById('tlTrack'), body = document.getElementById('tlBody');
   if (!host) return;
   var ITEMS = [
-    { yr: '1876', lb: 'The telephone',
-      h: 'Long wires, first trouble',
-      p: 'Bell\'s telephone works well across a room. Across a country it does not. The line itself starts changing the signal. Engineers need a theory of what a wire does to a wave.' },
-    { yr: '1885', lb: 'Telegrapher\'s equations',
-      h: 'Heaviside writes it down',
-      p: 'Oliver Heaviside turns Maxwell\'s work into the transmission-line equations, and gives us the idea of characteristic impedance. Now the physics is known. But the math it asks for is very hard to do by hand.' },
-    { yr: '1920s', lb: 'Bell Labs long lines',
-      h: 'The math becomes a full-time job',
-      p: 'Carrier telephony pushes frequencies higher and lines longer. Somebody at Bell Labs must solve a complex tangent expression, with a slide rule, hundreds of times a week.' },
-    { yr: '1929', lb: 'Deal Beach, NJ',
-      h: 'A field, an antenna, a stub tuner',
-      p: 'Phillip Smith, fresh from Tufts and newly hired at the Bell Labs radio station, spends his days on a slow job that needs two people: one engineer moves a tuning stub by hand, the other reads standing-wave numbers from a test set far away and shouts them back. He had done the amateur version of this in his own backyard for years. Now it was his job.' },
-    { yr: '1931', lb: 'Smith\'s first chart',
-      h: 'A rectangular first try',
-      p: 'Smith draws a chart to save himself the arithmetic. It works, but he draws it on rectangular coordinates, so it can only show a small range of impedances. Infinity does not fit on paper.' },
-    { yr: '1937', lb: 'Mizuhashi, Japan',
-      h: 'The same idea, somewhere else',
-      p: 'Tosaku Mizuhashi publishes a very similar chart in Japan. The problem existed everywhere, so the solution was found more than once.' },
-    { yr: '1939', lb: 'Published',
-      h: '“Transmission Line Calculator”',
-      p: 'Smith moves to the reflection-coefficient plane, where every passive impedance fits inside a circle of radius 1. He publishes it in Electronics, January 1939. The same year, in the Soviet Union, Amiel Volpert finds the same construction.' },
-    { yr: '1944', lb: 'The improved chart',
-      h: 'The version you know',
-      p: '“An Improved Transmission Line Calculator” adds the outer wavelength scales and the radial rulers for SWR and return loss. This is the chart that is still printed today.' },
-    { yr: '1969', lb: 'The book',
-      h: 'Electronic Applications of the Smith Chart',
-      p: 'Thirty years after inventing it, Smith writes the main book about his own chart. He retires from Bell Labs soon after.' },
-    { yr: 'now', lb: 'Every VNA',
-      h: 'Still on the screen',
-      p: 'Computers made the calculation free, and changed nothing about the chart. Open any vector network analyser, any RF simulator, any antenna datasheet: the circles are there, doing the one job software still cannot do for you — showing you which way to move.' }
+    { yr: '1876', lb: tr('js.tl.1876.lb'),
+      h: tr('js.tl.1876.h'),
+      p: tr('js.tl.1876.p') },
+    { yr: '1885', lb: tr('js.tl.1885.lb'),
+      h: tr('js.tl.1885.h'),
+      p: tr('js.tl.1885.p') },
+    { yr: '1920s', lb: tr('js.tl.1920s.lb'),
+      h: tr('js.tl.1920s.h'),
+      p: tr('js.tl.1920s.p') },
+    { yr: '1929', lb: tr('js.tl.1929.lb'),
+      h: tr('js.tl.1929.h'),
+      p: tr('js.tl.1929.p') },
+    { yr: '1931', lb: tr('js.tl.1931.lb'),
+      h: tr('js.tl.1931.h'),
+      p: tr('js.tl.1931.p') },
+    { yr: '1937', lb: tr('js.tl.1937.lb'),
+      h: tr('js.tl.1937.h'),
+      p: tr('js.tl.1937.p') },
+    { yr: '1939', lb: tr('js.tl.1939.lb'),
+      h: tr('js.tl.1939.h'),
+      p: tr('js.tl.1939.p') },
+    { yr: '1944', lb: tr('js.tl.1944.lb'),
+      h: tr('js.tl.1944.h'),
+      p: tr('js.tl.1944.p') },
+    { yr: '1969', lb: tr('js.tl.1969.lb'),
+      h: tr('js.tl.1969.h'),
+      p: tr('js.tl.1969.p') },
+    { yr: 'now', lb: tr('js.tl.now.lb'),
+      h: tr('js.tl.now.h'),
+      p: tr('js.tl.now.p') }
   ];
   var btns = ITEMS.map(function (it, i) {
     var b = document.createElement('button');
@@ -1658,7 +1686,7 @@ function pills(host, items, onPick, initial) {
     copy.classList.add('done');
     clearTimeout(copy._t);
     copy._t = setTimeout(function () {
-      label.textContent = was === msg ? 'Copy link' : was;
+      label.textContent = was === msg ? tr('js.share.copy_link') : was;
       copy.classList.remove('done');
     }, 1800);
   }
@@ -1667,7 +1695,7 @@ function pills(host, items, onPick, initial) {
     /* clipboard API needs a secure context; file:// and plain http get the
        textarea fallback rather than a dead button */
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(url).then(function () { flash('Copied ✓'); },
+      navigator.clipboard.writeText(url).then(function () { flash(tr('js.share.copied')); },
                                              function () { legacy(); });
     } else legacy();
   });
@@ -1682,7 +1710,7 @@ function pills(host, items, onPick, initial) {
     var ok = false;
     try { ok = document.execCommand('copy'); } catch (e) {}
     document.body.removeChild(ta);
-    flash(ok ? 'Copied ✓' : 'Press ⌘/Ctrl+C');
+    flash(ok ? tr('js.share.copied') : tr('js.share.press'));
   }
 
   if (navigator.share) {

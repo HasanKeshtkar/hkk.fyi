@@ -375,3 +375,182 @@ input[type=range].slider::-moz-range-thumb{
 /* ---------- footnotes ---------- */
 .refs{ font-size:.9rem; opacity:.8; }
 .refs li{ margin:.3rem 0; }
+
+/* ============================================================
+   Persian
+   ------------------------------------------------------------
+   Only <main> turns around. The site header and the footer keep their
+   left-to-right layout in both languages, so the logo, the nav, the language
+   switch and the theme button never move between EN and FA.
+
+   Three problems, kept apart below:
+     1. type      — Persian needs its own faces, more leading, and none of
+                    the tracking tricks the Latin design leans on
+     2. direction — everything the Latin layout pins to the left
+     3. bidi      — Latin islands inside Persian sentences
+   ============================================================ */
+
+/* the article, and nothing above or below it */
+html.lang-fa main{ direction:rtl; }
+
+/* ---------- 1. type ---------- */
+:root{
+  --font-fa-text:"Shabnam","Vazirmatn","Segoe UI",Tahoma,sans-serif;
+  --font-fa-display:"Estedad","Shabnam","Segoe UI",Tahoma,sans-serif;
+}
+html.lang-fa main{
+  font-family:var(--font-fa-text);
+  /* Shabnam's x-height runs small next to Space Grotesk and Persian has no
+     capitals to carry a line, so the same px size reads smaller */
+  font-size:17.5px;
+  /* Persian drops far below the baseline; the Latin 1.65 puts one line's
+     descenders into the next line's dots */
+  line-height:1.95;
+}
+html.lang-fa main h1,
+html.lang-fa main h2,
+html.lang-fa main h3,
+html.lang-fa .post-sub,
+html.lang-fa .pull,
+html.lang-fa .who{
+  font-family:var(--font-fa-display);
+}
+
+/* Latin display faces are tracked tight. Persian must not be. */
+html.lang-fa main h1,
+html.lang-fa main h2,
+html.lang-fa main h3{ letter-spacing:0; }
+html.lang-fa .post-hero h1{
+  max-width:19ch; line-height:1.35; font-weight:800;
+  text-wrap:balance;              /* Persian words are long; even the lines out */
+}
+html.lang-fa .post h2{ line-height:1.5; font-weight:800; }
+html.lang-fa .post h3{ font-weight:700; }
+
+/* A monospace family has no Persian glyphs, so every label styled as "mono"
+   was falling back to whatever the system had, at a tracking that breaks the
+   cursive join. Persian keeps the page face and drops the tracking; the
+   uppercase does nothing for Persian and only shouted the Latin inside it. */
+html.lang-fa main .mono-label,
+html.lang-fa main .pill,
+html.lang-fa main .share-btn,
+html.lang-fa main .check-row label,
+html.lang-fa main .btn,
+html.lang-fa main .tl-item .lb,
+html.lang-fa main details.decode > summary,
+html.lang-fa main .backlink{
+  font-family:var(--font-fa-display);
+  letter-spacing:0;
+  text-transform:none;
+  font-weight:500;
+}
+/* numbers, units and identifiers stay in the mono face */
+html.lang-fa main .secnum,
+html.lang-fa main .ctl-val,
+html.lang-fa main .ro dd,
+html.lang-fa main .eq,
+html.lang-fa main .tl-item .yr,
+html.lang-fa main .q{ font-family:var(--font-mono); letter-spacing:0; }
+html.lang-fa main .ro dt{ font-family:var(--font-fa-text); letter-spacing:0; }
+
+html.lang-fa .post p,
+html.lang-fa .post li,
+html.lang-fa .post-sub,
+html.lang-fa .tldr li,
+html.lang-fa .decode-body p,
+html.lang-fa .tl-body,
+html.lang-fa .cta p{ line-height:1.95; }
+html.lang-fa figcaption,
+html.lang-fa .note,
+html.lang-fa .refs li{ line-height:1.85; }
+
+/* italic is not a Persian distinction — it only slants the face badly */
+html.lang-fa main em,
+html.lang-fa .tldr .tldr-foot{ font-style:normal; font-weight:500; }
+html.lang-fa main em{ color:color-mix(in srgb, var(--fg) 74%, var(--sig)); }
+html.lang-fa main strong,
+html.lang-fa main b{ font-weight:700; }
+
+/* ---------- 2. direction ---------- */
+html.lang-fa #prog{ transform-origin:100% 50%; }
+
+html.lang-fa .tldr{ border-left:0; border-right:3px solid var(--sig); }
+html.lang-fa .tldr ul{ padding-left:0; padding-right:1.15rem; }
+html.lang-fa .toc ol{ padding-left:0; padding-right:1.2rem; list-style-type:persian; }
+html.lang-fa .post ul,
+html.lang-fa .post ol{ padding-left:0; padding-right:1.2rem; }
+html.lang-fa .pull{
+  padding:.2rem 1.3rem .2rem 0;
+  border-left:0; border-right:3px solid var(--sig);
+}
+html.lang-fa .note{
+  border-left:0;
+  border-right:3px solid color-mix(in srgb, var(--fg) 35%, transparent);
+}
+html.lang-fa .ro dd{ text-align:left; }
+html.lang-fa .tl-item{ text-align:right; }
+html.lang-fa .share-label{ margin-right:0; margin-left:.15rem; }
+html.lang-fa .lede-chart figcaption,
+html.lang-fa .smith-card .pic figcaption,
+html.lang-fa .eq{ text-align:center; }
+
+/* the timeline is a chronology, not a sentence: it keeps running left to
+   right even though every label under it is Persian */
+html.lang-fa .tl-track{ direction:ltr; }
+html.lang-fa .tl-item{ direction:rtl; }
+/* a slider is a physical axis — left is always less */
+html.lang-fa input[type=range].slider{ direction:ltr; }
+
+/* ---------- 3. bidi ---------- */
+/* A quantity is an isolated left-to-right island, so the Persian full stop
+   after "50 Ω" can never end up inside it. */
+.q{
+  unicode-bidi:isolate;
+  direction:ltr;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* Everything the figures write at run time is a mixed string the stylesheet
+   never sees: "25 − j50", "0 + j0 Ω", "∞ : 1", "0 λ", "1 (بی‌تغییر)". Dropped
+   into an RTL box, "25 − j50" comes out as "j50 − 25" — the two number runs
+   get laid out right to left around the neutral minus sign. plaintext takes
+   the direction from each value's own first strong character, which is right
+   for the Latin ones and right for the Persian ones, and cannot go wrong as
+   the figures update. */
+html.lang-fa main .pill,
+html.lang-fa main .ro dd,
+html.lang-fa main .ro dt,
+html.lang-fa main .ctl-val,
+html.lang-fa main .tl-item .yr,
+html.lang-fa main .check-row label,
+html.lang-fa main .mono-label,
+html.lang-fa main .fig-head,
+html.lang-fa main .byline,
+html.lang-fa main .smith-card .when,
+html.lang-fa main .eq{ unicode-bidi:plaintext; }
+
+/* ---------- language switch ---------- */
+.lang-switch{
+  display:inline-flex; align-items:center;
+  border:1.4px solid color-mix(in srgb, var(--fg) 28%, transparent);
+  border-radius:4px; overflow:hidden; flex:none;
+}
+.lang-btn{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.08em;
+  font-weight:500; padding:.36rem .55rem;
+  border:0; background:transparent; color:var(--fg);
+  cursor:pointer; opacity:.7; line-height:1;
+}
+.lang-btn + .lang-btn{
+  border-left:1.4px solid color-mix(in srgb, var(--fg) 28%, transparent);
+}
+.lang-btn:hover{ opacity:1; color:var(--sig); }
+.lang-btn.on{
+  opacity:1; color:var(--sig);
+  background:color-mix(in srgb, var(--sig) 14%, transparent);
+}
+.lang-btn:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+@media (max-width:560px){
+  .lang-switch{ order:3; }
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Folding infinity into a circle — the Smith chart · hkk.fyi</title>
+<title data-i18n="hero.title1">Folding infinity into a circle — the Smith chart · hkk.fyi</title>
 <meta name="description" content="Two engineers stuck in a field in 1929, and the piece of graph paper one of them drew to escape. A plain-English, play-with-everything guide to the Smith chart — no RF background needed.">
 <meta property="og:title" content="Folding infinity into a circle — the Smith chart">
 <meta property="og:description" content="A 1939 piece of graph paper that computers could not kill. Seven live figures, no RF background needed.">
@@ -19,15 +19,26 @@
 <meta name="twitter:image" content="https://hkk.fyi/assets/og-smith.png">
 <link rel="canonical" href="https://hkk.fyi/posts/smith-chart/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23F4EFE4' stroke='%232B59C3' stroke-width='5'/><circle cx='43' cy='32' r='17' fill='none' stroke='%231C1B1A' stroke-width='2.5'/><circle cx='51' cy='32' r='9' fill='none' stroke='%231C1B1A' stroke-width='2.5'/><path d='M4 32h56' stroke='%231C1B1A' stroke-width='2.5'/><circle cx='27' cy='19' r='5' fill='%232B59C3'/></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <script>
-/* Set theme before first paint to avoid a flash */
-(function(){try{var t=localStorage.getItem('hkk-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';if(t==='ink')document.documentElement.classList.add('ink');}catch(e){}})();
+/* Theme and language are both settled before the first paint — the language
+   one matters, because otherwise the article lays out left-to-right and then
+   visibly flips on every load. */
+(function(){try{
+  var r=document.documentElement;
+  var t=localStorage.getItem('hkk-theme');
+  if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';
+  if(t==='ink')r.classList.add('ink');
+  var q=/[?&]lang=(fa|en)/.exec(location.search);
+  var l=q?q[1]:localStorage.getItem('hkk-lang');
+  if(l!=='fa'&&l!=='en')l='en';
+  r.classList.add('lang-'+l);
+  if(l==='fa')r.lang='fa';
+}catch(e){}})();
 </script>
+<link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="../../assets/site.css">
 <link rel="stylesheet" href="post.css">
+<link rel="stylesheet" href="terms.css">
 <style>
   /* reading progress hairline under the topbar */
   #prog{
@@ -40,7 +51,7 @@
 <body>
 
 <div id="prog" aria-hidden="true"></div>
-<a class="skip" href="#start">Skip to content</a>
+<a class="skip" href="#start" data-i18n="hero.a1">Skip to content</a>
 
 <header class="topbar">
   <a class="brand" href="../../" aria-label="hkk.fyi — home">
@@ -54,11 +65,15 @@
     <span class="brand-name">hkk<span class="dim">.fyi</span></span>
   </a>
   <nav class="nav" aria-label="Sections">
-    <a href="../../#lab">Lab</a>
-    <a href="../../#writing">Writing</a>
-    <a href="../../#cv">CV</a>
-    <a href="../../#contact">Contact</a>
+    <a href="../../#lab" data-i18n="hero.a2">Lab</a>
+    <a href="../../#writing" data-i18n="hero.a3">Writing</a>
+    <a href="../../#cv" data-i18n="hero.a4">CV</a>
+    <a href="../../#contact" data-i18n="hero.a5">Contact</a>
   </nav>
+  <div class="lang-switch" role="group" aria-label="Language">
+    <button type="button" class="lang-btn" data-lang-set="en">EN</button>
+    <button type="button" class="lang-btn" data-lang-set="fa">FA</button>
+  </div>
   <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch between light and dark" title="Toggle light / dark">
     <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -70,10 +85,10 @@
 
   <!-- ============ HERO ============ -->
   <header class="post-hero">
-    <span class="mono-label post-kicker">ESSAY · RF &amp; MICROWAVE · ~15 MIN · 7 LIVE FIGURES</span>
-    <h1>Folding infinity into a circle</h1>
+    <span class="mono-label post-kicker" data-i18n="start.span1">ESSAY · RF &amp; MICROWAVE · ~15 MIN · 7 LIVE FIGURES</span>
+    <h1 data-i18n="start.h11">Folding infinity into a circle</h1>
     <div class="post-lede">
-      <p class="post-sub">
+      <p class="post-sub" data-i18n="start.p1">
         Almost every engineering student is a little scared of this thing. One look and you
         can see why — it's a dartboard somebody left out in the rain. Circles inside circles.
         Numbers crawling around the edge. Not one straight line in sight.
@@ -89,19 +104,19 @@
       </p>
       <figure class="lede-chart">
         <canvas id="figHero"></canvas>
-        <figcaption class="mono-label">THE THING ITSELF</figcaption>
+        <figcaption class="mono-label" data-i18n="start.cap1">THE THING ITSELF</figcaption>
       </figure>
     </div>
     <p class="mono-label byline">
-      <span>HASSAN KESHTKAR</span><span class="dot">·</span><span>TEHRAN</span>
-      <span class="dot">·</span><span>2026</span>
-      <span class="dot">·</span><a class="backlink" href="../../">← back to hkk.fyi</a>
+      <span data-i18n="start.span2">HASSAN KESHTKAR</span><span class="dot">·</span><span data-i18n="start.span3">TEHRAN</span>
+      <span class="dot">·</span><span data-i18n="start.span4">2026</span>
+      <span class="dot">·</span><a class="backlink" href="../../" data-i18n="start.a1">← back to hkk.fyi</a>
     </p>
 
     <!-- Plain links, so sharing still works with JS off; post.js only adds the
          copy button and the phone's native share sheet on top. -->
     <div class="share" role="group" aria-label="Share this article">
-      <span class="mono-label share-label">SHARE</span>
+      <span class="mono-label share-label" data-i18n="start.span5">SHARE</span>
       <a class="share-btn" target="_blank" rel="noopener"
          href="https://x.com/intent/tweet?text=Folding%20infinity%20into%20a%20circle%20%E2%80%94%20the%20Smith%20chart&url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fsmith-chart%2F">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 3h3.2l-7 8 8.2 10.9h-6.4l-5-6.6-5.8 6.6H1.5l7.5-8.6L1.2 3h6.6l4.5 6zm-1.1 17h1.8L7.7 4.8H5.8z"/></svg>
@@ -125,118 +140,118 @@
       </a>
       <button class="share-btn" type="button" id="shareCopy">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1 1M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1-1"/></svg>
-        <span id="shareCopyLabel">Copy link</span>
+        <span id="shareCopyLabel" data-i18n="start.span6">Copy link</span>
       </button>
       <button class="share-btn" type="button" id="shareNative" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 3v13M8 6.5 12 3l4 3.5M5 13v6.5h14V13"/></svg>
-        Share…
+        <span data-i18n="start.share">Share…</span>
       </button>
     </div>
   </header>
 
   <!-- ============ TL;DR ============ -->
   <aside class="tldr card">
-    <span class="mono-label">THE WHOLE ARTICLE IN 30 SECONDS</span>
+    <span class="mono-label" data-i18n="start.span7">THE WHOLE ARTICLE IN 30 SECONDS</span>
     <ul>
-      <li>Turn the frequency up high enough and a cable stops being a connection and becomes
+      <li data-i18n="start.li1">Turn the frequency up high enough and a cable stops being a connection and becomes
         a <em>component</em>. Where you stand along the wire changes what you measure.</li>
-      <li>Everything a cable knows about whatever is bolted to its far end fits into a single
+      <li data-i18n="start.li2">Everything a cable knows about whatever is bolted to its far end fits into a single
         number, called Γ: <em>how much of the wave bounces back, and how late</em>.</li>
-      <li>Γ can never be bigger than 1. So every load that has ever existed fits inside one
+      <li data-i18n="start.li3">Γ can never be bigger than 1. So every load that has ever existed fits inside one
         circle. <b>That circle is the chart.</b></li>
-      <li>Once you are inside it, the hard things get easy: cable length becomes
+      <li data-i18n="start.li4">Once you are inside it, the hard things get easy: cable length becomes
         <em>rotation</em>, a perfect match becomes a <em>place</em>, adding a component
         becomes a <em>direction</em>.</li>
-      <li>Which is why software never killed it. A calculator answers “what is the number?”.
+      <li data-i18n="start.li5">Which is why software never killed it. A calculator answers “what is the number?”.
         The chart answers “what should I do next?”.</li>
     </ul>
-    <p class="tldr-foot">Still here? Good — the rest is the story, plus seven things you can drag.</p>
+    <p class="tldr-foot" data-i18n="start.p2">Still here? Good — the rest is the story, plus seven things you can drag.</p>
   </aside>
 
   <nav class="toc card" aria-label="Contents">
-    <span class="mono-label">CONTENTS</span>
+    <span class="mono-label" data-i18n="start.span8">CONTENTS</span>
     <ol>
-      <li><a href="#s1">Two men, a field, and a lot of shouting</a></li>
-      <li><a href="#s2">The day a cable stops being a cable</a></li>
-      <li><a href="#s3">One number for the whole load</a></li>
-      <li><a href="#s4">The arithmetic that ate the afternoon</a></li>
-      <li><a href="#s5">You cannot draw infinity — so fold it</a></li>
-      <li><a href="#s6">Learning to read the map</a></li>
-      <li><a href="#s7">Walking down a cable is just turning a dial</a></li>
-      <li><a href="#s8">Matching, as a route</a></li>
-      <li><a href="#s9">The man who would rather draw</a></li>
-      <li><a href="#s10">Why computers could not kill it</a></li>
+      <li data-i18n="start.li6"><a href="#s1">Two men, a field, and a lot of shouting</a></li>
+      <li data-i18n="start.li7"><a href="#s2">The day a cable stops being a cable</a></li>
+      <li data-i18n="start.li8"><a href="#s3">One number for the whole load</a></li>
+      <li data-i18n="start.li9"><a href="#s4">The arithmetic that ate the afternoon</a></li>
+      <li data-i18n="start.li10"><a href="#s5">You cannot draw infinity — so fold it</a></li>
+      <li data-i18n="start.li11"><a href="#s6">Learning to read the map</a></li>
+      <li data-i18n="start.li12"><a href="#s7">Walking down a cable is just turning a dial</a></li>
+      <li data-i18n="start.li13"><a href="#s8">Matching, as a route</a></li>
+      <li data-i18n="start.li14"><a href="#s9">The man who would rather draw</a></li>
+      <li data-i18n="start.li15"><a href="#s10">Why computers could not kill it</a></li>
     </ol>
   </nav>
 
   <hr class="rule">
 
   <!-- ============ 1 ============ -->
-  <h2 id="s1"><span class="secnum">01</span> Two men, a field, and a lot of shouting</h2>
+  <h2 id="s1" data-i18n="start.h21"><span class="secnum">01</span> Two men, a field, and a lot of shouting</h2>
 
-  <p>
+  <p data-i18n="s1.p1">
     Deal Beach, New Jersey. 1929. A field full of wire, and two engineers who cannot see
     each other.
   </p>
-  <p>
+  <p data-i18n="s1.p2">
     One of them is standing at the base of a large transmitting antenna — the kind used to
     carry telephone calls across the Atlantic and out to ships at sea. His job is to move a
     little piece of metal, a <em>tuning stub</em>, a few centimetres at a time. He has no
     idea whether he is helping.
   </p>
-  <p>
+  <p data-i18n="s1.p3">
     The other one is far away at a measuring set, reading numbers off a dial. He shouts them
     back. Somebody then has to turn those numbers into something meaningful with a slide
     rule, decide which direction the stub should move next, and start over. If the guess was
     wrong, the whole loop runs again. This is how the afternoon goes.
   </p>
-  <p>
+  <p data-i18n="s1.p4">
     The younger man is <strong>Phillip Hagar Smith</strong>, one year out of Tufts. He is not
     new to this frustration. He had been a radio amateur as a teenager, fighting exactly the
     same physics in his own backyard with equipment he could afford, which is to say almost
     none. Bell Labs hired him and handed him the professional-sized version of his childhood
     problem.
   </p>
-  <p>
+  <p data-i18n="s1.p5">
     And here is the thing that should annoy you on his behalf: <em>the physics was not a
     mystery.</em> Oliver Heaviside had written the exact equations down in the 1880s. Nobody
     was confused. The answer was known and it was simply, brutally slow to compute — every
     time, all day, by hand.
   </p>
-  <p>
+  <p data-i18n="s1.p6">
     To understand why two grown men were stuck in a field shouting numbers at each other, you
     need one fact about wires that first-year circuit theory never mentions.
   </p>
 
   <!-- ============ 2 ============ -->
-  <h2 id="s2"><span class="secnum">02</span> The day a cable stops being a cable</h2>
+  <h2 id="s2" data-i18n="s1.h21"><span class="secnum">02</span> The day a cable stops being a cable</h2>
 
-  <p>
+  <p data-i18n="s2.p1">
     Plug a lamp into the wall with a two-metre cable. Nothing interesting happens. The voltage
     at the plug is the voltage at the lamp. The cable is furniture.
   </p>
-  <p>
+  <p data-i18n="s2.p2">
     That is true — but only because of a coincidence. Mains electricity in most of the world
     is 50 Hz, and one cycle of a 50 Hz wave is <strong>6000 kilometres</strong> long. Next to
     that, your two-metre cable is a rounding error. So it behaves like a plain connection.
   </p>
 
   <details class="decode">
-    <summary>Hold on — what is a “wavelength”?</summary>
+    <summary data-i18n="s2.sum1">Hold on — what is a “wavelength”?</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s2.p3">
         How far the signal travels during one full up-and-down cycle. Electrical signals move
         at roughly 300,000 km per second, so you get the wavelength by dividing that speed by
         the frequency. 50 Hz gives 6000 km. 3 GHz gives 10 cm.
       </p>
-      <p>
+      <p data-i18n="s2.p4">
         This single number decides everything that follows. It is not the length of your cable
         that matters. It is the length of your cable <em>compared to the wavelength</em>.
       </p>
     </div>
   </details>
 
-  <p>
+  <p data-i18n="s2.p5">
     Now push 3 GHz through the same cable — microwave territory, just past the top of the
     2.4 GHz Wi-Fi band. The wavelength collapses
     to <strong>10 centimetres</strong>. Suddenly a 2.5 cm scrap of copper is not a detail; it
@@ -244,41 +259,41 @@
     turns a dead short into an open circuit. Your wire is not a connection any more. It is a
     <em>component</em>, and you did not choose its value.
   </p>
-  <p>
+  <p data-i18n="s2.p6">
     Why? Because the signal needs real time to reach the end of the cable. If whatever is
     sitting there does not swallow it completely, part of it comes <em>back</em>. Now two
     waves share one piece of copper: one heading out, one heading home. They add up. And what
     they add up to depends on <em>where you are standing</em>.
   </p>
-  <p>
+  <p data-i18n="s2.p7">
     There is a rule of thumb for when you can stop worrying. If the wire is shorter than about
     <strong>one tenth of a wavelength</strong>, every point on it sits at nearly the same
     voltage and the circuit theory you already know works fine. Longer than that, and two
     points on the <em>same</em> wire are at different voltages at the same instant. At that
     moment the wire earns a new name: a <strong>transmission line</strong>.
   </p>
-  <p>
+  <p data-i18n="s2.p8">
     Do not take my word for it. Below is that same two-metre cable, with the voltage drawn as
     it really behaves — swinging up and down. Turn the frequency up and watch it stop being a
     wire.
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 1</span><span class="fig-t">TWO METRES OF WIRE — TURN THE FREQUENCY UP</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s2.span1">FIG 1</span><span class="fig-t" data-i18n="s2.span2">TWO METRES OF WIRE — TURN THE FREQUENCY UP</span></div>
     <div class="canvas-wrap"><canvas id="figScale"></canvas></div>
     <div class="fig-split">
       <div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">FREQUENCY</span><span class="ctl-val" id="scaleFv">50 Hz</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s2.span3">FREQUENCY</span><span class="ctl-val" id="scaleFv">50 Hz</span></div>
           <input class="slider" type="range" id="scaleF" aria-label="Signal frequency" min="0" max="1000" step="1" value="0">
         </div>
         <div class="chip-row" id="scalePresets"></div>
-        <button class="pill on" type="button" id="scalePlay">❙❙ Pause</button>
+        <button class="pill on" type="button" id="scalePlay" data-i18n="s2.btn1">❙❙ Pause</button>
         <p id="scaleNote" style="font-size:.9rem;margin:.8rem 0 0;opacity:.88"></p>
       </div>
       <dl class="ro" id="scaleOut"></dl>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s2.cap1">
       A 2 m cable, driven from the left, left open at the right. The solid line is the real
       voltage at every point, right now — it swings above and below zero, because that is what
       a wave does. The dashed pair is as far as it ever gets. At <b>50 Hz</b> the whole cable
@@ -290,90 +305,90 @@
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s2.p9">
     That is what Smith was fighting in the field. Not a hard idea — a <em>moving target</em>.
     Every centimetre his colleague walked, the answer changed.
   </p>
 
   <!-- ============ 3 ============ -->
-  <h2 id="s3"><span class="secnum">03</span> One number for the whole load</h2>
+  <h2 id="s3" data-i18n="s2.h21"><span class="secnum">03</span> One number for the whole load</h2>
 
-  <p>
+  <p data-i18n="s3.p1">
     Now the good news, and it is the key to the entire rest of this article.
   </p>
-  <p>
+  <p data-i18n="s3.p2">
     Whatever you bolt onto the end of that cable — an antenna, an amplifier, a chip, a
     resistor, or literally nothing — the cable only ever learns two things about it:
     <strong>how much of the wave comes back, and how late it arrives</strong>. Two numbers.
     Not a schematic. Not a part number. Two numbers.
   </p>
-  <p>
+  <p data-i18n="s3.p3">
     And two numbers travelling together is exactly what a complex number is. We call this one
-    the <strong>reflection coefficient</strong>, and we write it Γ (gamma). The size of Γ is
+    the <strong data-i18n="s3.b1">reflection coefficient</strong>, and we write it Γ (gamma). The size of Γ is
     how much bounced back. The angle of Γ is how late.
   </p>
 
   <details class="decode">
-    <summary>Quick refresher — impedance, and why it needs two numbers</summary>
+    <summary data-i18n="s3.sum1">Quick refresher — impedance, and why it needs two numbers</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s3.p4">
         Resistance is how hard a component pushes back against current. Impedance is the same
         idea for AC signals, but with a second half to it.
       </p>
-      <p>
+      <p data-i18n="s3.p5">
         A resistor pushes back and keeps voltage and current marching in step. A capacitor or
         an inductor <em>also</em> shifts their timing relative to each other. One number cannot
         describe both effects, so impedance uses two: <b>R</b>, the honest push-back, and
         <b>X</b>, the timing shift. We stack them into one symbol and write Z = R + jX. The
         <em>j</em> is just a bookkeeping mark meaning “this part is the timing one”.
       </p>
-      <p>
+      <p data-i18n="s3.p6">
         Positive X means inductive — coils, and anything that behaves like one. Negative X
         means capacitive. That is the whole vocabulary you need here.
       </p>
     </div>
   </details>
 
-  <p>
+  <p data-i18n="s3.p7">
     Before the formula, a picture. Tie a rope to a wall and shake the free end at just the
     right speed. Something strange shows up. Some points on the rope barely move at all.
     Others swing hard between two limits. The rope looks frozen into one shape that only
     breathes in and out.
   </p>
-  <p>
+  <p data-i18n="s3.p8">
     Nothing is actually standing still. A wave is racing along that rope the entire time. You
     are seeing <em>two</em> waves at once — the one you sent, and the one the wall sent back.
     At some points they cancel. At others they pile up. That is a <strong>standing
     wave</strong>, and it is the same pattern you just watched appear in the copper in Fig 1.
   </p>
-  <p>
+  <p data-i18n="s3.p9">
     The ratio between the biggest point and the smallest point tells you how badly the far
     end failed to absorb your signal. That ratio has a name you have probably seen on an
     antenna datasheet: <strong>SWR</strong>.
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 2</span><span class="fig-t">THE WAVE THAT COMES BACK</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s3.span1">FIG 2</span><span class="fig-t" data-i18n="s3.span2">THE WAVE THAT COMES BACK</span></div>
     <div class="canvas-wrap"><canvas id="figWave"></canvas></div>
     <div class="chip-row" id="wavePresets"></div>
     <div class="fig-split">
       <div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">LOAD RESISTANCE R</span><span class="ctl-val" id="waveRv">25 Ω</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s3.span3">LOAD RESISTANCE R</span><span class="ctl-val" id="waveRv">25 Ω</span></div>
           <input class="slider" type="range" id="waveR" aria-label="Load resistance" min="0" max="200" step="1" value="25">
         </div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">LOAD REACTANCE X</span><span class="ctl-val" id="waveXv">−50 Ω</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s3.span4">LOAD REACTANCE X</span><span class="ctl-val" id="waveXv">−50 Ω</span></div>
           <input class="slider" type="range" id="waveX" aria-label="Load reactance" min="-150" max="150" step="1" value="-50">
         </div>
         <div class="check-row">
-          <label><input type="checkbox" id="waveParts"> show the two travelling waves</label>
+          <label data-i18n="s3.lbl1"><input type="checkbox" id="waveParts"> show the two travelling waves</label>
         </div>
         <button class="pill on" type="button" id="wavePlay">❙❙ Pause</button>
       </div>
       <dl class="ro" id="waveOut"></dl>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s3.cap1">
       A 50 Ω line, one and a half wavelengths long, driven from the left. The blue curve is
       the voltage you would actually measure; the dashed curves are the limits it moves
       between. <b>Press “Matched 50 Ω”</b> — the limits go flat, nothing comes back, and the
@@ -384,15 +399,15 @@
   </figure>
 
   <div class="eq card">
-    <span class="lbl">reflection coefficient</span>
+    <span class="lbl" data-i18n="s3.eqlbl">reflection coefficient</span>
     Γ =
     <span class="frac"><span class="num">Z<sub>L</sub> − Z<sub>0</sub></span><span class="den">Z<sub>L</sub> + Z<sub>0</sub></span></span>
   </div>
 
-  <p>
+  <p data-i18n="s3.p10">
     Two things about this formula matter more than the formula itself.
   </p>
-  <p>
+  <p data-i18n="s3.p11">
     <strong>First:</strong> if the load happens to equal Z<sub>0</sub>, the top of the
     fraction becomes zero and <strong>nothing comes back at all</strong>. This is called a
     <em>match</em>, and an embarrassingly large part of RF engineering is just trying to
@@ -400,16 +415,16 @@
   </p>
 
   <details class="decode">
-    <summary>What is Z₀, and why is it always 50 Ω?</summary>
+    <summary data-i18n="s3.sum2">What is Z₀, and why is it always 50 Ω?</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s3.p12">
         Z<sub>0</sub> is the <em>characteristic impedance</em> of the cable. It is not a
         resistor hidden inside it — you cannot find it with a multimeter. It is the
         voltage-to-current ratio a wave naturally settles into while it travels down that
         particular cable, decided purely by geometry: conductor thickness, spacing, and
         whatever plastic sits between them.
       </p>
-      <p>
+      <p data-i18n="s3.p13">
         The famous 50 Ω is a compromise from the 1930s. Coaxial cable of a given size handles
         the most power at around 30 Ω, and has the lowest loss at around 77 Ω. Somebody split
         the difference, the industry agreed, and here we all still are.
@@ -417,33 +432,33 @@
     </div>
   </details>
 
-  <p>
+  <p data-i18n="s3.p14">
     <strong>Second,</strong> and this is the one to remember: a passive load cannot send back
     more energy than it received. Physics does not allow it. So <strong>|Γ| ≤ 1,
     always</strong>. Every possible passive load in the universe — every antenna ever built,
     every impedance you will ever measure on a bench — lives inside a circle of radius 1.
   </p>
-  <p>
+  <p data-i18n="s3.p15">
     Hold on to that sentence. It is the whole idea.
   </p>
 
   <details class="decode">
-    <summary>|Γ|, SWR, return loss — three costumes, one fact</summary>
+    <summary data-i18n="s3.sum3">|Γ|, SWR, return loss — three costumes, one fact</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s3.p16">
         <b>|Γ|</b> is the fraction of the wave amplitude that comes back. 0 is perfect,
         1 is total rejection.
       </p>
-      <p>
+      <p data-i18n="s3.p17">
         <b>SWR</b> is the ratio between the largest and smallest voltage found along the line.
         1 : 1 is perfect, 2 : 1 is a perfectly respectable antenna, ∞ : 1 means everything
         bounced.
       </p>
-      <p>
+      <p data-i18n="s3.p18">
         <b>Return loss</b> is the same thing in decibels, and here bigger is better: 20 dB
         means only 1 % of the power came back.
       </p>
-      <p>
+      <p data-i18n="s3.p19">
         They are three ways of saying one thing. Datasheets use all three, sometimes on the
         same page, which is exactly as helpful as it sounds.
       </p>
@@ -451,107 +466,107 @@
   </details>
 
   <!-- ============ 4 ============ -->
-  <h2 id="s4"><span class="secnum">04</span> The arithmetic that ate the afternoon</h2>
+  <h2 id="s4" data-i18n="s3.h21"><span class="secnum">04</span> The arithmetic that ate the afternoon</h2>
 
-  <p>
+  <p data-i18n="s4.p1">
     Back to the field. The question Smith actually needed answered, over and over, is a very
     reasonable one: <em>my antenna is at the far end of a cable of length ℓ. What does it look
     like from where I am standing?</em>
   </p>
-  <p>
+  <p data-i18n="s4.p2">
     Heaviside had already answered it, forty years earlier. Here is the answer:
   </p>
 
   <div class="eq card">
-    <span class="lbl">input impedance of a loaded line</span>
+    <span class="lbl" data-i18n="s4.span1">input impedance of a loaded line</span>
     Z<sub>in</sub> = Z<sub>0</sub>
-    <span class="frac">
+    <span class="frac" data-i18n="s4.span2">
       <span class="num">Z<sub>L</sub> + j Z<sub>0</sub> tan βℓ</span>
-      <span class="den">Z<sub>0</sub> + j Z<sub>L</sub> tan βℓ</span>
+      <span class="den" data-i18n="s4.span3">Z<sub>0</sub> + j Z<sub>L</sub> tan βℓ</span>
     </span>
   </div>
 
-  <p>
+  <p data-i18n="s4.p3">
     You do not have to like this formula. Nobody does. On a laptop it is one line of code and
     you will never think about it again.
   </p>
-  <p>
+  <p data-i18n="s4.p4">
     In 1930 it is one complex multiplication, one complex division and one tangent — with a
     slide rule and a book of logarithm tables. Several minutes of careful, boring work. And
     one mistyped digit gives you a confidently wrong answer with no warning whatsoever.
   </p>
-  <p>
+  <p data-i18n="s4.p5">
     Now do it again for the next frequency. And the next. And for the twenty cable lengths you
     are choosing between. And for every stub position your colleague is about to try, all
     afternoon, while he waits in the cold.
   </p>
 
-  <div class="pull">
+  <div class="pull" data-i18n="s4.box1">
     The Smith chart did not come from beauty. It came from <em>boredom</em>.
   </div>
 
-  <p>
+  <p data-i18n="s4.p6">
     A stubborn engineer who genuinely loved radio had to grind this arithmetic hundreds of
     times a week, standing in a field. He said as much himself, years later: he simply
     preferred drawing to calculating. So he tried to draw his way out.
   </p>
 
   <!-- ============ 5 ============ -->
-  <h2 id="s5"><span class="secnum">05</span> You cannot draw infinity — so fold it</h2>
+  <h2 id="s5" data-i18n="s4.h21"><span class="secnum">05</span> You cannot draw infinity — so fold it</h2>
 
-  <p>
+  <p data-i18n="s5.p1">
     His first instinct was the obvious one: plot the impedance. Impedance is a complex number,
     Z = R + jX, and for anything passive R can never go negative. So every impedance in
     existence lives in the <strong>right half of the complex plane</strong>.
   </p>
-  <p>
+  <p data-i18n="s5.p2">
     Which is a lovely idea until you try to print it. That region runs off to infinity in two
     directions. Any sheet of graph paper you make shows a small window and throws the rest
     away. Smith's first attempt, in 1931, had exactly this problem — it worked, but only for
     a narrow range of impedances, which is a polite way of saying it did not really work.
   </p>
-  <p>
+  <p data-i18n="s5.p3">
     Then came the idea that fixed everything.
   </p>
-  <p>
+  <p data-i18n="s5.p4">
     We already know Γ carries the same information as Z. And we know Γ can never escape a
     circle of radius 1. So: <strong>stop drawing impedance. Draw Γ instead — and print the
     impedance numbers on top of it.</strong> The infinite half-plane folds down into something
     the size of a coin.
   </p>
-  <p>
+  <p data-i18n="s5.p5">
     Why is that beautiful rather than merely clever? Because of what happens to the grid lines.
     The map from Z to Γ is what mathematicians call a <strong>Möbius transformation</strong>,
     and those have one famous habit: they turn lines and circles into lines and circles, and
     never into anything else. Bend the paper however you like — a circle stays a circle.
   </p>
-  <p>
+  <p data-i18n="s5.p6">
     So the plain square grid of “constant R” and “constant X” lines does not get destroyed by
     the fold. It survives, bent into circles. Watch it happen:
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 3</span><span class="fig-t">THE FOLD — DRAG THE SLIDER</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s5.span1">FIG 3</span><span class="fig-t" data-i18n="s5.span2">THE FOLD — DRAG THE SLIDER</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figFold"></canvas></div>
       <div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">FOLD</span><span class="ctl-val" id="foldTv">0 %</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s5.span3">FOLD</span><span class="ctl-val" id="foldTv">0 %</span></div>
           <input class="slider" type="range" id="foldT" aria-label="How far the impedance plane is folded" min="0" max="100" step="1" value="0">
         </div>
-        <button class="pill" type="button" id="foldPlay">▶ Fold it</button>
-        <p style="font-size:.92rem;margin:1.1rem 0 0;opacity:.88">
+        <button class="pill" type="button" id="foldPlay" data-i18n="s5.btn1">▶ Fold it</button>
+        <p style="font-size:.92rem;margin:1.1rem 0 0;opacity:.88" data-i18n="s5.p7">
           At 0 % you are looking at the impedance plane: plain square graph paper. Vertical
           lines are constant resistance. Horizontal lines are constant reactance. The edges
           are where the numbers run away to infinity.
         </p>
-        <p style="font-size:.92rem;margin:.8rem 0 0;opacity:.88">
+        <p style="font-size:.92rem;margin:.8rem 0 0;opacity:.88" data-i18n="s5.p8">
           At 100 % you are looking at a Smith chart. Same lines, same labels. Nothing was
           thrown away — the paper was only bent.
         </p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s5.cap1">
       Three things are worth watching. <b>The horizontal centre line never moves</b> — pure
       resistances stay exactly where they were, which is why the real axis of the chart is
       still an honest straight ruler. <b>The left edge curls into the outer circle</b>: that
@@ -562,41 +577,41 @@
     </figcaption>
   </figure>
 
-  <div class="note card">
+  <div class="note card" data-i18n="s5.box1">
     <b>If you remember one sentence from this article,</b> make it this one: the Smith chart
     is not a picture of impedance. It is a picture of <em>reflection</em>, with impedance
     labels printed on top. Every strange thing about the chart comes from this one fact.
   </div>
 
   <!-- ============ 6 ============ -->
-  <h2 id="s6"><span class="secnum">06</span> Learning to read the map</h2>
+  <h2 id="s6" data-i18n="s5.h21"><span class="secnum">06</span> Learning to read the map</h2>
 
-  <p>
+  <p data-i18n="s6.p1">
     After the fold, the chart behaves like a map. And every map has landmarks you learn once
     and then never think about again.
   </p>
   <ul>
-    <li><strong>The centre</strong> is Z<sub>0</sub> — 50 Ω, a perfect match, Γ = 0. This is
+    <li data-i18n="s6.li1"><strong>The centre</strong> is Z<sub>0</sub> — 50 Ω, a perfect match, Γ = 0. This is
       where you are trying to get to.</li>
-    <li><strong>Far left</strong> is a short circuit. <strong>Far right</strong> is an open
+    <li data-i18n="s6.li2"><strong>Far left</strong> is a short circuit. <strong>Far right</strong> is an open
       circuit. Both send everything back, but with opposite sign.</li>
-    <li><strong>The horizontal line</strong> through the middle holds every purely resistive
+    <li data-i18n="s6.li3"><strong>The horizontal line</strong> through the middle holds every purely resistive
       load — anything with no timing shift at all.</li>
-    <li><strong>Above the line is inductive, below is capacitive.</strong> Nothing to
+    <li data-i18n="s6.li4"><strong>Above the line is inductive, below is capacitive.</strong> Nothing to
       memorise: on a chart, coils go up.</li>
-    <li><strong>Distance from the centre is |Γ|</strong> — how bad your match is. A circle
+    <li data-i18n="s6.li5"><strong>Distance from the centre is |Γ|</strong> — how bad your match is. A circle
       drawn around the centre is a constant-SWR circle.</li>
   </ul>
 
   <details class="decode">
-    <summary>Why the chart says “1” where you expect 50 Ω</summary>
+    <summary data-i18n="s6.sum1">Why the chart says “1” where you expect 50 Ω</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s6.p2">
         Engineers almost never write real ohms on a chart. They divide everything by
         Z<sub>0</sub> first, so 50 Ω becomes 1, 25 Ω becomes 0.5, 100 Ω becomes 2. That is
         what the lowercase <em>z</em> means: normalised impedance.
       </p>
-      <p>
+      <p data-i18n="s6.p3">
         The payoff is that one printed chart then works for every cable on Earth, whether it
         is 50 Ω, 75 Ω or something exotic. You just multiply by Z<sub>0</sub> at the very end.
       </p>
@@ -604,20 +619,20 @@
   </details>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 4</span><span class="fig-t">DRAG THE POINT ANYWHERE</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s6.span1">FIG 4</span><span class="fig-t" data-i18n="s6.span2">DRAG THE POINT ANYWHERE</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figRead"></canvas></div>
       <div>
         <div class="chip-row" id="readPresets"></div>
         <dl class="ro" id="readOut"></dl>
-        <p style="font-size:.9rem;margin:1rem 0 0;opacity:.85">
+        <p style="font-size:.9rem;margin:1rem 0 0;opacity:.85" data-i18n="s6.p4">
           The two blue curves through the marker are its constant-resistance circle and its
           constant-reactance arc. These are the chart's grid lines — the ones that were
           straight before the fold. The dashed circle is constant SWR.
         </p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s6.cap1">
       Every value on the right is the same information wearing a different hat: an impedance,
       a reflection coefficient, an SWR, a return loss in dB. RF engineers move between these
       four all day long, and the chart is the one place where you can see all of them at once.
@@ -625,42 +640,42 @@
   </figure>
 
   <!-- ============ 7 ============ -->
-  <h2 id="s7"><span class="secnum">07</span> Walking down a cable is just turning a dial</h2>
+  <h2 id="s7" data-i18n="s6.h21"><span class="secnum">07</span> Walking down a cable is just turning a dial</h2>
 
-  <p>
+  <p data-i18n="s7.p1">
     Here is the payoff. This is the moment the chart stopped being a nice picture and became
     a tool.
   </p>
-  <p>
+  <p data-i18n="s7.p2">
     On a cable with no loss, moving away from the load does not change <em>how much</em> comes
     back. It only delays it. In Γ language: the size stays exactly the same, and only the
     angle turns.
   </p>
-  <p>
+  <p data-i18n="s7.p3">
     Which means walking along a cable is precisely one thing on this chart:
     <strong>turning around the centre at a fixed radius</strong>. Like a dial.
   </p>
-  <p>
+  <p data-i18n="s7.p4">
     That miserable tangent formula from section 4 — the one that cost several minutes with a
     slide rule — becomes a compass. Put the point in the centre. Set the radius to your load.
     Turn. Half a wavelength of cable is one full circle.
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 5</span><span class="fig-t">WALK DOWN THE CABLE</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s7.span1">FIG 5</span><span class="fig-t" data-i18n="s7.span2">WALK DOWN THE CABLE</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figRot"></canvas></div>
       <div>
         <div class="chip-row" id="rotPresets"></div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">LINE LENGTH</span><span class="ctl-val" id="rotLenv">0 λ</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s7.span3">LINE LENGTH</span><span class="ctl-val" id="rotLenv">0 λ</span></div>
           <input class="slider" type="range" id="rotLen" aria-label="Length of transmission line, in wavelengths" min="0" max="500" step="1" value="0">
         </div>
         <dl class="ro" id="rotOut"></dl>
         <p id="rotNote" style="font-size:.9rem;margin:1rem 0 0;opacity:.88"></p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s7.cap1">
       Start with a <b>short circuit</b> and drag the slider to <b>0.25 λ</b>. You travel
       exactly half the circle and arrive at the far right of the chart: an <b>open
       circuit</b>. That is not a trick of the drawing. That is genuinely what a quarter
@@ -670,41 +685,41 @@
     </figcaption>
   </figure>
 
-  <div class="pull">
+  <div class="pull" data-i18n="s7.box1">
     A number tells you where you are. The chart tells you which way to move.
   </div>
 
   <!-- ============ 8 ============ -->
-  <h2 id="s8"><span class="secnum">08</span> Matching, as a route</h2>
+  <h2 id="s8" data-i18n="s7.h21"><span class="secnum">08</span> Matching, as a route</h2>
 
-  <p>
+  <p data-i18n="s8.p1">
     Rotation is not the only legal move. There are two more, and together they turn matching
     from algebra into navigation.
   </p>
-  <p>
+  <p data-i18n="s8.p2">
     Put a component <strong>in series</strong> with the load. It can only change the reactance,
     never the resistance — so the point slides along a constant-resistance circle.
   </p>
-  <p>
+  <p data-i18n="s8.p3">
     Put a component <strong>in parallel</strong>. Now it can only change the susceptance — so
     the point slides along a constant-conductance circle, which is the same family of circles,
     mirrored.
   </p>
 
   <details class="decode">
-    <summary>“Susceptance”? “Conductance”? — admittance, in one minute</summary>
+    <summary data-i18n="s8.sum1">“Susceptance”? “Conductance”? — admittance, in one minute</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s8.p4">
         Admittance is impedance turned upside down: Y = 1 / Z. Conductance <b>G</b> is the
         flipped version of resistance, and susceptance <b>B</b> is the flipped version of
         reactance. Same physics, inverted bookkeeping.
       </p>
-      <p>
+      <p data-i18n="s8.p5">
         Why bother? Because components wired in <em>series</em> add their impedances, and
         components wired in <em>parallel</em> add their admittances. Picking the right one
         turns an ugly division into a simple sum.
       </p>
-      <p>
+      <p data-i18n="s8.p6">
         That is the entire reason the chart carries a second, mirrored grid — the blue one you
         can switch on in the figure below. Series moves ride the black grid, parallel moves
         ride the blue one.
@@ -712,13 +727,13 @@
     </div>
   </details>
 
-  <p>
+  <p data-i18n="s8.p7">
     Put both grids on the chart at once and every possible move becomes a road on a map.
     Matching an antenna is no longer algebra. It is navigation: get from the load to the
     centre using the roads you are allowed to drive on. Usually there are two routes, and you
     can see both of them before you calculate a single thing.
   </p>
-  <p>
+  <p data-i18n="s8.p8">
     Now the two halves of this article finally meet. Go high enough in frequency and components
     stop existing in any honest sense: at 10 GHz, a “1 nH inductor” is mostly the parasitics of
     its own legs. So you stop buying parts and start cutting copper. Section 2 said a piece of
@@ -727,26 +742,26 @@
     most famous for:
   </p>
   <ol>
-    <li>Run the main line away from the load and <strong>rotate</strong> until you land on the
+    <li data-i18n="s8.li1">Run the main line away from the load and <strong>rotate</strong> until you land on the
       circle where the conductance is exactly 1. This fixes the real part and costs you
       nothing but distance. Call that distance <em>d</em>.</li>
-    <li>At that point, hang a dead-end piece of the same line off the side — <strong>a
+    <li data-i18n="s8.li2">At that point, hang a dead-end piece of the same line off the side — <strong>a
       stub</strong>. Cut it to the length whose susceptance exactly cancels whatever is left
       over. Done.</li>
   </ol>
-  <p>
+  <p data-i18n="s8.p9">
     Two lengths of copper. No components at all. And you read both numbers straight off the
     chart.
   </p>
 
   <details class="decode">
-    <summary>What exactly is a “stub”?</summary>
+    <summary data-i18n="s8.sum2">What exactly is a “stub”?</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s8.p10">
         A short piece of transmission line soldered onto the side of the main line and going
         nowhere — either left open at the far end, or shorted to ground.
       </p>
-      <p>
+      <p data-i18n="s8.p11">
         Because a length of line has an impedance of its own (that was section 2), a dead-end
         stub behaves exactly like a capacitor or an inductor whose value you set by
         <em>cutting it to length</em>. At 10 GHz that is far more accurate, more repeatable
@@ -757,7 +772,7 @@
   </details>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 6</span><span class="fig-t">MATCHING, AS A ROUTE</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s8.span1">FIG 6</span><span class="fig-t" data-i18n="s8.span2">MATCHING, AS A ROUTE</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figMatch"></canvas></div>
       <div>
@@ -766,14 +781,14 @@
         <div class="chip-row" id="matchSols"></div>
         <div class="chip-row" id="matchStub"></div>
         <div class="check-row">
-          <label><input type="checkbox" id="matchY" checked> show the admittance grid</label>
+          <label data-i18n="s8.lbl1"><input type="checkbox" id="matchY" checked> show the admittance grid</label>
         </div>
         <dl class="ro" id="matchOut"></dl>
         <p id="matchNote" style="font-size:.9rem;margin:1rem 0 0;opacity:.88"></p>
       </div>
     </div>
     <div class="canvas-wrap ckt"><canvas id="figMatchCkt"></canvas></div>
-    <figcaption>
+    <figcaption data-i18n="s8.cap1">
       A real design in two steps, drawn as a route on the chart and as a circuit underneath.
       <b>Line stub</b> — step 1 rides the dashed constant-SWR circle until it reaches the
       dashed <b>g = 1</b> circle, and the stub does the rest. Both lengths are in wavelengths
@@ -791,7 +806,7 @@
   </figure>
 
   <!-- ============ 9 ============ -->
-  <h2 id="s9"><span class="secnum">09</span> The man who would rather draw</h2>
+  <h2 id="s9" data-i18n="s8.h21"><span class="secnum">09</span> The man who would rather draw</h2>
 
   <div class="smith-card card">
     <figure class="pic">
@@ -804,7 +819,7 @@
         <circle cx="42" cy="32" r="18" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".8"/>
         <circle cx="50" cy="32" r="10" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
         <circle cx="36" cy="32" r="24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
-        <path d="M3 32h58" stroke="currentColor" stroke-width="1.4" opacity=".8"/>
+        <path d="M3 32h58" stroke="currentColor" stroke-width="1.4" opacity=".8"/ data-i18n="s9.path1">
         <path d="M53 32a21 21 0 0 1-21 21" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".45"/>
         <path d="M53 32a21 21 0 0 0-21-21" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".45"/>
         <circle cx="26" cy="20" r="4" fill="var(--sig)"/>
@@ -813,8 +828,8 @@
     </figure>
     <div>
       <p class="who">Phillip Hagar Smith</p>
-      <p class="when">1905 – 1987 · TUFTS COLLEGE 1928 · BELL TELEPHONE LABORATORIES</p>
-      <p>
+      <p class="when" data-i18n="s9.p1">1905 – 1987 · TUFTS COLLEGE 1928 · BELL TELEPHONE LABORATORIES</p>
+      <p data-i18n="s9.p2">
         He stayed at Bell Labs for 42 years, nearly all of it on antennas and transmission
         lines. He collected 21 US patents and published more than 35 papers. One more detail
         that is too good to leave out: Eli Whitney, the inventor of the cotton gin, was one of
@@ -833,17 +848,17 @@
     <div class="tl-body card" id="tlBody"></div>
   </div>
 
-  <p style="margin-top:2rem">
+  <p style="margin-top:2rem" data-i18n="s9.p3">
     Two things in that timeline deserve a second look.
   </p>
-  <p>
+  <p data-i18n="s9.p4">
     <strong>The first:</strong> Smith's original 1931 chart was not very good. He drew it on
     rectangular coordinates, so it could only show a narrow range of impedances. To get the
     version that changed everything, he had to stop drawing the obvious thing (impedance) and
     draw the strange thing instead (reflection). That is usually where the good version is
     hiding.
   </p>
-  <p>
+  <p data-i18n="s9.p5">
     <strong>The second:</strong> he was not alone. Tosaku Mizuhashi published a very similar
     chart in Japan in 1937. Amiel Volpert did the same in the Soviet Union in 1939. Three
     people, three countries, no contact between them, one answer. When that happens, it tells
@@ -851,9 +866,9 @@
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n">FIG 7</span><span class="fig-t">AS IT WAS PRINTED</span></div>
+    <div class="fig-head mono-label"><span class="fig-n" data-i18n="s9.span1">FIG 7</span><span class="fig-t" data-i18n="s9.span2">AS IT WAS PRINTED</span></div>
     <div class="canvas-wrap"><canvas id="figPrint"></canvas></div>
-    <figcaption>
+    <figcaption data-i18n="s9.cap1">
       Drawn live in your browser in the style of the printed article — this is not a scan.
       The absurdly dense grid is the whole point. A working chart had enough lines that you
       could read a third decimal off it with a sharp pencil, and the outer rings were rulers
@@ -862,70 +877,71 @@
   </figure>
 
   <!-- ============ 10 ============ -->
-  <h2 id="s10"><span class="secnum">10</span> Why computers could not kill it</h2>
+  <h2 id="s10" data-i18n="s9.h21"><span class="secnum">10</span> Why computers could not kill it</h2>
 
-  <p>
+  <p data-i18n="s10.p1">
     Every other graphical calculator from that era is dead. Nomograms, slide rules,
     planimeters, the Mollier diagrams gathering dust in mechanical engineering departments —
     all of them lost their jobs to a machine that did the arithmetic faster and without
     mistakes.
   </p>
-  <p>
+  <p data-i18n="s10.p2">
     The Smith chart lost that job too, somewhere around 1975. It did not care.
   </p>
-  <p>
+  <p data-i18n="s10.p3">
     It did not care because the number was never the interesting part. Look again at what the
     chart actually shows you. A match is a <em>place</em>. Cable length is a <em>rotation</em>.
     A series inductor is a <em>direction</em>. Bandwidth is <em>how long your curve stays near
     the middle</em>. A tuning screw is a <em>path</em>.
   </p>
-  <p>
+  <p data-i18n="s10.p4">
     The chart does not answer “what is Z?” A calculator does that better and always will. The
     chart answers <strong>“what should I do next?”</strong> — and nobody has automated that
     question yet.
   </p>
-  <p>
+  <p data-i18n="s10.p5">
     So it is still here. Open any vector network analyser built this year and one of the
     display modes is a Smith chart. It is on antenna datasheets, in every RF simulator, and in
     the notebook of every engineer tuning a filter. It is 87 years old, it came out of a
     problem about telephone cables, and it is still the fastest way to <em>see</em> what a wave
     is doing.
   </p>
-  <p>
+  <p data-i18n="s10.p6">
     Not bad for a man who just wanted to stop doing sums.
   </p>
 
   <div class="cta card">
-    <h3>Now go break it yourself</h3>
-    <p>
+    <h3 data-i18n="s10.h31">Now go break it yourself</h3>
+    <p data-i18n="s10.p7">
       The figures above are deliberately small — each one makes exactly one point. The full
       tool is next door: drag the reflection point with every value live, rotate along a lossy
       or lossless line, turn the admittance grid on and off, and work through seven guided
       lessons that end with L-network matching.
     </p>
     <div class="btn-row">
-      <a class="btn solid" href="https://smith.hkk.fyi/" target="_blank" rel="noopener">Open Smith Chart Studio ↗</a>
-      <a class="btn" href="../../#lab">Back to the Lab</a>
+      <a class="btn solid" href="https://smith.hkk.fyi/" target="_blank" rel="noopener" data-i18n="s10.a1">Open Smith Chart Studio ↗</a>
+      <a class="btn" href="../../#lab" data-i18n="s10.a2">Back to the Lab</a>
     </div>
   </div>
 
-  <h3 style="margin-top:3rem">Sources &amp; further reading</h3>
+  <h3 style="margin-top:3rem" data-i18n="s10.h32">Sources &amp; further reading</h3>
   <ul class="refs">
-    <li>P. H. Smith, “Transmission Line Calculator,” <em>Electronics</em>, vol. 12, no. 1, Jan. 1939.</li>
-    <li>P. H. Smith, “An Improved Transmission Line Calculator,” <em>Electronics</em>, vol. 17, no. 1, Jan. 1944.</li>
-    <li>P. H. Smith, <em>Electronic Applications of the Smith Chart</em>, McGraw-Hill, 1969.</li>
-    <li>IEEE History Center, oral history interview with P. H. Smith, 1973.</li>
-    <li>D. M. Pozar, <em>Microwave Engineering</em>, 4th ed., Wiley — chapter 2, for the transmission-line theory behind every figure here.</li>
+    <li data-i18n="s10.li1">P. H. Smith, “Transmission Line Calculator,” <em>Electronics</em>, vol. 12, no. 1, Jan. 1939.</li>
+    <li data-i18n="s10.li2">P. H. Smith, “An Improved Transmission Line Calculator,” <em>Electronics</em>, vol. 17, no. 1, Jan. 1944.</li>
+    <li data-i18n="s10.li3">P. H. Smith, <em>Electronic Applications of the Smith Chart</em>, McGraw-Hill, 1969.</li>
+    <li data-i18n="s10.li4">IEEE History Center, oral history interview with P. H. Smith, 1973.</li>
+    <li data-i18n="s10.li5">D. M. Pozar, <em>Microwave Engineering</em>, 4th ed., Wiley — chapter 2, for the transmission-line theory behind every figure here.</li>
   </ul>
 
 </article>
 </main>
 
 <footer class="footer">
-  <span>© 2026 Hassan Keshtkar · <span class="mono-label">hkk.fyi</span></span>
-  <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
+  <span data-i18n="s10.span1">© 2026 Hassan Keshtkar · <span class="mono-label">hkk.fyi</span></span>
+  <span class="footer-love" data-i18n="s10.span2">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
 </footer>
 
+<script src="i18n.js"></script>
 <script src="post.js"></script>
 </body>
 </html>
