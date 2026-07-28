@@ -37,6 +37,7 @@
   <nav class="nav" aria-label="Sections">
     <a href="#about">About</a>
     <a href="#lab">Lab</a>
+    <a href="#writing">Writing</a>
     <a href="#cv">CV</a>
     <a href="#contact">Contact</a>
   </nav>
@@ -108,9 +109,17 @@
           transmission line; flip impedance/admittance grids — then work through
           seven guided lessons, from “what is this chart” to L-network matching.
         </p>
+        <p>
+          And if you want the story rather than the tool:
+          <a href="posts/smith-chart/"><b>Folding infinity into a circle</b></a> is an essay on
+          where the chart came from — a bored Bell Labs engineer in 1929, an infinite plane
+          folded down to the size of a coin, and why software never managed to kill it.
+          Seven live figures, no RF background needed.
+        </p>
         <div class="btn-row">
           <button class="btn solid" type="button" data-launch="https://smith.hkk.fyi/" data-title="Smith Chart Studio">Launch here</button>
           <a class="btn" href="https://smith.hkk.fyi/" target="_blank" rel="noopener">Open in new tab ↗</a>
+          <a class="btn" href="posts/smith-chart/">Read the essay</a>
         </div>
       </div>
     </article>
@@ -121,10 +130,53 @@
     </article>
   </section>
 
+  <!-- ================= WRITING ================= -->
+  <section id="writing" class="section">
+    <h2>
+      <span class="secnum">02</span> Writing
+      <svg class="secsym" viewBox="0 0 30 16" aria-hidden="true"><path d="M0 4h21M0 8h30M0 12h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+    <p class="section-intro">Long essays on the things I keep circling back to. Same rule as the Lab — every figure is live and you can break it, nothing here is a screenshot.</p>
+
+    <!-- To add an essay: put it in posts/<name>/ and duplicate this block. -->
+    <div class="writing-list">
+      <details class="wr card" open>
+        <summary>
+          <span class="wr-title">Folding infinity into a circle</span>
+          <span class="wr-when">2026</span>
+          <span class="fold-hint" aria-hidden="true">▾</span>
+        </summary>
+        <div class="wr-body">
+          <p class="mono-label wr-meta">ESSAY · RF &amp; MICROWAVE · ~15 MIN · 7 LIVE FIGURES</p>
+          <p>
+            Almost every engineering student is a little scared of the Smith chart — it looks
+            like a dartboard left out in the rain. It isn't hard. A bored Bell Labs engineer
+            drew it in 1939 to stop doing the same arithmetic every day, and every radio
+            instrument built this year still puts his circles on the screen.
+          </p>
+          <p>
+            The story of how an infinite plane gets folded down to the size of a coin, why the
+            grid lines survive the fold, and why software never managed to kill it. No RF
+            background needed — every term gets explained the first time it shows up.
+          </p>
+          <div class="btn-row">
+            <a class="btn solid" href="posts/smith-chart/">Read the essay</a>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <article class="project-slot card" aria-label="Reserved slot for the next essay">
+      <p class="mono-label">NEXT ESSAY</p>
+      <p>Being written. Probably about waveguides, or why every antenna is secretly the same antenna.</p>
+    </article>
+  </section>
+
   <!-- ================= CV ================= -->
   <section id="cv" class="section">
     <h2>
-      <span class="secnum">02</span> Curriculum Vitae
+      <span class="secnum">03</span> Curriculum Vitae
       <svg class="secsym" viewBox="0 0 28 16" aria-hidden="true"><path d="M0 8h9M11 2v12M17 2v12M19 8h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span class="secrule" aria-hidden="true"></span>
     </h2>
@@ -270,7 +322,7 @@
   <!-- ================= CONTACT ================= -->
   <section id="contact" class="section">
     <h2>
-      <span class="secnum">03</span> Contact
+      <span class="secnum">04</span> Contact
       <svg class="secsym" viewBox="0 0 26 16" aria-hidden="true"><path d="M0 8h7" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="8" r="1.6" fill="currentColor"/><path d="M19 8h7" stroke="currentColor" stroke-width="1.6"/></svg>
       <span class="secrule" aria-hidden="true"></span>
     </h2>

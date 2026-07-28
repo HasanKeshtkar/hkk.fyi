@@ -7,6 +7,10 @@ desktop.ini
 .claude/
 .vscode/
 
+# Wrangler's local cache — holds the Cloudflare account id and account name,
+# and the Pages deploy uploads the whole checkout
+.wrangler/
+
 # Secrets
 .env
 .env.*

@@ -1,0 +1,351 @@
+/* ============================================================
+   post styles — inherits the three hues from assets/site.css
+   (paper / ink / sig).
+   ============================================================ */
+
+/* ---------- light theme: back to the site's own cream ----------
+   --bg is left alone this time — only the blue gets deepened.
+   ---- this block is the part to lift into assets/site.css ---- */
+html:not(.ink){
+  /* the blueprint blue was tuned against dark ink, where it sits at a
+     comfortable ~6:1. The same hex over cream paper is only ~3.9:1 — thin
+     for 11px mono labels (FIG 5, secnum, readout values). Same hue, deeper:
+     ~6.2:1. Light theme only — the dark theme's contrast runs the other way. */
+  --sig:#1E49A8;
+}
+
+/* ---------- light-theme legibility ----------
+   Dark ink on light paper loses contrast far faster than light ink on
+   dark: #1C1B1A at 65% over cream lands around 4.5:1, but at 45% it is
+   down at 2.7:1 and genuinely hard to read. Lift the faint tiers. */
+html:not(.ink) .mono-label{ opacity:1; }
+html:not(.ink) .ro dt{ opacity:.8; }
+html:not(.ink) .eq .lbl{ opacity:.75; }
+html:not(.ink) .smith-card .when{ opacity:.8; }
+html:not(.ink) .tl-item .lb{ opacity:.85; }
+html:not(.ink) .byline .dot{ opacity:.55; }
+
+/* ---------- reading column ---------- */
+.post{ padding-bottom:4rem; }
+.post > *{ max-width:66ch; }
+.post > .wide,
+.post > figure.fig,
+.post > .rule{ max-width:100%; }
+
+.post p{ margin:0 0 1.15rem; }
+.post h2{
+  display:flex; align-items:baseline; gap:.7rem;
+  font-size:1.6rem; font-weight:700; letter-spacing:-.01em;
+  margin:3.4rem 0 1rem; scroll-margin-top:5rem;
+}
+.post h2 .secnum{ font-family:var(--font-mono); font-weight:500; font-size:.95rem; color:var(--sig); }
+.post h3{ font-size:1.05rem; margin:2rem 0 .5rem; }
+.post strong{ font-weight:700; }
+.post em{ font-style:italic; }
+
+.rule{
+  border:0; height:1px; margin:3rem 0 0;
+  background:color-mix(in srgb, var(--fg) 22%, transparent);
+}
+
+/* ---------- article hero ---------- */
+.post-hero{ padding:3.4rem 0 .6rem; max-width:100%; }
+.post-kicker{ color:var(--sig); margin-bottom:.9rem; display:block; }
+.post-hero h1{
+  font-size:clamp(2.2rem, 5.6vw, 3.7rem);
+  line-height:1.05; letter-spacing:-.025em;
+  margin:0 0 1rem; font-weight:700; max-width:16ch;
+}
+.post-sub{ font-size:1.12rem; max-width:56ch; opacity:.9; }
+
+/* Intro text beside the chart itself, so "look at it" has something to look at.
+   NOTE: do not call this .hero-grid — site.css already owns that class for the
+   home page and gives it a two-column grid-template-areas, which survives an
+   override of grid-template-columns alone and silently keeps two columns. */
+.post-lede{
+  display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);
+  gap:2.4rem; align-items:center;
+}
+.lede-chart{ margin:0; }
+.lede-chart canvas{ display:block; width:100%; height:100%; }
+.lede-chart figcaption{ text-align:center; margin-top:.55rem; opacity:.5; }
+@media (max-width:760px){
+  .post-lede{ grid-template-columns:1fr; gap:1.6rem; }
+  .lede-chart{ max-width:280px; margin:0 auto; }
+}
+.byline{
+  display:flex; gap:.7rem; flex-wrap:wrap; align-items:center;
+  margin-top:1.6rem; padding-top:1rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 20%, transparent);
+  max-width:100%;
+}
+.byline .dot{ opacity:.4; }
+
+/* ---------- back link ---------- */
+.backlink{
+  font-family:var(--font-mono); font-size:.78rem; letter-spacing:.08em;
+  text-transform:uppercase; text-decoration:none; opacity:.8;
+}
+.backlink:hover{ color:var(--sig); opacity:1; }
+
+/* ---------- the 30-second version ----------
+   Sits between the hero and the contents: a reader who bounces here should
+   still leave with the idea, and a reader who stays knows what they are
+   buying into. */
+.tldr{
+  padding:1.15rem 1.35rem; margin:2.4rem 0 0;
+  border-left:3px solid var(--sig);
+}
+.tldr > .mono-label{ color:var(--sig); display:block; margin-bottom:.7rem; }
+.tldr ul{ margin:0; padding-left:1.15rem; }
+.tldr li{ margin:.45rem 0; font-size:.97rem; line-height:1.55; }
+.tldr li::marker{ color:var(--sig); }
+.tldr .tldr-foot{
+  margin:.95rem 0 0; font-size:.88rem; font-style:italic; opacity:.72;
+}
+
+/* ---------- plain-English side boxes ----------
+   <details> so the main column stays tight for readers who already know the
+   term, without leaving a beginner stranded. Closed by default, no JS. */
+details.decode{
+  margin:1.4rem 0;
+  border:1px dashed color-mix(in srgb, var(--fg) 34%, transparent);
+  border-radius:4px;
+  /* opaque, like .card — a translucent tint lets the page's grid lines run
+     straight through the box. Tinted towards --sig rather than --fg so it
+     still reads as an aside and not as another card. */
+  background:color-mix(in srgb, var(--bg) 91%, var(--sig));
+}
+/* the same 9 % of a dark blue that barely lifts near-black lands much harder
+   on cream — it turns the box grey and heavier than the cards around it */
+html:not(.ink) details.decode{
+  background:color-mix(in srgb, var(--bg) 94%, var(--sig));
+}
+details.decode[open]{
+  border-style:solid;
+  border-color:color-mix(in srgb, var(--sig) 38%, transparent);
+}
+details.decode > summary{
+  cursor:pointer; list-style:none;
+  padding:.62rem .9rem;
+  font-family:var(--font-mono); font-size:.76rem; letter-spacing:.04em;
+  color:var(--sig);
+  display:flex; align-items:baseline; gap:.55rem;
+}
+/* Neat blue at 12 px over near-black is only ~2.6:1 — fine for the accents
+   elsewhere on the page, too thin for the one line you are meant to click.
+   Lift it towards paper in the dark theme; the light theme already sits at
+   6.5:1 and is left alone. */
+html.ink details.decode > summary{
+  color:color-mix(in srgb, var(--sig) 60%, var(--fg));
+}
+details.decode > summary::-webkit-details-marker{ display:none; }
+details.decode > summary::before{
+  content:"+"; font-weight:700; line-height:1;
+  opacity:.9; flex:none;
+}
+details.decode[open] > summary::before{ content:"−"; }
+details.decode > summary:hover{ text-decoration:underline; }
+details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+.decode-body{
+  margin:0 .9rem;                 /* inset so the hairline stops short of the box edge */
+  padding:0 0 .9rem;
+  border-top:1px dashed color-mix(in srgb, var(--fg) 22%, transparent);
+}
+.post .decode-body p{ margin:.7rem 0 0; font-size:.93rem; }
+.post .decode-body p:last-child{ margin-bottom:0; }
+
+/* ---------- table of contents ---------- */
+.toc{ padding:1.1rem 1.3rem; margin:2.2rem 0 0; }
+.toc ol{ margin:.6rem 0 0; padding-left:1.2rem; columns:2; column-gap:2rem; }
+.toc li{ margin:.15rem 0; break-inside:avoid; }
+.toc a{ text-decoration:none; }
+.toc a:hover{ text-decoration:underline; text-decoration-color:var(--sig); }
+@media (max-width:640px){ .toc ol{ columns:1; } }
+
+/* ---------- figures ---------- */
+figure.fig{
+  margin:2rem 0 2.4rem;
+  padding:1rem 1.15rem 1.15rem;
+  overflow:hidden;                 /* keeps wide innards from bleeding out */
+}
+.fig-head{
+  display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap;
+  margin-bottom:.8rem;
+}
+.fig-head .fig-n{ color:var(--sig); }
+.fig-head .fig-t{ font-weight:500; letter-spacing:.02em; }
+figure.fig figcaption{
+  margin-top:.9rem; padding-top:.8rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+  font-size:.92rem; opacity:.85;
+}
+figure.fig figcaption b{ opacity:1; }
+
+.canvas-wrap{ position:relative; width:100%; }
+figure.fig canvas{
+  display:block; width:100%; height:100%;
+  touch-action:none;               /* dragging a marker must not scroll the page */
+  border-radius:4px;
+}
+
+/* the schematic that goes with the matching route */
+.ckt{
+  margin-top:1rem; padding-top:.9rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+}
+
+/* two-up: chart on the left, controls on the right */
+.fig-split{ display:grid; grid-template-columns:1.35fr 1fr; gap:1.2rem; align-items:start; }
+/* grid items default to min-width:auto, which lets a long mono readout push the
+   column wider than its track and spill past the card's padding — zero it. */
+.fig-split > *{ min-width:0; }
+@media (max-width:760px){ .fig-split{ grid-template-columns:1fr; } }
+
+/* ---------- controls ---------- */
+.ctl{ margin:0 0 .9rem; }
+.ctl:last-child{ margin-bottom:0; }
+.ctl-label{
+  display:flex; justify-content:space-between; align-items:baseline; gap:.6rem;
+  margin-bottom:.25rem;
+}
+.ctl-val{ font-family:var(--font-mono); font-size:.82rem; color:var(--sig); }
+
+input[type=range].slider{
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:22px; background:none; cursor:pointer; margin:0;
+}
+input[type=range].slider::-webkit-slider-runnable-track{
+  height:3px; border-radius:2px;
+  background:color-mix(in srgb, var(--fg) 30%, transparent);
+}
+input[type=range].slider::-moz-range-track{
+  height:3px; border-radius:2px;
+  background:color-mix(in srgb, var(--fg) 30%, transparent);
+}
+input[type=range].slider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:16px; height:16px; margin-top:-6.5px;
+  border-radius:50%; background:var(--sig);
+  border:2px solid var(--bg); cursor:grab;
+}
+input[type=range].slider::-moz-range-thumb{
+  width:16px; height:16px; border-radius:50%;
+  background:var(--sig); border:2px solid var(--bg); cursor:grab;
+}
+
+.chip-row{ display:flex; gap:.4rem; flex-wrap:wrap; margin:0 0 .9rem; }
+.pill{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.05em;
+  padding:.34rem .6rem; border-radius:3px; cursor:pointer;
+  border:1.4px solid color-mix(in srgb, var(--fg) 40%, transparent);
+  background:none; color:var(--fg);
+}
+.pill:hover{ border-color:var(--sig); color:var(--sig); }
+.pill.on{ background:var(--sig); border-color:var(--sig); color:var(--paper); }
+
+.check-row{ display:flex; gap:1rem; flex-wrap:wrap; margin:.2rem 0 .9rem; }
+.check-row label{
+  font-family:var(--font-mono); font-size:.74rem; letter-spacing:.04em;
+  display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
+}
+.check-row input{ accent-color:var(--sig); }
+
+/* ---------- readouts ---------- */
+.ro{
+  display:grid; grid-template-columns:auto 1fr; gap:.18rem .8rem;
+  font-family:var(--font-mono); font-size:.82rem;
+  margin:.9rem 0 0; padding-top:.8rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+}
+.ro dt{ opacity:.65; }
+.ro dd{ margin:0; text-align:right; }
+.ro dd b{ color:var(--sig); font-weight:500; }
+
+/* ---------- callouts ---------- */
+.pull{
+  margin:2.4rem 0; padding:.2rem 0 .2rem 1.3rem;
+  border-left:3px solid var(--sig);
+  font-size:1.16rem; line-height:1.5;
+}
+.pull cite{ display:block; margin-top:.6rem; font-style:normal; opacity:.7; }
+
+.eq{
+  margin:1.4rem 0; padding:.9rem 1.1rem;
+  font-family:var(--font-mono); font-size:1rem;
+  text-align:center; overflow-x:auto;
+}
+.eq .lbl{ display:block; font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; opacity:.6; margin-bottom:.45rem; }
+.eq .frac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 .18em; }
+.eq .frac .num{ border-bottom:1.2px solid currentColor; padding:0 .35em .12em; }
+.eq .frac .den{ padding:.12em .35em 0; }
+
+.note{
+  padding:.9rem 1.1rem; margin:1.6rem 0;
+  border-left:3px solid color-mix(in srgb, var(--fg) 35%, transparent);
+  font-size:.94rem; opacity:.9;
+}
+.note b{ opacity:1; }
+
+/* ---------- timeline ---------- */
+.tl{ margin:1.6rem 0 0; }
+.tl-track{
+  position:relative; display:flex; gap:.4rem;
+  overflow-x:auto; padding:0 0 .6rem;
+}
+.tl-item{
+  flex:1 1 0; min-width:96px;
+  background:none; border:0; padding:0; cursor:pointer;
+  color:var(--fg); text-align:left;
+  border-top:2px solid color-mix(in srgb, var(--fg) 25%, transparent);
+  padding-top:.55rem;
+}
+.tl-item .yr{
+  font-family:var(--font-mono); font-size:.86rem; font-weight:500;
+  display:block; margin-bottom:.15rem;
+}
+.tl-item .lb{ font-size:.8rem; opacity:.7; display:block; line-height:1.35; }
+.tl-item:hover .lb{ opacity:1; }
+.tl-item.on{ border-top-color:var(--sig); }
+.tl-item.on .yr{ color:var(--sig); }
+.tl-item.on .lb{ opacity:1; }
+.tl-body{
+  margin-top:1rem; padding:1rem 1.15rem;
+  min-height:6.5rem;
+}
+.tl-body h4{ margin:0 0 .4rem; font-size:1.02rem; }
+.tl-body p{ margin:0; font-size:.95rem; }
+
+/* ---------- the Smith card ---------- */
+.smith-card{
+  display:grid; grid-template-columns:auto 1fr; gap:1.3rem;
+  align-items:center; padding:1.2rem 1.3rem; margin:2rem 0;
+}
+/* portrait slot: a real photo if assets/smith-portrait.jpg exists, otherwise
+   the chart mark stands in (the <img> onerror flips .noimg on the card) */
+.smith-card .pic{ margin:0; width:116px; flex:none; }
+.smith-card .pic img,
+.smith-card .pic svg{
+  display:block; width:116px; height:146px;
+  object-fit:cover; object-position:50% 30%;
+  border:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent);
+  border-radius:4px;
+  background:color-mix(in srgb, var(--bg) 92%, var(--fg));
+}
+.smith-card .pic svg{ display:none; padding:14px; }
+.smith-card.noimg .pic img{ display:none; }
+.smith-card.noimg .pic svg{ display:block; }
+.smith-card .pic figcaption{ margin-top:.4rem; text-align:center; opacity:.6; }
+.smith-card .who{ font-weight:700; font-size:1.1rem; margin:0 0 .1rem; }
+.smith-card .when{ font-family:var(--font-mono); font-size:.78rem; opacity:.65; margin:0 0 .5rem; }
+.smith-card p:last-child{ margin:0; font-size:.95rem; }
+@media (max-width:560px){ .smith-card{ grid-template-columns:1fr; } }
+
+/* ---------- closing CTA ---------- */
+.cta{ padding:1.5rem 1.6rem; margin:2.6rem 0 0; }
+.cta h3{ margin:0 0 .4rem; font-size:1.25rem; }
+.cta p{ margin:0 0 1.1rem; }
+
+/* ---------- footnotes ---------- */
+.refs{ font-size:.9rem; opacity:.8; }
+.refs li{ margin:.3rem 0; }

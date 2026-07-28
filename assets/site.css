@@ -308,6 +308,39 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 }
 .project-slot p{ margin:.2rem 0; }
 
+/* ================= writing =================
+   Same fold idiom as the CV blocks below (and .fold-hint is shared), but each
+   essay is its own card rather than a stacked sheet, so the list can grow
+   without the borders having to interlock. */
+.writing-list{ display:flex; flex-direction:column; gap:.7rem; }
+.wr{ padding:0; overflow:hidden; }          /* overflow clips the summary hover to the radius */
+.wr > summary{
+  cursor:pointer; list-style:none;
+  display:flex; align-items:center; gap:.5rem .9rem; flex-wrap:wrap;
+  padding:.95rem 1.2rem;
+}
+.wr > summary::-webkit-details-marker{ display:none; }
+.wr > summary::before{
+  content:""; width:12px; height:12px; flex:none;
+  background:var(--sig); border-radius:2px;
+}
+.wr > summary:hover{ background:color-mix(in srgb, var(--fg) 8%, var(--bg)); }
+.wr > summary:hover .wr-title{ color:var(--sig); }
+.wr > summary:focus-visible{ outline:2px solid var(--sig); outline-offset:-2px; }
+.wr-title{
+  flex:1 1 12ch; min-width:0;
+  font-size:1.14rem; font-weight:700; letter-spacing:-.01em;
+}
+.wr-when{ font-family:var(--font-mono); font-size:.78rem; opacity:.7; white-space:nowrap; }
+.wr > summary .fold-hint{ margin-left:0; }  /* .wr-title already takes the slack */
+.wr-body{
+  padding:1rem 1.2rem 1.2rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+}
+.wr-body p{ margin:0 0 .8rem; }
+.wr-meta{ color:var(--sig); display:block; }
+.wr-body .btn-row{ margin-top:1rem; }
+
 /* ================= cv ================= */
 .cv-head{
   display:flex; align-items:center; justify-content:space-between; gap:1rem;
@@ -509,7 +542,7 @@ html.ink .chip.solid{
 @media print{
   :root, html.ink{ --bg:#fff; --fg:#000; }
   body::before{ display:none; }
-  .topbar, .hero, #lab, #contact, .footer, .cv-head-actions, #launcher{ display:none !important; }
+  .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions, #launcher{ display:none !important; }
   .cv-title{ background:none; border-bottom:1.5px solid #000; border-radius:0; padding:.2rem 0 .35rem; }
   .section{ padding:0; }
   #cv h2 .secrule{ display:none; }
