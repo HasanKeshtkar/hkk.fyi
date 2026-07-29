@@ -106,8 +106,6 @@
       "s4.p1": "Back to the field. The question Smith actually needed answered, over and over, is a very reasonable one: <em>my antenna is at the far end of a cable of length ℓ. What does it look like from where I am standing?</em>",
       "s4.p2": "Heaviside had already answered it, forty years earlier. Here is the answer:",
       "s4.span1": "input impedance of a loaded line",
-      "s4.span2": "<span class=\"num\">Z<sub>L</sub> + j Z<sub>0</sub> tan βℓ",
-      "s4.span3": "Z<sub>0</sub> + j Z<sub>L</sub> tan βℓ",
       "s4.p3": "You do not have to like this formula. Nobody does. On a laptop it is one line of code and you will never think about it again.",
       "s4.p4": "In 1930 it is one complex multiplication, one complex division and one tangent — with a slide rule and a book of logarithm tables. Several minutes of careful, boring work. And one mistyped digit gives you a confidently wrong answer with no warning whatsoever.",
       "s4.p5": "Now do it again for the next frequency. And the next. And for the twenty cable lengths you are choosing between. And for every stub position your colleague is about to try, all afternoon, while he waits in the cold.",

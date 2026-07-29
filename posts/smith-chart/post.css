@@ -530,25 +530,32 @@ html.lang-fa main .byline,
 html.lang-fa main .smith-card .when,
 html.lang-fa main .eq{ unicode-bidi:plaintext; }
 
-/* ---------- language switch ---------- */
+/* ---------- language switch ----------
+   Matches .theme-btn next to it: same 34px height, same 1.5px solid --fg
+   border, same corner radius, so the two controls read as one pair instead
+   of two unrelated widgets. The active language fills solid like .pill.on
+   does elsewhere on the site — with the old 14%-tint style the on/off
+   states were nearly the same color and nobody could tell which was active
+   at a glance. */
 .lang-switch{
-  display:inline-flex; align-items:center;
-  border:1.4px solid color-mix(in srgb, var(--fg) 28%, transparent);
-  border-radius:4px; overflow:hidden; flex:none;
+  display:inline-flex; align-items:stretch;
+  height:34px; flex:none;
+  border:1.5px solid var(--fg);
+  border-radius:6px; overflow:hidden;
 }
 .lang-btn{
-  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.08em;
-  font-weight:500; padding:.36rem .55rem;
-  border:0; background:transparent; color:var(--fg);
-  cursor:pointer; opacity:.7; line-height:1;
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:2.3rem;
+  font-family:var(--font-mono); font-size:.74rem; letter-spacing:.05em;
+  font-weight:600; padding:0 .65rem;
+  border:0; background:none; color:var(--fg);
+  cursor:pointer; opacity:.55;
+  transition:background-color .15s ease, color .15s ease, opacity .15s ease;
 }
-.lang-btn + .lang-btn{
-  border-left:1.4px solid color-mix(in srgb, var(--fg) 28%, transparent);
-}
+.lang-btn + .lang-btn{ border-left:1.5px solid var(--fg); }
 .lang-btn:hover{ opacity:1; color:var(--sig); }
 .lang-btn.on{
-  opacity:1; color:var(--sig);
-  background:color-mix(in srgb, var(--sig) 14%, transparent);
+  opacity:1; background:var(--sig); color:var(--paper);
 }
 .lang-btn:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
 @media (max-width:560px){
