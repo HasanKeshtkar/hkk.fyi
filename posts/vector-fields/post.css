@@ -634,3 +634,51 @@ html.lang-en #gloss{ display:none; }
   .lang-switch{ height:31px; }
   .lang-btn{ min-width:1.9rem; padding:0 .4rem; font-size:.68rem; }
 }
+
+/* ================= تیزرِ مقالهٔ بعدی =================
+   آخرین بلوکِ صفحه. عمداً «تمام‌شده» به نظر نمی‌رسد: نقطه‌چینِ پایینش
+   یعنی ادامه دارد. رنگش همان آبیِ سایت است ولی خیلی رقیق، تا از کارتِ
+   تمرینِ بالایش پررنگ‌تر نشود. */
+.next-up{
+  position:relative;
+  margin:3.2rem 0 0;
+  padding:1.5rem 1.6rem 1.35rem;
+  border-color:color-mix(in srgb, var(--sig) 45%, transparent);
+  background:
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--sig) 7%, transparent),
+      transparent 70%),
+    color-mix(in srgb, var(--bg) 96%, var(--fg));
+}
+.next-kicker{
+  display:inline-block;
+  font-family:var(--font-mono);
+  font-size:.72rem; letter-spacing:.08em; font-weight:600;
+  text-transform:uppercase;
+  color:var(--sig);
+  opacity:.85;
+  margin-bottom:.45rem;
+}
+.next-up h3{ margin:0 0 .5rem; font-size:1.3rem; }
+.next-up p{ margin:0; }
+/* چهار نقطه = چهار معادله. بدون توضیح؛ کسی که مقالهٔ بعدی را بخواند
+   می‌فهمد، و کسی که نفهمد چیزی از دست نداده است. */
+.next-dots{ display:flex; gap:.42rem; margin-top:1.1rem; }
+.next-dots span{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--sig); opacity:.3;
+  animation:nextPulse 2.8s ease-in-out infinite;
+}
+.next-dots span:nth-child(2){ animation-delay:.28s; }
+.next-dots span:nth-child(3){ animation-delay:.56s; }
+.next-dots span:nth-child(4){ animation-delay:.84s; }
+@keyframes nextPulse{
+  0%,100%{ opacity:.22; } 45%{ opacity:.9; }
+}
+@media (prefers-reduced-motion:reduce){
+  .next-dots span{ animation:none; opacity:.45; }
+}
+@media (max-width:560px){
+  .next-up{ padding:1.25rem 1.15rem 1.15rem; }
+  .next-up h3{ font-size:1.18rem; }
+}

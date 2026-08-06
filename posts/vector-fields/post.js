@@ -235,33 +235,96 @@ function arrow(ctx, x0, y0, x1, y1, head) {
   ctx.closePath();
   ctx.fill();
 }
-/* فلش‌های روی مرزِ حلقه، همیشه بیرونِ خطِ حلقه کشیده می‌شوند و با
-   بزرگ‌ترین مقدارِ خودِ همان حلقه مقیاس می‌خورند، نه با بیشینهٔ کل میدان —
-   وگرنه در میدان‌های تندی مثل «برشی» همهٔ بیست فلش به چند پیکسل جمع
-   می‌شوند و شکل چیزی نشان نمی‌دهد.
-   هر نقطه: x,y روی مرز، n سمتِ بیرون، t مماس، v مقدارِ علامت‌دار.
-   radial یعنی فلش‌ها عمود بر مرزند (شار) و نه مماس بر آن (گردش). */
-function edgeArrows(ctx, pts, rp, radial) {
-  var big = 1e-9;
-  pts.forEach(function (p) { big = Math.max(big, Math.abs(p.v)); });
-  var maxLen = Math.min(34, Math.max(14, rp * 0.95)), GAP = radial ? 7 : 12;
+/* ---------------- فلش‌های روی مرزِ حلقه ----------------
+   سه تصمیم که کل خوانایی شکل‌های ۴ و ۵ به آن‌ها بند است:
+
+   ۱. فلش <b>وسطش روی خودِ مرز</b> است، نه بیرونِ آن. فلش خطِ حلقه را
+      می‌بُرد: نصفش تو، نصفش بیرون. جهتش را نمی‌شود اشتباه خواند.
+
+   ۲. مقیاس با بیشینهٔ <b>همان حلقه</b> گرفته می‌شود. با بیشینهٔ کلِ میدان
+      گرفتنش قشنگ‌تر به نظر می‌رسید ولی در عمل همه‌چیز را خفه می‌کرد:
+      کنارِ چشمه میدان چند برابرِ جایی است که حلقه ایستاده، پس همهٔ
+      فلش‌ها تبدیل به خط‌تیره‌های بی‌سر می‌شدند و «تو» و «بیرون» گم می‌شد.
+
+   ۳. کوتاه‌ترین فلشِ کشیده‌شده هم یک <b>کفِ طول</b> دارد، وگرنه سرِ فلش
+      جا نمی‌شود و آنچه می‌ماند یک لکه است، نه یک جهت. زیرِ ۵٪ اصلاً
+      کشیده نمی‌شود — نبودِ فلش خودش یعنی «اینجا خبری نیست». */
+function edgeArrows(ctx, pts, rp, ref) {
+  var maxLen = Math.max(20, Math.min(46, rp * 1.05)), minLen = 12;
+  ctx.lineCap = 'butt';
   pts.forEach(function (p) {
-    var L = Math.abs(p.v) / big * maxLen;
-    if (L < 2) return;
-    var out = p.v > 0, s = out ? 1 : -1;
-    var bx = p.x + p.nx * GAP, by = p.y + p.ny * GAP;
-    ctx.lineWidth = 2.2;
-    ctx.strokeStyle = out ? sigA(0.95) : fgA(0.8);
-    ctx.fillStyle   = out ? sigA(0.95) : fgA(0.8);
-    if (radial) {
-      /* بیرون‌رو از مرز به بیرون، درون‌رو از بیرون به مرز — هر دو کاملاً
-         بیرونِ دایره، تا با خودِ خطِ حلقه قاطی نشوند */
-      if (out) arrow(ctx, bx, by, bx + p.nx * L, by + p.ny * L, 6);
-      else     arrow(ctx, bx + p.nx * L, by + p.ny * L, bx, by, 6);
-    } else {
-      arrow(ctx, bx - p.tx * s * L / 2, by - p.ty * s * L / 2,
-                 bx + p.tx * s * L / 2, by + p.ty * s * L / 2, 6);
-    }
+    var t = Math.min(1, Math.abs(p.v) / Math.max(ref, 1e-9));
+    if (t < 0.05) return;
+    var L = minLen + (maxLen - minLen) * t;
+    var out = p.v > 0;
+    var ux = out ? p.nx : -p.nx, uy = out ? p.ny : -p.ny;
+    var x0 = p.x - ux * L / 2, y0 = p.y - uy * L / 2;
+    ctx.lineWidth = 2.8;
+    ctx.strokeStyle = out ? sigA(1) : fgA(0.92);
+    ctx.fillStyle   = out ? sigA(1) : fgA(0.92);
+    arrow(ctx, x0, y0, x0 + ux * L, y0 + uy * L, Math.max(6, Math.min(9.5, L * 0.34)));
+  });
+}
+/* رنگ‌کردنِ خودِ کمانِ مرز به علامتِ همان تکه: پیش از اینکه کسی طولِ
+   فلش‌ها را بسنجد، از روی رنگِ مرز می‌فهمد کدام قوس دارد آب می‌دهد و
+   کدام دارد آب می‌گیرد. */
+function rimSigns(ctx, cx, cy, rp, pts, ref) {
+  var half = Math.PI / pts.length;
+  ctx.save();
+  ctx.lineWidth = 3.6; ctx.lineCap = 'butt';
+  pts.forEach(function (p) {
+    var t = Math.min(1, Math.abs(p.v) / Math.max(ref, 1e-9));
+    if (t < 0.03) return;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rp, p.ca - half, p.ca + half);
+    ctx.strokeStyle = p.v > 0 ? sigA(0.22 + 0.38 * t) : fgA(0.15 + 0.3 * t);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+/* یک کمانِ جهت‌دار روی دایره: از (a0) تا (a1)، با سر در انتها.
+   سرِ فلش دستی کشیده می‌شود، نه با arrow()؛ arrow() اندازهٔ سر را به
+   طولِ پاره‌خط محدود می‌کند و آخرین پاره‌خطِ یک کمانِ نمونه‌برداری‌شده
+   چند پیکسل بیشتر نیست — سر آن‌قدر کوچک می‌شد که اصلاً دیده نشود. */
+function arcArrow(ctx, cx, cy, r, a0, a1, head) {
+  var dir = a1 > a0 ? 1 : -1, da = Math.abs(a1 - a0);
+  var hA = Math.min(da * 0.6, head / Math.max(r, 1));
+  var aS = a1 - dir * hA, n = 10, i, a, x, y;
+  ctx.beginPath();
+  for (i = 0; i <= n; i++) {
+    a = a0 + (aS - a0) * i / n;
+    x = cx + r * Math.cos(a); y = cy + r * Math.sin(a);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  var ex = cx + r * Math.cos(a1), ey = cy + r * Math.sin(a1);
+  var ux = -Math.sin(a1) * dir, uy = Math.cos(a1) * dir, px = -uy, py = ux;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - ux * head + px * head * 0.52, ey - uy * head + py * head * 0.52);
+  ctx.lineTo(ex - ux * head - px * head * 0.52, ey - uy * head - py * head * 0.52);
+  ctx.closePath(); ctx.fill();
+}
+/* فلش‌های <b>خمیده روی خودِ مرز</b> برای شکل ۵. فلشِ مستقیمِ مماسی روی یک
+   دایره عملاً با خطِ دایره یکی می‌شود و کل شکل «یک دایرهٔ خط‌چین» به نظر
+   می‌رسد؛ کمان اما همان‌جا می‌گوید آب دارد دورِ حلقه می‌چرخد، و به کدام سو. */
+function flowArrows(ctx, cx, cy, rp, pts, ref) {
+  /* نصفِ بازِ هر کمان باید کمتر از نصفِ فاصلهٔ نمونه‌ها بماند، وگرنه
+     کمان‌ها به هم می‌چسبند و همه با هم یک دایرهٔ توپُر می‌شوند */
+  var span = Math.PI / pts.length * 0.66;
+  var head = Math.max(5.5, Math.min(9, rp * 0.075));
+  ctx.lineCap = 'butt';
+  pts.forEach(function (p) {
+    var t = Math.min(1, Math.abs(p.v) / Math.max(ref, 1e-9));
+    if (t < 0.06) return;
+    var s = span * (0.68 + 0.32 * t);
+    var ccw = p.v > 0;              /* مثبت = پادساعتگرد روی صفحه */
+    /* روی بوم، y وارونه است: پادساعتگردِ دیده‌شده یعنی زاویهٔ کاهشی */
+    var a0 = p.ca + (ccw ? s : -s), a1 = p.ca - (ccw ? s : -s);
+    ctx.lineWidth = 2.8;
+    ctx.strokeStyle = ccw ? sigA(1) : fgA(0.92);
+    ctx.fillStyle   = ccw ? sigA(1) : fgA(0.92);
+    arcArrow(ctx, cx, cy, rp, a0, a1, head);
   });
 }
 
@@ -290,11 +353,11 @@ function balance(ctx, x, y, w, outSum, inSum, labOut, labIn) {
   ctx.restore();
 }
 /* دیسک را به‌اندازه و علامتِ جوابِ نهایی رنگ می‌زند */
-function tintDisc(ctx, cx, cy, rp, v, ref) {
-  var t = Math.min(1, Math.abs(v) / Math.max(ref, 1e-9));
+function tintDisc(ctx, cx, cy, rp, v, ref, k) {
+  var t = Math.min(1, Math.abs(v) / Math.max(ref, 1e-9)) * (k === undefined ? 1 : k);
   if (t < 0.02) return;
   ctx.beginPath(); ctx.arc(cx, cy, rp, 0, Math.PI * 2);
-  ctx.fillStyle = v > 0 ? sigA(0.16 * t) : fgA(0.14 * t);
+  ctx.fillStyle = v > 0 ? sigA(0.16 * t) : fgA(0.13 * t);
   ctx.fill();
 }
 
@@ -903,22 +966,22 @@ function Particles(G, count) {
 
     /* خودِ حلقه */
     var cxp = G.X(P.x), cyp = G.Y(P.y), rp = R * G.s;
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = fgA(0.85);
-    ctx.fillStyle = bgA(0.35);
-    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
+    /* داخل حلقه را مات می‌کنیم تا فلش‌های پس‌زمینه از تویش رد نشوند؛
+       آن‌وقت هر چیزی که روی مرز است خودش را نشان می‌دهد */
+    ctx.fillStyle = bgA(0.72);
+    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2); ctx.fill();
 
     /* فلش‌های عمود بر مرز: آبی یعنی بیرون‌رو، تیره یعنی درون‌رو */
-    var pts = [], i;
-    for (i = 0; i < 24; i++) {
-      var th = i / 24 * Math.PI * 2;
+    /* تعدادِ فلش‌ها با محیطِ حلقه بالا و پایین می‌رود، وگرنه حلقهٔ کوچک
+       پرِ فلش می‌شود و حلقهٔ بزرگ خالی به نظر می‌رسد */
+    var pts = [], i, nE = Math.max(10, Math.min(24, Math.round(rp / 11)));
+    for (i = 0; i < nE; i++) {
+      var th = i / nE * Math.PI * 2;
       var x = P.x + R * Math.cos(th), y = P.y + R * Math.sin(th);
       var v = F(x, y);
       pts.push({
-        x: G.X(x), y: G.Y(y),
+        x: G.X(x), y: G.Y(y), ca: -th,
         nx: Math.cos(th), ny: -Math.sin(th),
-        tx: -Math.sin(th), ty: -Math.cos(th),
         v: v[0] * Math.cos(th) + v[1] * Math.sin(th)
       });
     }
@@ -929,10 +992,14 @@ function Particles(G, count) {
       if (q.v > 0) outS += q.v * ds; else inS -= q.v * ds;
       big = Math.max(big, Math.abs(q.v));
     });
-    tintDisc(ctx, cxp, cyp, rp, outS - inS, big * 2 * Math.PI * R * 0.5);
+    tintDisc(ctx, cxp, cyp, rp, outS - inS, big * 2 * Math.PI * R * 0.5, 0.75);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = fgA(0.35);
+    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2); ctx.stroke();
 
-    edgeArrows(ctx, pts, rp, true);
-    dot(ctx, cxp, cyp, 4, fgA(1), bgA(0.9));
+    rimSigns(ctx, cxp, cyp, rp, pts, big);
+    edgeArrows(ctx, pts, rp, big);
+    dot(ctx, cxp, cyp, 3.5, fgA(1), bgA(0.9));
     balance(ctx, 14, fig.h - 40, Math.min(200, fig.w - 28), outS, inS,
             tr('js.out'), tr('js.in'));
     fig.state.G = G;
@@ -1032,51 +1099,49 @@ function Particles(G, count) {
 
     var cxp = G.X(P.x), cyp = G.Y(P.y), rp = R * G.s;
 
-    /* دایرهٔ حلقه، نازک و خط‌چین — فلش‌های مماسی باید از آن جدا دیده شوند */
-    ctx.lineWidth = 1.3;
-    ctx.strokeStyle = fgA(0.45);
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]);
+    /* داخل حلقه مات، مثل شکل ۴ */
+    ctx.fillStyle = bgA(0.72);
+    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2); ctx.fill();
 
-    /* فلش‌های مماس بر مرز: با جریان یا خلاف آن.
-       کمی بیرون‌تر از خودِ دایره کشیده می‌شوند، وگرنه با خط حلقه یکی
-       می‌شوند و کل شکل فقط یک دایرهٔ کلفت به نظر می‌رسد. */
-    var pts = [], i;
-    for (i = 0; i < 20; i++) {
-      var th = i / 20 * Math.PI * 2;
+    /* مؤلفهٔ مماسیِ میدان روی مرز — همان چیزی که گردش از آن ساخته می‌شود */
+    var pts = [], i, nC = Math.max(8, Math.min(18, Math.round(rp / 13)));
+    for (i = 0; i < nC; i++) {
+      var th = i / nC * Math.PI * 2;
       var x2 = P.x + R * Math.cos(th), y2 = P.y + R * Math.sin(th);
       var v = F(x2, y2);
       pts.push({
-        x: G.X(x2), y: G.Y(y2),
-        nx: Math.cos(th), ny: -Math.sin(th),
-        tx: -Math.sin(th), ty: -Math.cos(th),
+        x: G.X(x2), y: G.Y(y2), ca: -th,
         v: -v[0] * Math.sin(th) + v[1] * Math.cos(th)
       });
     }
-    var ccwS = 0, cwS = 0, dsC = 2 * Math.PI * R / pts.length;
-    pts.forEach(function (q) { if (q.v > 0) ccwS += q.v * dsC; else cwS -= q.v * dsC; });
+    var ccwS = 0, cwS = 0, dsC = 2 * Math.PI * R / pts.length, bigC = 1e-9;
+    pts.forEach(function (q) {
+      if (q.v > 0) ccwS += q.v * dsC; else cwS -= q.v * dsC;
+      bigC = Math.max(bigC, Math.abs(q.v));
+    });
 
-    edgeArrows(ctx, pts, rp, false);
-
-    /* دیسک به علامت گردش رنگ می‌شود، مثل شکل ۴ */
-    tintDisc(ctx, cxp, cyp, rp, ccwS - cwS, (ccwS + cwS) * 0.6 + 1e-9);
+    /* دیسک به علامت گردش رنگ می‌شود، مثل شکل ۴ — ولی خیلی ملایم‌تر،
+       چون اینجا چرخونک هم باید روی همین دیسک دیده شود */
+    tintDisc(ctx, cxp, cyp, rp, ccwS - cwS, (ccwS + cwS) + 1e-9, 0.5);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = fgA(0.28);
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.arc(cxp, cyp, rp, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    flowArrows(ctx, cxp, cyp, rp, pts, bigC);
 
     /* کمانِ جهت: می‌گوید چرخونک به کدام طرف و چقدر تند می‌چرخد. بدون این،
-       چرخشِ آرام روی یک تصویر ثابت اصلاً دیده نمی‌شود. */
+       چرخشِ آرام روی یک تصویر ثابت اصلاً دیده نمی‌شود. زیرش یک کمانِ
+       هم‌رنگِ زمینه کشیده می‌شود تا روی فلش‌های میدان گم نشود. */
     var wz = curlOf(F, P.x, P.y) / 2;
     if (Math.abs(wz) > 0.04) {
-      var sweep = Math.min(Math.PI * 1.5, 0.5 + Math.abs(wz) * 0.9);
-      var ar = rp + 15, ccw = wz > 0;
-      ctx.lineWidth = 2.4;
-      ctx.strokeStyle = sigA(0.9); ctx.fillStyle = sigA(0.9);
-      ctx.beginPath();
-      ctx.arc(cxp, cyp, ar, -Math.PI / 2, -Math.PI / 2 + (ccw ? -sweep : sweep), ccw);
-      ctx.stroke();
-      var ea = -Math.PI / 2 + (ccw ? -sweep : sweep);
-      var ex = cxp + ar * Math.cos(ea), ey = cyp + ar * Math.sin(ea);
-      var tx = (ccw ? 1 : -1) * Math.sin(ea), ty = (ccw ? -1 : 1) * Math.cos(ea);
-      arrow(ctx, ex - tx * 6, ey - ty * 6, ex + tx * 6, ey + ty * 6, 8);
+      var sweep = Math.min(Math.PI * 1.1, 0.55 + Math.abs(wz) * 0.8);
+      var ar = rp + 26, ccw = wz > 0;
+      var a0 = -Math.PI / 2, a1 = a0 + (ccw ? -sweep : sweep);
+      ctx.lineWidth = 6.5; ctx.strokeStyle = bgA(0.88); ctx.fillStyle = bgA(0.88);
+      arcArrow(ctx, cxp, cyp, ar, a0, a1, 11);
+      ctx.lineWidth = 2.6; ctx.strokeStyle = sigA(0.95); ctx.fillStyle = sigA(0.95);
+      arcArrow(ctx, cxp, cyp, ar, a0, a1, 8.5);
     }
 
     /* خودِ چرخونک: چهار پره، که یکی‌شان نشان‌دار است تا چرخش دیده شود */
@@ -1085,16 +1150,22 @@ function Particles(G, count) {
     ctx.lineCap = 'round';
     for (i = 0; i < 4; i++) {
       var a = i / 4 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-      var tipx = ca * rp * 0.78, tipy = sa * rp * 0.78;
-      ctx.lineWidth = 2.6;
-      ctx.strokeStyle = fgA(0.9);
+      var tipx = ca * rp * 0.56, tipy = sa * rp * 0.56;
+      /* هر پره دو بار کشیده می‌شود: یک بار پهن به رنگ زمینه، بعد باریک به
+         رنگ جوهر. آن حاشیهٔ روشن، چرخونک را از هر چیزی که زیرش است جدا
+         نگه می‌دارد. */
+      var bx2 = tipx - sa * rp * 0.24, by2 = tipy + ca * rp * 0.24;
+      var bx3 = tipx + sa * rp * 0.24, by3 = tipy - ca * rp * 0.24;
+      ctx.strokeStyle = bgA(0.95);
+      ctx.lineWidth = 6;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tipx, tipy); ctx.stroke();
-      ctx.lineWidth = 4.2;
+      ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(bx2, by2); ctx.lineTo(bx3, by3); ctx.stroke();
       ctx.strokeStyle = fgA(1);
-      ctx.beginPath();
-      ctx.moveTo(tipx - sa * rp * 0.3, tipy + ca * rp * 0.3);
-      ctx.lineTo(tipx + sa * rp * 0.3, tipy - ca * rp * 0.3);
-      ctx.stroke();
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tipx, tipy); ctx.stroke();
+      ctx.lineWidth = 4.4;
+      ctx.beginPath(); ctx.moveTo(bx2, by2); ctx.lineTo(bx3, by3); ctx.stroke();
       if (i === 0) dot(ctx, tipx, tipy, 4.5, sigA(1), bgA(0.95));
     }
     ctx.restore();
