@@ -506,6 +506,8 @@ html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
 .tbl td.io{ white-space:nowrap; }
 .tbl{ min-width:24rem; }
 .tbl tr:last-child td{ border-bottom:0; }
+/* «(بخش ۴)» در جدولِ نقشهٔ راه: هست، ولی حرف اصلیِ سلول نیست */
+.tbl .dim{ opacity:.55; font-size:.88em; white-space:nowrap; }
 .tbl-wrap{ overflow-x:auto; }
 
 /* ---------- واژه‌نامه ----------
