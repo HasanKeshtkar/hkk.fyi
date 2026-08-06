@@ -296,11 +296,11 @@ function bump(x, y, cx, cy, k) {
   return Math.exp(-k * (dx * dx + dy * dy));
 }
 var SCALARS = [
-  { key: 'heater', label: 'یک بخاری',
+  { key: 'heater', label: 'یک شعله',
     f: function (x, y) { return 20 + 17 * bump(x, y, -0.25, 0.2, 1.1); } },
-  { key: 'room', label: 'بخاری و پنجره',
+  { key: 'room', label: 'گرم و سرد',
     f: function (x, y) { return 21 + 15 * bump(x, y, -0.75, 0.5, 1.5) - 11 * bump(x, y, 0.8, -0.45, 1.9); } },
-  { key: 'hills', label: 'تپه‌ماهور',
+  { key: 'hills', label: 'چند تپه',
     f: function (x, y) {
       return 22 + 12 * bump(x, y, -0.9, -0.6, 2.2) + 15 * bump(x, y, 0.7, 0.7, 1.6)
                 + 8 * bump(x, y, 0.1, -0.9, 3.0) - 9 * bump(x, y, -0.6, 0.85, 2.6);

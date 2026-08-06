@@ -204,16 +204,33 @@ details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-of
 .note.sig{ border-right-color:var(--sig); }
 
 /* ---------- فرمول ----------
-   فرمول‌ها همیشه چپ‌به‌راست‌اند، حتی وسط یک بند فارسی */
+   سه تصمیم اینجا گرفته شده:
+     · همیشه چپ‌به‌راست، حتی وسط یک بند فارسی
+     · درشت‌تر از متن و با وزن ۵۰۰ — یک فرمول را با سرعتِ متن نمی‌خوانند،
+       نگاهش می‌کنند، و در آن اندازه نماد باید جدا از هم دیده شود
+     · nowrap روی هر خط، و لغزشِ افقی روی خودِ کادر. روی گوشی یک فرمولِ
+       بلند وگرنه از وسطِ یک کسر می‌شکند و تکه‌تکه می‌شود؛ حالا یکپارچه
+       می‌ماند و اگر جا نشد، همان یک کادر می‌لغزد. */
 .eq{
-  margin:1.4rem 0; padding:.9rem 1.1rem;
-  font-family:var(--font-mono); font-size:1rem;
-  text-align:center; overflow-x:auto;
+  margin:1.5rem 0; padding:1rem 1.15rem;
+  font-family:var(--font-mono); font-size:1.1rem; font-weight:500;
+  line-height:2;
+  text-align:center; overflow-x:auto; overscroll-behavior-x:contain;
   direction:ltr; unicode-bidi:isolate;
 }
+.eq .ln{ display:block; white-space:nowrap; }
+.eq .ln + .ln{ margin-top:.35rem; }
+.eq sub, .eq sup{ font-size:.7em; font-weight:400; }
+@media (max-width:600px){
+  .eq{ font-size:.96rem; padding:.85rem .7rem; line-height:1.9; }
+}
+@media (max-width:400px){
+  .eq{ font-size:.88rem; padding:.8rem .55rem; }
+}
 .eq .lbl{
-  display:block; font-family:var(--font-fa-display); font-weight:500;
-  font-size:.78rem; opacity:.65; margin-bottom:.5rem;
+  display:block; white-space:normal;
+  font-family:var(--font-fa-display); font-weight:500;
+  font-size:.8rem; opacity:.68; margin-bottom:.6rem;
   direction:rtl;
 }
 .eq .frac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 .18em; }
@@ -229,8 +246,10 @@ details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-of
   text-align:right;
 }
 .eq-rows .row{ display:contents; }
+.eq-rows .row .big{ white-space:nowrap; }
 .eq-rows .row .say{
-  font-family:var(--font-fa-text); font-size:.84rem; line-height:1.7; opacity:.75;
+  font-family:var(--font-fa-text); font-weight:400; white-space:normal;
+  font-size:.86rem; line-height:1.75; opacity:.78;
   direction:rtl; text-align:right;
 }
 @media (max-width:620px){
@@ -453,8 +472,10 @@ html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
 
 /* یک ردیف فرمول با توضیح فارسیِ کوچک زیرش */
 .eq .note-under{
-  display:block; direction:rtl; font-family:var(--font-fa-text);
-  font-size:.8rem; opacity:.7; margin-top:.5rem;
+  display:block; white-space:normal; direction:rtl;
+  font-family:var(--font-fa-text); font-weight:400;
+  font-size:.84rem; line-height:1.85; opacity:.72; margin-top:.7rem;
+  text-align:right;
 }
 
 /* ============================================================
