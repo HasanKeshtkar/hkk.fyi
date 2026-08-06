@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<!-- dir زیر <main> نشسته، نه روی <html>: نوار بالا و فوتر در هر حالت
+     چپ‌به‌راست می‌مانند، و مهم‌تر از آن، لینکِ «برو سر اصل مطلب» که با
+     left:-9999px پنهان می‌شود در ریشهٔ RTL نُه‌هزار پیکسل عرضِ واقعی به
+     صفحه اضافه می‌کرد و کل مقاله را از قاب بیرون می‌انداخت. -->
+<html lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>هر نقطه یک فلش — میدان، گرادیان، دیورژانس، کرل · hkk.fyi</title>
+<meta name="description" content="آنالیز برداری به زبان آدمیزاد: میدان یعنی چی، گرادیان چه سؤالی جواب می‌دهد، دیورژانس و کرل واقعاً چه چیزی را می‌سنجند. هفت شکل تعاملی، بدون یک خط اثبات — آماده‌سازی برای معادلات ماکسول.">
+<meta property="og:title" content="هر نقطه یک فلش — میدان، گرادیان، دیورژانس، کرل">
+<meta property="og:description" content="دو تا از چهار معادلهٔ ماکسول با ∇· شروع می‌شوند و دو تا با ∇×. این مقاله همان دو علامت است — با هفت شکل که می‌توانی بگیری و بکشی.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://hkk.fyi/posts/vector-fields/">
+<meta property="og:site_name" content="hkk.fyi">
+<meta property="og:locale" content="fa_IR">
+<meta property="article:author" content="Hassan Keshtkar">
+<meta property="og:image" content="https://hkk.fyi/assets/og-vector.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="هر نقطه یک فلش — یک میدان برداری کنار عنوان مقاله.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hkk.fyi/assets/og-vector.png">
+<link rel="canonical" href="https://hkk.fyi/posts/vector-fields/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='10' fill='%23F4EFE4'/><g stroke='%231C1B1A' stroke-width='3' stroke-linecap='round' fill='none'><path d='M14 46 L26 34'/><path d='M20 34 h6 v6'/><path d='M14 24 h12'/><path d='M20 18 l6 6 l-6 6'/></g><g stroke='%232B59C3' stroke-width='3.4' stroke-linecap='round' fill='none'><path d='M50 22 a14 14 0 1 1-13 9'/><path d='M50 14 v9 h-9'/></g></svg>">
+<script>
+/* تم قبل از اولین رنگ‌آمیزی تعیین می‌شود، وگرنه صفحه یک بار سفید می‌زند */
+(function(){try{
+  var r=document.documentElement;
+  var t=localStorage.getItem('hkk-theme');
+  if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';
+  if(t==='ink')r.classList.add('ink');
+}catch(e){}})();
+</script>
+<link rel="stylesheet" href="../../assets/fonts.css">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="post.css">
+<style>
+  /* خط موی پیشرفتِ خواندن، زیر نوار بالا */
+  #prog{
+    position:fixed; top:0; left:0; height:2px; width:100%;
+    background:var(--sig); transform:scaleX(0);
+    z-index:60; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="prog" aria-hidden="true"></div>
+<a class="skip" href="#start">برو سر اصل مطلب</a>
+
+<header class="topbar">
+  <a class="brand" href="../../" aria-label="hkk.fyi — home">
+    <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" fill="none" stroke="var(--sig)" stroke-width="5"/>
+      <circle cx="43" cy="32" r="17" fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="51" cy="32" r="9"  fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <path d="M4 32h56" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="27" cy="19" r="5" fill="var(--sig)"/>
+    </svg>
+    <span class="brand-name">hkk<span class="dim">.fyi</span></span>
+  </a>
+  <nav class="nav" aria-label="Sections">
+    <a href="../../#lab">Lab</a>
+    <a href="../../#writing">Writing</a>
+    <a href="../../#cv">CV</a>
+    <a href="../../#contact">Contact</a>
+  </nav>
+  <button id="themeBtn" class="theme-btn" type="button" aria-label="روشن / تاریک" title="روشن / تاریک">
+    <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  </button>
+</header>
+
+<main dir="rtl">
+<article class="post" id="start">
+
+  <!-- ============ سربرگ ============ -->
+  <header class="post-hero">
+    <span class="mono-label post-kicker">مقاله · آنالیز برداری · حدود ۲۰ دقیقه · ۷ شکل تعاملی</span>
+    <h1>هر نقطه یک فلش</h1>
+    <div class="post-lede">
+      <p class="post-sub">
+        دو تا از چهار معادلهٔ ماکسول با <span class="q">∇·</span> شروع می‌شن و دو تای دیگه با
+        <span class="q">∇×</span>. اگه ندونی این دو تا علامت چی‌ان، اون چهار معادله فقط چهار تا
+        نقاشی خوشگلن که باید حفظ‌شون کنی و امیدوار باشی سر امتحان یادت بمونه.
+        <br><br>
+        این مقاله دقیقاً همون دو تا علامته. نه یک خط اثبات، نه یک انتگرال سه‌گانه.
+        فقط چهار تا ایده: <b>میدان</b>، <b>گرادیان</b>، <b>دیورژانس</b>، <b>کرل</b> — و اینکه
+        هرکدوم داره جواب چه سؤالِ خیلی سادهٔ فیزیکی‌ای رو می‌ده.
+        <br><br>
+        همهٔ شکل‌های پایین زنده‌ن: بگیرشون بکش، خرابشون کن، ببین چی می‌شه.
+      </p>
+      <figure class="lede-chart">
+        <div class="canvas-wrap"><canvas id="figHero"></canvas></div>
+        <figcaption class="mono-label">یک میدان برداری، در حال کار</figcaption>
+      </figure>
+    </div>
+    <p class="mono-label byline">
+      <span>حسن کشت‌کار</span><span class="dot">·</span><span>تهران</span>
+      <span class="dot">·</span><span>۲۰۲۶</span>
+      <span class="dot">·</span><a class="backlink" href="../../">برگرد به hkk.fyi ←</a>
+    </p>
+
+    <!-- لینک‌های ساده، تا با JS خاموش هم هم‌رسانی کار کنه؛ post.js فقط
+         دکمهٔ کپی و شیت خود گوشی رو روش اضافه می‌کنه -->
+    <div class="share" role="group" aria-label="هم‌رسانی این مقاله">
+      <span class="mono-label share-label">هم‌رسانی</span>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://t.me/share/url?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F&text=%D9%87%D8%B1%20%D9%86%D9%82%D8%B7%D9%87%20%DB%8C%DA%A9%20%D9%81%D9%84%D8%B4">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.1 13.1 1.6 11.7c-1-.3-1-1 .2-1.5l19-7.3c.8-.3 1.5.2 1.1 1.4z"/></svg>
+        تلگرام
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://x.com/intent/tweet?text=%D9%87%D8%B1%20%D9%86%D9%82%D8%B7%D9%87%20%DB%8C%DA%A9%20%D9%81%D9%84%D8%B4&url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 3h3.2l-7 8 8.2 10.9h-6.4l-5-6.6-5.8 6.6H1.5l7.5-8.6L1.2 3h6.6l4.5 6zm-1.1 17h1.8L7.7 4.8H5.8z"/></svg>
+        X
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.76-2.05 4.02 0 4.76 2.64 4.76 6.08V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
+        لینکدین
+      </a>
+      <button class="share-btn" type="button" id="shareCopy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1 1M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1-1"/></svg>
+        <span id="shareCopyLabel">کپی لینک</span>
+      </button>
+      <button class="share-btn" type="button" id="shareNative" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 3v13M8 6.5 12 3l4 3.5M5 13v6.5h14V13"/></svg>
+        <span>هم‌رسانی…</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ خلاصه ============ -->
+  <aside class="tldr card">
+    <span class="mono-label">کل مقاله در ۳۰ ثانیه</span>
+    <ul>
+      <li><b>میدان</b> یعنی: به هر نقطه از فضا یه چیزی بچسبون. اگه اون چیز یه <em>عدد</em> باشه
+        می‌شه میدان اسکالر (مثل دمای اتاق)، اگه یه <em>فلش</em> باشه می‌شه میدان برداری
+        (مثل باد).</li>
+      <li><b>گرادیان</b> از یه میدان اسکالر، میدان برداری می‌سازه. توی هر نقطه می‌پرسه:
+        «سربالایی کدوم طرفه، و چقدر تنده؟»</li>
+      <li><b>دیورژانس</b> از یه میدان برداری، میدان اسکالر می‌سازه. توی هر نقطه می‌پرسه:
+        «اینجا شیره یا چاه؟ چیزی از اینجا می‌جوشه بیرون یا توش فرو می‌ره؟»</li>
+      <li><b>کرل</b> از یه میدان برداری، یه میدان برداری دیگه می‌سازه. توی هر نقطه می‌پرسه:
+        «اگه یه چرخونک کوچیک اینجا بذارم، می‌چرخه؟ چقدر تند؟ حول چه محوری؟»</li>
+      <li>و <b>هر چهار معادلهٔ ماکسول</b> دقیقاً یکی از همین دو سؤال آخر رو دربارهٔ میدان
+        الکتریکی و مغناطیسی می‌پرسن. همین. بقیه‌اش جزئیاته.</li>
+    </ul>
+    <p class="tldr-foot">این‌ها رو که بلد باشی، ماکسول از حفظ‌کردنی درمیاد و می‌شه خوندنی.</p>
+  </aside>
+
+  <nav class="toc card" aria-label="فهرست">
+    <span class="mono-label">فهرست</span>
+    <ol>
+      <li><a href="#s1">میدان یعنی چی؟</a></li>
+      <li><a href="#s2">گرادیان: سربالایی کدوم طرفه؟</a></li>
+      <li><a href="#s3">میدان برداری: به هر نقطه یه فلش بده</a></li>
+      <li><a href="#s4">نابلا: یه علامت، سه تا کار</a></li>
+      <li><a href="#s5">دیورژانس: اینجا شیره یا چاه؟</a></li>
+      <li><a href="#s6">کرل: اینجا چیزی می‌چرخه؟</a></li>
+      <li><a href="#s7">یه میدان، دو تا عدد</a></li>
+      <li><a href="#s8">از نقطه به ناحیه: دو تا قضیه</a></li>
+      <li><a href="#s9">حالا برو سراغ ماکسول</a></li>
+    </ol>
+  </nav>
+
+  <hr class="rule">
+
+  <!-- ============ ۱ ============ -->
+  <h2 id="s1"><span class="secnum">01</span> میدان یعنی چی؟</h2>
+
+  <p>
+    بذار با کلمه‌ای شروع کنیم که همه‌جا هست و کسی صاف توضیحش نمی‌ده: <strong>میدان</strong>.
+  </p>
+  <p>
+    اتاقی که توش نشستی رو تصور کن. یه بخاری یه گوشه روشنه و پنجره اون‌طرف بازه. حالا سؤال:
+    <em>دمای این اتاق چنده؟</em> جواب درست اینه که این سؤال غلطه. اتاق یه دما نداره. هر
+    نقطه‌ای از اتاق دمای خودش رو داره. کنار بخاری <span class="q">28°</span>، کنار پنجره
+    <span class="q">17°</span>، وسط اتاق یه چیزی بین این دوتا.
+  </p>
+  <p>
+    اون چیزی که به هر نقطه یه دما نسبت می‌ده، خودش یه شیءِ ریاضیه. اسمش <strong>میدان</strong>ه:
+  </p>
+
+  <div class="pull">
+    میدان یعنی یه قاعده که به <em>هر نقطهٔ</em> فضا یه چیزی می‌چسبونه.
+  </div>
+
+  <p>
+    اگه اون چیز فقط یه عدد باشه — دما، فشار، ارتفاع، غلظت، ولتاژ — بهش می‌گیم
+    <strong>میدان اسکالر</strong>. با یه تابع می‌نویسیمش: <span class="q">T(x, y)</span> یعنی
+    «دما، در نقطه‌ای که مختصاتش <span class="q">x</span> و <span class="q">y</span> است».
+  </p>
+  <p>
+    ولی نوشتنش یه چیزه و دیدنش یه چیز دیگه. آدم‌ها در دیدنِ فرمول افتضاحن و در دیدنِ نقشه عالی.
+    پس بیا نقشه‌اش کنیم:
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 1</span><span class="fig-t">یک میدان اسکالر — انگشتت رو بکش روش</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figScalar"></canvas></div>
+      <div>
+        <div class="chip-row" id="scalarPresets"></div>
+        <div class="check-row">
+          <label><input type="checkbox" id="scalarIso" checked> خطوط تراز</label>
+          <label><input type="checkbox" id="scalarFill" checked> سایه‌روشن</label>
+        </div>
+        <dl class="ro" id="scalarOut"></dl>
+        <p class="hint">
+          نقطهٔ آبی رو بگیر و هرجا خواستی بکش. عددِ کنارش، مقدار میدان توی همون نقطه‌ست.
+        </p>
+      </div>
+    </div>
+    <figcaption>
+      هرچه آبی‌تر، گرم‌تر. اون حلقه‌های بسته <b>خط تراز</b>ن: روی هر حلقه دما دقیقاً ثابته.
+      دقیقاً همون خطوطی که روی نقشهٔ کوهستان می‌بینی، و روی نقشهٔ هواشناسی، و توی
+      <b>هر</b> جایی که کسی خواسته یه تابع دومتغیره رو نشون بده. جایی که خط‌ها به هم
+      نزدیکن یعنی شیب تنده؛ جایی که از هم دورن یعنی دشت.
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>یادآوری یک‌دقیقه‌ای — مشتق جزئی یعنی چی؟</summary>
+    <div class="decode-body">
+      <p>
+        مشتق معمولی می‌پرسه: «اگه ورودی یه ذره زیاد بشه، خروجی چقدر عوض می‌شه؟» ولی اینجا
+        دو تا ورودی داریم: <span class="q">x</span> و <span class="q">y</span>. پس باید بگی
+        <em>کدوم‌شون</em>.
+      </p>
+      <p>
+        <span class="q">∂T/∂x</span> یعنی: <span class="q">y</span> رو قفل کن، فقط یه قدم
+        کوچیک به سمت شرق بردار، ببین دما چقدر عوض شد. <span class="q">∂T/∂y</span> هم همون،
+        ولی به سمت شمال. علامت <span class="q">∂</span> هم همون <span class="q">d</span>ِ
+        مشتقه، فقط گِرد نوشته شده، تا یادت بندازه بقیهٔ متغیرها فعلاً ثابت نگه داشته شدن.
+      </p>
+      <p>
+        همین. کل حساب دیفرانسیل چندمتغیره روی همین یه ایده سواره: <em>یکی‌یکی، بقیه ثابت</em>.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ ۲ ============ -->
+  <h2 id="s2"><span class="secnum">02</span> گرادیان: سربالایی کدوم طرفه؟</h2>
+
+  <p>
+    وایستادی وسط همون اتاق. یه سؤال کاملاً طبیعی می‌پرسی: <em>از اینجا کدوم طرف برم گرم‌تر
+    می‌شه، و چقدر سریع؟</em>
+  </p>
+  <p>
+    دقت کن جوابِ این سؤال یه عدد نیست. باید هم <b>یه جهت</b> بهم بدی («اون طرف») و هم
+    <b>یه شدت</b> («خیلی تند»). جهت به‌علاوهٔ شدت، یعنی یه فلش. یعنی یه بردار.
+  </p>
+  <p>
+    اون بردار اسم داره: <strong>گرادیانِ</strong> میدان. و طرز ساختنش خجالت‌آور ساده‌ست —
+    مشتق جزئی رو در هر جهت حساب کن و بذارشون کنار هم:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">گرادیان — از میدان اسکالر، میدان برداری می‌سازد</span>
+    ∇T = ( ∂T/∂x , ∂T/∂y , ∂T/∂z )
+  </div>
+
+  <p>
+    و سه تا خاصیت داره که اگه فقط همین سه تا رو بلد باشی، گرادیان رو بلدی:
+  </p>
+  <ul>
+    <li><b>جهتش، تندترین سربالاییه.</b> نه هر سربالایی — تندترینش.</li>
+    <li><b>طولش، شیبِ همون سربالاییه.</b> جایی که میدان تند عوض می‌شه فلش بلنده، جایی که
+      دشته فلش کوتاهه.</li>
+    <li><b>همیشه عمود بر خط ترازه.</b> که وقتی بهش فکر کنی بدیهیه: روی خط تراز هیچ تغییری
+      نیست، پس تندترین تغییر باید عمود بر اون باشه.</li>
+  </ul>
+  <p>
+    و یه نکتهٔ چهارم که بعداً به کارت میاد: روی قلهٔ یه تپه، یا تهِ یه چاله، گرادیان
+    <b>صفر</b> می‌شه. هیچ طرفی سربالایی نیست. فلش می‌میره و می‌شه یه نقطه.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 2</span><span class="fig-t">گرادیان — نقطه را بکش، و ولش کن</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figGrad"></canvas></div>
+      <div>
+        <div class="chip-row" id="gradPresets"></div>
+        <div class="check-row">
+          <label><input type="checkbox" id="gradField" checked> فلش‌های گرادیان در همه‌جا</label>
+        </div>
+        <button class="pill" type="button" id="gradRoll">▶ ولش کن بره بالا</button>
+        <dl class="ro" id="gradOut"></dl>
+        <p class="hint">
+          فلش آبیِ بلند، گرادیانِ همون نقطه‌ست. خط چین، خط ترازیه که نقطه روش وایستاده —
+          نگاه کن که فلش همیشه صاف عمود بر اونه.
+        </p>
+      </div>
+    </div>
+    <figcaption>
+      دکمهٔ «ولش کن بره بالا» نقطه رو رها می‌کنه تا در هر لحظه دقیقاً در جهت گرادیان قدم
+      برداره. همیشه هم می‌رسه به یه قله و همون‌جا می‌ایسته، چون اونجا گرادیان صفره.
+      اگه اسم <b>gradient ascent</b> به گوشت خورده، دقیقاً همینه — و
+      <b>gradient descent</b>ی که کل یادگیری ماشین روش بنا شده، همینه با یه علامت منفی.
+      یعنی همون ایده‌ای که داره شبکه‌های عصبی رو آموزش می‌ده، یه سؤال دربارهٔ سربالایی
+      روی یه نقشهٔ کوهستانه.
+    </figcaption>
+  </figure>
+
+  <div class="note card sig">
+    <b>اولین اتفاق مهم مقاله همین‌جا افتاد:</b> یه <em>ماشین</em> ساختیم که ورودیش یه میدان
+    اسکالره و خروجیش یه میدان برداری. از یه نقشهٔ عدد، یه نقشهٔ فلش درآوردیم. بقیهٔ مقاله
+    دربارهٔ دو تا ماشینِ دیگه‌ست که در جهت عکس کار می‌کنن.
+  </div>
+
+  <p>
+    و یه نمونهٔ فیزیکیِ خیلی نزدیک، که مستقیم به مقالهٔ بعدی وصل می‌شه: <b>ولتاژ</b> یه میدان
+    اسکالره. به هر نقطه از فضا یه عدد می‌ده. و <b>میدان الکتریکی</b> دقیقاً گرادیان همونه، با
+    یه منفی جلوش:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">میدان الکتریکی، از روی پتانسیل</span>
+    E = −∇V
+  </div>
+
+  <p>
+    منفی برای اینه که بار مثبت خودش به سمت ولتاژ <em>کمتر</em> می‌ره؛ یعنی سرازیری، نه
+    سربالایی. دقیقاً مثل توپی که خودش از کوه میاد پایین.
+  </p>
+
+  <!-- ============ ۳ ============ -->
+  <h2 id="s3"><span class="secnum">03</span> میدان برداری: به هر نقطه یه فلش بده</h2>
+
+  <p>
+    گرادیان یه میدان برداری تحویلمون داد. ولی میدان‌های برداری فقط از گرادیان درنمیان — خیلی
+    وقت‌ها همون اول کار خودشون میدان برداری‌ان:
+  </p>
+  <ul>
+    <li>باد. توی هر نقطه از نقشهٔ هواشناسی، یه فلش: از کدوم طرف، با چه سرعتی.</li>
+    <li>جریان آب توی رودخونه.</li>
+    <li>میدان الکتریکیِ اطراف یه بار.</li>
+    <li>میدان مغناطیسیِ دور یه سیمِ حامل جریان.</li>
+    <li>نیروی گرانش دور زمین.</li>
+  </ul>
+  <p>
+    نوشتنش هم همونیه که انتظار داری: به‌جای یه تابع، دو تا (یا سه تا) تابع، هرکدوم برای یه
+    مؤلفه:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">یک میدان برداری در صفحه</span>
+    F(x, y) = ( F<sub>x</sub>(x, y) , F<sub>y</sub>(x, y) )
+  </div>
+
+  <p>
+    از اینجا به بعد، سعی کن هر میدان برداری‌ای که می‌بینی رو <b>جریان یه سیال</b> تصور کنی.
+    حتی وقتی هیچ چیزی واقعاً جاری نیست و داری به میدان الکتریکی نگاه می‌کنی. این تصویر ذهنی
+    غلط نیست، فقط استعاره‌ست — و دو مفهوم بعدی مقاله بدون این استعاره تقریباً غیرقابل‌فهمن و
+    با این استعاره تقریباً بدیهی.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 3</span><span class="fig-t">میدان‌شناسی — چندتاشو ببین</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figField"></canvas></div>
+      <div>
+        <div class="chip-row" id="fieldPresets"></div>
+        <div class="chip-row" id="fieldModes"></div>
+        <dl class="ro" id="fieldOut"></dl>
+        <p class="hint" id="fieldNote"></p>
+      </div>
+    </div>
+    <figcaption>
+      سه تا نمایشِ یه چیز واحد. <b>فلش‌ها</b> صادق‌ترینن ولی شلوغ می‌شن. <b>خطوط جریان</b>
+      شلوغی رو کم می‌کنن ولی اطلاعات طول فلش رو می‌خورن. <b>ذره‌ها</b> بهترین حس فیزیکی رو
+      می‌دن: انگار خاک‌اره ریختی روی آب. برای هر میدان هر سه رو امتحان کن —
+      مخصوصاً <b>«برشی»</b> رو، چون بعداً باهاش کار داریم. تمام این میدان‌ها، جز
+      «یکنواخت»، توی معادلات ماکسول با اسم و رسم ظاهر می‌شن.
+    </figcaption>
+  </figure>
+
+  <p>
+    حالا سؤال اصلی مقاله. جلوی یه میدان برداری نشستی. چه سؤالی می‌شه ازش پرسید که
+    <em>جوابش عدد باشه، نه یه نقاشی</em>؟
+  </p>
+  <p>
+    معلوم شد فقط دو تا سؤال هست که واقعاً مهمن. و هر دو تاشون <b>محلی‌</b>ان: از یه نقطهٔ
+    مشخص پرسیده می‌شن، نه از کل میدان.
+  </p>
+
+  <!-- ============ ۴ ============ -->
+  <h2 id="s4"><span class="secnum">04</span> نابلا: یه علامت، سه تا کار</h2>
+
+  <p>
+    قبل از دو تا سؤال، بذار نمادش رو از سر راه برداریم، چون همون چیزیه که بیشتر از هر چیزی
+    آدم‌ها رو از این بحث فراری می‌ده.
+  </p>
+  <p>
+    <span class="q">∇</span> رو «نابلا» یا «دِل» می‌خونن. و یه ترفند نوشتاریه: وانمود می‌کنیم
+    یه <em>بردار</em>ه که مؤلفه‌هاش به‌جای عدد، <em>دستور</em>ن:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">نابلا — یک بردار از دستورها</span>
+    ∇ = ( ∂/∂x , ∂/∂y , ∂/∂z )
+  </div>
+
+  <p>
+    این به‌تنهایی هیچ معنی‌ای نداره. مثل اینه که بگی «ضرب کن در». در چی؟ باید یه چیزی سمت
+    راستش بذاری. و دقیقاً <b>سه</b> جور می‌شه این کار رو کرد — چون سه جور می‌شه یه بردار رو
+    به چیز دیگه‌ای چسبوند:
+  </p>
+
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead>
+      <tr><th>می‌نویسی</th><th>اسمش</th><th>ورودی ← خروجی</th><th>یعنی داری می‌پرسی</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="sym">∇T</td>
+        <td>گرادیان</td>
+        <td class="io">اسکالر ← برداری</td>
+        <td>سربالایی کدوم طرفه و چقدر تنده؟</td>
+      </tr>
+      <tr>
+        <td class="sym">∇·F</td>
+        <td>دیورژانس</td>
+        <td class="io">برداری ← اسکالر</td>
+        <td>اینجا چیزی می‌جوشه بیرون یا فرو می‌ره؟</td>
+      </tr>
+      <tr>
+        <td class="sym">∇×F</td>
+        <td>کرل</td>
+        <td class="io">برداری ← برداری</td>
+        <td>اینجا چیزی می‌چرخه؟ حول چه محوری؟</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    اون نقطه و اون ضربدر، همون ضرب نقطه‌ای و ضرب برداریِ خودمونن — با همون قواعد همیشگی. فقط
+    به‌جای اینکه مؤلفه‌ها رو <em>ضرب</em> کنی، ازشون <em>مشتق</em> می‌گیری.
+  </p>
+
+  <details class="decode">
+    <summary>یادآوری — ضرب نقطه‌ای و ضرب برداری، در یک دقیقه</summary>
+    <div class="decode-body">
+      <p>
+        <b>ضرب نقطه‌ای</b> <span class="q">a·b</span> مؤلفه‌ها رو دوبه‌دو ضرب و جمع می‌کنه و
+        یه <em>عدد</em> می‌ده. اگه دو بردار هم‌جهت باشن بیشترین مقدارش رو داره، اگه عمود
+        باشن صفره. یعنی می‌سنجه <em>چقدر این دوتا هم‌جهتن</em>.
+      </p>
+      <p>
+        <b>ضرب برداری</b> <span class="q">a×b</span> یه <em>بردار</em> می‌ده که عمود بر هر
+        دوتاست. اگه هم‌جهت باشن صفره، اگه عمود باشن بیشترین مقدار. یعنی می‌سنجه
+        <em>چقدر این دوتا از هم زاویه دارن</em> — و جوابش رو در جهت محورِ اون چرخش می‌ده.
+      </p>
+      <p>
+        حالا برگرد به جدول بالا و ببین چقدر معنی‌دار شد. <span class="q">∇·F</span> داره
+        می‌سنجه میدان چقدر <em>هم‌جهت با فاصله‌گرفتن از نقطه</em>ست — یعنی چقدر داره پخش
+        می‌شه. <span class="q">∇×F</span> داره می‌سنجه میدان چقدر دور نقطه
+        <em>زاویه‌دار می‌چرخه</em> — و محور اون چرخش رو تحویل می‌ده. نماد اینجا اتفاقی
+        انتخاب نشده.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ ۵ ============ -->
+  <h2 id="s5"><span class="secnum">05</span> دیورژانس: اینجا شیره یا چاه؟</h2>
+
+  <p>
+    میدان رو جریان آب فرض کن. یه حلقهٔ خیلی کوچیک بردار و بذارش توی جریان، و فقط یه چیز رو
+    بشمر: <b>چقدر آب داره از این حلقه می‌زنه بیرون، منهای چقدر داره می‌زنه تو.</b>
+  </p>
+  <p>
+    سه تا حالت ممکنه:
+  </p>
+  <ul>
+    <li>هر چی رفت تو، همون‌قدر هم اومد بیرون. حاصل صفره. آب فقط داره <em>رد می‌شه</em>.</li>
+    <li>بیشتر از اون‌چیزی که رفت تو، اومد بیرون. یعنی وسط حلقه یه <b>شیر آب</b> هست که
+      داره آب اضافه می‌کنه.</li>
+    <li>کمتر اومد بیرون. یعنی وسط حلقه یه <b>چاه فاضلاب</b>ه که داره آب می‌بلعه.</li>
+  </ul>
+  <p>
+    اون عددی که این سه حالت رو از هم جدا می‌کنه اسم داره: <strong>شار</strong> (flux). و اگه
+    شار رو تقسیم بر مساحتِ حلقه کنی و بعد حلقه رو همین‌طور کوچیک و کوچیک‌تر کنی تا به یه نقطه
+    برسه، اون عدد به یه مقدار مشخص همگرا می‌شه. همون <strong>دیورژانس</strong>ه.
+  </p>
+
+  <div class="pull">
+    دیورژانس یعنی: <em>غلظتِ شیرِ آب</em>، در همین نقطه.
+  </div>
+
+  <p>
+    و وقتی همه‌چیز رو به مؤلفه‌ها می‌شکنی، به این ساده‌گیِ خنده‌داری می‌رسی:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">دیورژانس — از میدان برداری، میدان اسکالر می‌سازد</span>
+    ∇·F = ∂F<sub>x</sub>/∂x + ∂F<sub>y</sub>/∂y + ∂F<sub>z</sub>/∂z
+  </div>
+
+  <p>
+    یعنی: «مؤلفهٔ شرقی، هرچی می‌ری شرق چقدر زیاد می‌شه» به‌علاوهٔ «مؤلفهٔ شمالی، هرچی می‌ری
+    شمال چقدر زیاد می‌شه». اگه هر دوتا مثبت باشن، یعنی هرچی از این نقطه دور می‌شی جریان
+    تندتر می‌شه، یعنی داره پخش می‌شه، یعنی یه چیزی وسط داره تولیدش می‌کنه.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 4</span><span class="fig-t">دیورژانس — حلقه را بگیر و بکش</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figDiv"></canvas></div>
+      <div>
+        <div class="chip-row" id="divPresets"></div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">شعاع حلقه</span><span class="ctl-val" id="divRv">0.30</span></div>
+          <input class="slider" type="range" id="divR" aria-label="شعاع حلقه" min="8" max="60" step="1" value="30">
+        </div>
+        <dl class="ro" id="divOut"></dl>
+        <p class="hint" id="divNote"></p>
+      </div>
+    </div>
+    <figcaption>
+      روی مرز حلقه، فلش‌های <b>آبی</b> جاهایی‌ان که جریان داره می‌زنه بیرون و
+      فلش‌های <b>بی‌رنگ</b> جاهایی که داره می‌زنه تو. عددی که می‌بینی، جمع جبری همینه.
+      دو تا چیز رو حتماً امتحان کن. اول <b>«چرخش»</b> — حلقه رو هرجا ببری شار صفره،
+      چون آب فقط دور می‌زنه و هیچ‌جا تولید نمی‌شه. بعد <b>«بار نقطه‌ای»</b> — تا وقتی
+      نقطهٔ وسط بیرون حلقه‌ست شار دقیقاً صفره، ولی همین که حلقه بار رو بغل کنه، شار
+      یهو می‌پره. این دو تا رفتار، دقیقاً <b>قانون گاوس</b>ن.
+    </figcaption>
+  </figure>
+
+  <p>
+    اون آخری ارزش یه بار دیگه گفتن رو داره. میدان یه بار نقطه‌ای همه‌جا داره از مرکز فرار
+    می‌کنه؛ خیلی طبیعیه فکر کنی «خب پس همه‌جا دیورژانس داره». ولی نداره. میدان با فاصله
+    دقیقاً اون‌قدری ضعیف می‌شه که هرچی وارد یه حلقهٔ خالی می‌شه، همون‌قدر هم ازش خارج بشه.
+    <b>دیورژانس همه‌جا صفره، جز دقیقاً همون‌جایی که بار نشسته.</b>
+  </p>
+  <p>
+    و این دقیقاً حرفِ اولین معادلهٔ ماکسوله:
+  </p>
+
+  <div class="eq card">
+    <div class="eq-rows">
+      <div class="row"><span class="big">∇·E = ρ/ε<sub>0</sub></span><span class="say">«سرچشمهٔ میدان الکتریکی، بارِ الکتریکیه.»</span></div>
+      <div class="row"><span class="big">∇·B = 0</span><span class="say">«میدان مغناطیسی هیچ سرچشمه‌ای نداره. اصلاً.»</span></div>
+    </div>
+  </div>
+
+  <p>
+    خط دوم رو یه بار دیگه بخون، چون یکی از عجیب‌ترین جمله‌های فیزیکه. یعنی هر حلقه‌ای که
+    هرجای عالم بکشی، هر چقدر خط میدان مغناطیسی واردش بشه، دقیقاً همون‌قدر هم ازش خارج می‌شه.
+    یعنی <b>تک‌قطبی مغناطیسی وجود نداره</b>: آهن‌ربا رو هرچقدر بشکنی، باز هر تیکه‌اش دو تا
+    قطب داره. کل این حرف، توی سه تا کاراکتر جا شده.
+  </p>
+
+  <!-- ============ ۶ ============ -->
+  <h2 id="s6"><span class="secnum">06</span> کرل: اینجا چیزی می‌چرخه؟</h2>
+
+  <p>
+    سؤال دوم. باز هم جریان آب، ولی این بار به‌جای حلقه، یه <b>چرخونکِ</b> کوچیک بردار — از
+    اون آسیاب‌بادی‌های اسباب‌بازی با چند تا پره. بذارش توی آب و ولش کن. فقط یه چیز رو نگاه کن:
+  </p>
+
+  <div class="pull">
+    می‌چرخه؟ چقدر تند؟ به کدوم طرف؟
+  </div>
+
+  <p>
+    این بار به‌جای اینکه ببینی جریان چقدر <em>از مرز رد می‌شه</em>، می‌بینی چقدر
+    <em>در امتداد مرز می‌ره</em>. اسم این یکی <strong>گردش</strong> (circulation) ـه: جمع
+    مؤلفهٔ مماسیِ میدان، دور تا دور حلقه. و باز مثل قبل، گردش تقسیم بر مساحت، وقتی حلقه به
+    یه نقطه جمع بشه، می‌شه <strong>کرل</strong>.
+  </p>
+  <p>
+    یه فرق مهم با دیورژانس داره: توی سه بعد، چرخش <em>حول یه محور</em> اتفاق می‌افته، پس
+    جواب باید هم شدت داشته باشه و هم جهت. برای همین کرل یه <b>بردار</b>ه، نه یه عدد. توی
+    صفحه (که کل این مقاله توشیم) محور همیشه عمود بر صفحه‌ست، پس یه عدد کافیه — مثبت یعنی
+    پادساعتگرد، منفی یعنی ساعتگرد:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">کرل در صفحه — مؤلفهٔ عمود بر صفحه</span>
+    (∇×F)<sub>z</sub> = ∂F<sub>y</sub>/∂x − ∂F<sub>x</sub>/∂y
+  </div>
+
+  <p>
+    حالا اون تلهٔ کلاسیک، که تقریباً همه اولین بار توش می‌افتن.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 5</span><span class="fig-t">کرل — چرخونک را بگیر و بکش</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figCurl"></canvas></div>
+      <div>
+        <div class="chip-row" id="curlPresets"></div>
+        <div class="check-row">
+          <label><input type="checkbox" id="curlMap"> نقشهٔ کرل در کل میدان</label>
+        </div>
+        <dl class="ro" id="curlOut"></dl>
+        <p class="hint" id="curlNote"></p>
+      </div>
+    </div>
+    <figcaption>
+      <b>«برشی»</b> رو بزن. جریان کاملاً مستقیمه — هیچ چیزی هیچ‌جا دور نمی‌زنه — ولی چرخونک
+      می‌چرخه، چون آبِ بالای پره‌ها تندتر از آبِ پایینشونه. فلش‌های دور حلقه مؤلفهٔ
+      <em>مماسیِ</em> جریان‌ان: آبی یعنی پادساعتگرد، بی‌رنگ یعنی ساعتگرد، و برنده
+      چرخونک رو می‌چرخونه. <b>کرل ربطی به اینکه جریان
+      خمیده باشه نداره؛ ربطش به اینه که در عرضِ جریان، سرعت فرق کنه.</b> و بعد
+      برعکسش رو ببین: <b>«گردابِ سیم»</b> رو بزن، که خطوطش دایره‌های کاملن. چرخونک
+      هیچ‌جا نمی‌چرخه، جز اگه دقیقاً وسط بذاریش. این همون میدان مغناطیسیِ دور یه سیمه.
+    </figcaption>
+  </figure>
+
+  <div class="note card">
+    <b>پس این دو تا کلمه رو با هم قاطی نکن:</b> «میدان دور می‌زنه» یه خاصیتِ کلیِ نقشه‌ست.
+    «کرل» یه خاصیتِ محلیِ نقطه‌ست. کاملاً می‌شه میدانی داشت که کل خطوطش دایره‌ن ولی کرلش
+    همه‌جا صفره — و می‌شه میدانی داشت که همهٔ خطوطش خط راستن ولی کرلش همه‌جا مخالف صفره.
+    هر دوتاش رو بالا دیدی.
+  </div>
+
+  <p>
+    و همون‌طور که دیورژانس دو تا از معادلات ماکسول بود، کرل اون دو تای دیگه‌ست:
+  </p>
+
+  <div class="eq card">
+    <div class="eq-rows">
+      <div class="row"><span class="big">∇×E = −∂B/∂t</span><span class="say">«میدان مغناطیسیِ در حال تغییر، میدان الکتریکیِ چرخان می‌سازه.»</span></div>
+      <div class="row"><span class="big">∇×B = μ<sub>0</sub>J + μ<sub>0</sub>ε<sub>0</sub> ∂E/∂t</span><span class="say">«جریان الکتریکی — و میدان الکتریکیِ در حال تغییر — میدان مغناطیسیِ چرخان می‌سازن.»</span></div>
+    </div>
+  </div>
+
+  <p>
+    اولی همون چیزیه که هر ژنراتور برق دنیا روش کار می‌کنه. دومی همون چیزیه که هر آنتنی رو
+    ممکن کرده. و اگه اون دو تا جملهٔ فارسی رو کنار هم بذاری، می‌بینی یه حلقهٔ بسته‌ست:
+    الکتریکیِ متغیر مغناطیسی می‌سازه، مغناطیسیِ متغیر الکتریکی می‌سازه، و این دوتا می‌تونن
+    همدیگه رو نگه دارن و بدون هیچ سیمی توی فضا راه بیفتن. اسم اون چیزی که راه می‌افته
+    <b>نور</b>ه. ولی این حرفِ مقالهٔ بعدیه.
+  </p>
+
+  <!-- ============ ۷ ============ -->
+  <h2 id="s7"><span class="secnum">07</span> یه میدان، دو تا عدد</h2>
+
+  <p>
+    حالا که هر دو تا سؤال رو داریم، بیا با هم ببینیمشون. یه میدان ساده بردار که هم شیر آب
+    داشته باشه و هم چرخش، و شدت هرکدوم رو جدا جدا بشه تنظیم کرد:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">یک میدان با دو دسته</span>
+    F = ( a·x − b·y , a·y + b·x )
+    &nbsp;&nbsp;→&nbsp;&nbsp; ∇·F = 2a &nbsp;،&nbsp; ∇×F = 2b
+  </div>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 6</span><span class="fig-t">دو تا دسته، یک میدان</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figMix"></canvas></div>
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">دیورژانس <span class="q">(a)</span></span><span class="ctl-val" id="mixAv">0.7</span></div>
+          <input class="slider" type="range" id="mixA" aria-label="شدت سرچشمه" min="-100" max="100" step="1" value="70">
+        </div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">کرل <span class="q">(b)</span></span><span class="ctl-val" id="mixBv">0.0</span></div>
+          <input class="slider" type="range" id="mixB" aria-label="شدت چرخش" min="-100" max="100" step="1" value="0">
+        </div>
+        <div class="chip-row" id="mixPresets"></div>
+        <dl class="ro" id="mixOut"></dl>
+        <p class="hint" id="mixNote"></p>
+      </div>
+    </div>
+    <figcaption>
+      دو تا دسته، و هیچ‌کدوم روی اون یکی اثر نداره. دیورژانس رو زیاد کن، میدان از مرکز
+      فرار می‌کنه. کرل رو زیاد کن، دور مرکز می‌چرخه. هر دو رو با هم بذار، مارپیچ می‌شه.
+      نکته دقیقاً همینه: <b>این دو تا عدد، دو تا چیز کاملاً مستقلن.</b> یکی از قضیه‌های
+      قشنگ آنالیز برداری (<b>تجزیهٔ هلمهولتز</b>) می‌گه هر میدان برداریِ معقولی رو می‌شه
+      دقیقاً به همین دو تیکه شکست: یه تیکه که فقط سرچشمه داره، و یه تیکه که فقط می‌چرخه.
+      یعنی این دو تا سؤال، تصادفی انتخاب نشدن — <b>کلاً همین دو تا سؤال هست.</b>
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>دو تا اتحاد که حفظ‌کردنشون به‌صرفه‌ست</summary>
+    <div class="decode-body">
+      <p>
+        <b>یک:</b> <span class="q">∇×(∇T) = 0</span>. کرلِ هر گرادیانی صفره. یعنی میدانی که
+        از سربالایی و سرازیریِ یه تپه ساخته شده، هیچ‌وقت دور خودش نمی‌چرخه — که منطقیه:
+        اگه می‌چرخید، می‌تونستی یه دور بزنی و به جای اولت برگردی درحالی‌که مدام سربالایی
+        رفتی. یعنی ماشین حرکت دائمی. طبیعت نمی‌ذاره.
+      </p>
+      <p>
+        <b>دو:</b> <span class="q">∇·(∇×F) = 0</span>. دیورژانسِ هر کرلی صفره. هرچی
+        از چرخش ساخته شده باشه، سرچشمه نداره.
+      </p>
+      <p>
+        حالا این رو کنار <span class="q">∇·B = 0</span> بذار. <span class="q">B</span>
+        سرچشمه نداره، پس <em>می‌تونه</em> کرلِ یه چیز دیگه باشه — و هست. اون چیز رو
+        <b>پتانسیل برداری</b> می‌نامن و می‌نویسنش <span class="q">B = ∇×A</span>. کل
+        الکترودینامیک مدرن روی همین یه خط بنا شده، و همین‌جوری از دل یه اتحاد دو کلمه‌ای
+        بیرون اومد.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ ۸ ============ -->
+  <h2 id="s8"><span class="secnum">08</span> از نقطه به ناحیه: دو تا قضیه</h2>
+
+  <p>
+    یه مشکل عملی هست. دیورژانس و کرل هر دو <b>محلی‌</b>ان — دربارهٔ یه نقطه حرف می‌زنن. ولی
+    توی دنیای واقعی، هیچ‌وقت کسی یه نقطه رو اندازه نمی‌گیره. تو یه <em>ناحیه</em> داری: یه
+    اتاق، یه حلقهٔ سیم، یه سطح.
+  </p>
+  <p>
+    دو تا قضیه این شکاف رو پر می‌کنن، و هر دوشون یه حرف رو می‌زنن:
+  </p>
+
+  <div class="pull">
+    اگه یه چیزِ محلی رو روی کل یه ناحیه جمع بزنی، فقط <em>مرزِ</em> ناحیه باقی می‌مونه.
+  </div>
+
+  <p>
+    چرا؟ چون هر چیزی که داخل ناحیه‌ست، بین دو تا تیکهٔ همسایه <b>دوبار</b> شمرده می‌شه، یه‌بار
+    با علامت مثبت و یه‌بار با منفی. همه‌شون همدیگه رو می‌خورن. فقط لبه‌هایی می‌مونن که
+    همسایه‌ای اون‌طرفشون نیست:
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 7</span><span class="fig-t">همه‌چیزِ وسط، خودش را می‌خورد</span></div>
+    <div class="fig-split">
+      <div class="canvas-wrap"><canvas id="figSum"></canvas></div>
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">ریزیِ شبکه</span><span class="ctl-val" id="sumNv">۳ × ۳</span></div>
+          <input class="slider" type="range" id="sumN" aria-label="تعداد سلول‌ها" min="1" max="9" step="1" value="3">
+        </div>
+        <button class="pill" type="button" id="sumCancel">حذفِ لبه‌های داخلی</button>
+        <dl class="ro" id="sumOut"></dl>
+        <p class="hint">
+          هر سلول یه حلقهٔ کوچیکه که پادساعتگرد دور خودش می‌چرخه. هر لبهٔ داخلی برای یه
+          سلول به سمت بالاست و برای همسایه‌اش به سمت پایین.
+        </p>
+      </div>
+    </div>
+    <figcaption>
+      دکمه رو بزن و ببین چی می‌مونه: <b>فقط مرز بیرونی</b>. حالا هرچقدر شبکه رو ریزتر کنی
+      باز هم همین اتفاق می‌افته، و در حدِ بی‌نهایت ریز، «جمع گردشِ سلول‌های کوچیک» می‌شه
+      «انتگرال کرل روی سطح» و «مرز بیرونی» می‌شه «انتگرال روی منحنی مرزی». کل اثباتِ
+      قضیهٔ استوکس همینه، و برای دیورژانس هم عیناً همین حرف با یه بُعد بیشتر تکرار می‌شه.
+    </figcaption>
+  </figure>
+
+  <p>
+    دو تا نتیجه‌ای که ازش درمیاد، اسم‌های بزرگی دارن و حرف کوچیکی می‌زنن:
+  </p>
+
+  <div class="eq card">
+    <div class="eq-rows">
+      <div class="row"><span class="big">∭ (∇·F) dV = ∯ F·dS</span><span class="say">قضیهٔ دیورژانس: جمع همهٔ شیرها و چاه‌های داخل یه حجم = کل شاری که از پوستهٔ بیرونی رد می‌شه.</span></div>
+      <div class="row"><span class="big">∬ (∇×F)·dS = ∮ F·dl</span><span class="say">قضیهٔ استوکس: جمع همهٔ چرخش‌های ریز روی یه سطح = گردش دور لبهٔ اون سطح.</span></div>
+    </div>
+  </div>
+
+  <p>
+    و حالا دلیل اینکه چرا این‌ها رو اینجا آوردم: <b>هر معادلهٔ ماکسول دو تا لباس داره.</b>
+    یکی نقطه‌ای (دیفرانسیلی) و یکی ناحیه‌ای (انتگرالی). این دو تا قضیه، همون رخت‌کنن.
+    مثلاً همون <span class="q">∇·E = ρ/ε₀</span> با یه بار استفاده از قضیهٔ دیورژانس می‌شه
+    اون فرمِ آشنای «شارِ عبوری از یه سطح بسته = بارِ داخلش تقسیم بر
+    <span class="q">ε₀</span>» — یعنی قانون گاوس، همون‌جوری که سر کلاس فیزیک ۲ نوشتنش.
+  </p>
+  <p>
+    دو تا نوشتار، یه فیزیک. نوشتار نقطه‌ای برای اثبات و شبیه‌سازی خوبه، نوشتار ناحیه‌ای
+    برای اینکه واقعاً یه مسئله رو حل کنی.
+  </p>
+
+  <!-- ============ ۹ ============ -->
+  <h2 id="s9"><span class="secnum">09</span> حالا برو سراغ ماکسول</h2>
+
+  <p>
+    این‌ها همهٔ چیزی بود که لازم داشتی. چهار تا معادله‌ای که پایین می‌بینی رو یه بار دیگه
+    نگاه کن — ولی این دفعه به‌جای اینکه ببینی‌شون، <em>بخونشون</em>:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">معادلات ماکسول — و چیزی که واقعاً می‌گویند</span>
+    <div class="eq-rows">
+      <div class="row"><span class="big">∇·E = ρ/ε<sub>0</sub></span><span class="say">میدان الکتریکی از بار می‌جوشه.</span></div>
+      <div class="row"><span class="big">∇·B = 0</span><span class="say">میدان مغناطیسی از هیچی نمی‌جوشه.</span></div>
+      <div class="row"><span class="big">∇×E = −∂B/∂t</span><span class="say">مغناطیسیِ متغیر، الکتریکیِ چرخان می‌سازد.</span></div>
+      <div class="row"><span class="big">∇×B = μ<sub>0</sub>J + μ<sub>0</sub>ε<sub>0</sub> ∂E/∂t</span><span class="say">جریان و الکتریکیِ متغیر، مغناطیسیِ چرخان می‌سازند.</span></div>
+    </div>
+  </div>
+
+  <p>
+    ستون سمت راست، هیچ ریاضی‌ای توش نیست. چهار تا جملهٔ فارسیِ ساده‌ست دربارهٔ اینکه چی
+    از کجا می‌جوشه و چی دور چی می‌چرخه. و همهٔ کاری که <span class="q">∇·</span> و
+    <span class="q">∇×</span> می‌کنن اینه که همون چهار جمله رو طوری بنویسن که بشه باهاشون
+    حساب کرد.
+  </p>
+  <p>
+    اگه تا اینجا اومدی، حالا سؤال‌های درست رو داری: «سرچشمه‌اش کجاست؟» و «دور چی می‌چرخه؟».
+    مقالهٔ بعدی دربارهٔ اینه که وقتی این چهار جواب رو کنار هم می‌ذاری، چه چیزی از توش
+    درمیاد — و چرا اون چیز با سرعت <span class="q">۳۰۰٬۰۰۰ km/s</span> حرکت می‌کنه.
+  </p>
+
+  <div class="cta card">
+    <h3>بین دو مقاله، برو باهاش ور برو</h3>
+    <p>
+      شکل‌های بالا هرکدوم عمداً کوچیکن و فقط یه حرف می‌زنن. اگه حوصله داری، بهترین کاری که
+      می‌تونی بکنی اینه که برگردی به <b>شکل ۳</b> و برای هر میدان، قبل از اینکه دیورژانس و
+      کرلش رو ببینی، اول خودت حدس بزنی. دو سه بار که درست حدس بزنی، دیگه هیچ‌وقت این دو تا
+      علامت برات نماد نیستن.
+    </p>
+    <div class="btn-row">
+      <a class="btn solid" href="#s3">برگرد به شکل ۳</a>
+      <a class="btn" href="../../#writing">بقیهٔ نوشته‌ها</a>
+    </div>
+  </div>
+
+  <h3 style="margin-top:3rem">برای ادامه دادن</h3>
+  <ul class="refs">
+    <li>H. M. Schey, <em>Div, Grad, Curl, and All That</em>, 4th ed., W. W. Norton — کل این
+      مقاله عملاً پیش‌درآمدِ فصل اول این کتابه. کوتاه، و به‌طرز عجیبی خوش‌خوان.</li>
+    <li>D. J. Griffiths, <em>Introduction to Electrodynamics</em>, 4th ed. — فصل ۱ همین بحث
+      است، با دقت کامل و با تمرین.</li>
+    <li>E. M. Purcell &amp; D. J. Morin, <em>Electricity and Magnetism</em>, 3rd ed. — اگر
+      شهود فیزیکی می‌خواهی و نه فرمالیسم، این.</li>
+    <li>3Blue1Brown، «Divergence and curl: the language of Maxwell's equations» — ویدئوی
+      پانزده‌دقیقه‌ای، و بهترین انیمیشنی که از این موضوع ساخته شده.</li>
+  </ul>
+
+</article>
+</main>
+
+<footer class="footer">
+  <span>© 2026 Hassan Keshtkar · <span class="mono-label lat">hkk.fyi</span></span>
+  <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
+</footer>
+
+<script src="post.js"></script>
+</body>
+</html>

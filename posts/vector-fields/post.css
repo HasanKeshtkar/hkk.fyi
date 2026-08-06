@@ -1,0 +1,417 @@
+/* ============================================================
+   «هر نقطه یک فلش» — استایل مقاله
+   ------------------------------------------------------------
+   سه رنگ پایه از assets/site.css می‌آید: paper / ink / sig.
+   این مقاله فقط فارسی است، پس برخلاف مقالهٔ نمودار اسمیت اینجا
+   RTL حالت پیش‌فرض است و کلاس lang-* در کار نیست.
+   ============================================================ */
+
+/* ---------- light theme: the site's cream needs a deeper blue ---------- */
+html:not(.ink){
+  /* the blueprint blue is tuned against dark ink (~6:1). Over cream it is
+     only ~3.9:1 — too thin for 11px labels. Same hue, deeper: ~6.2:1. */
+  --sig:#1E49A8;
+}
+html:not(.ink) .mono-label{ opacity:1; }
+html:not(.ink) .ro dt{ opacity:.8; }
+html:not(.ink) .eq .lbl{ opacity:.75; }
+html:not(.ink) .byline .dot{ opacity:.55; }
+
+/* ============================================================
+   1. حروف — فارسی
+   ============================================================ */
+:root{
+  --font-fa-text:"Shabnam","Vazirmatn","Segoe UI",Tahoma,sans-serif;
+  --font-fa-display:"Estedad","Shabnam","Segoe UI",Tahoma,sans-serif;
+}
+/* فقط بدنهٔ مقاله می‌چرخد؛ هدر و فوتر سایت در هر دو حالت چپ‌به‌راست می‌مانند */
+main{
+  direction:rtl;
+  font-family:var(--font-fa-text);
+  /* ارتفاع x در شبنم کوچک‌تر از Space Grotesk است و فارسی حرف بزرگ ندارد
+     که خط را نگه دارد، پس همان اندازه، کوچک‌تر خوانده می‌شود */
+  font-size:17.5px;
+  /* فارسی خیلی پایین‌تر از خط کرسی می‌رود؛ ۱٫۶۵ لاتین نقطه‌های خط بعد را
+     زیر دنبالهٔ خط قبل می‌فرستد */
+  line-height:1.95;
+}
+
+/* ============================================================
+   2. ستون خواندن
+   ============================================================ */
+.post{ padding-bottom:4rem; }
+.post > *{ max-width:66ch; }
+.post > .wide,
+.post > figure.fig,
+.post > .rule{ max-width:100%; }
+
+.post p{ margin:0 0 1.15rem; }
+.post h2{
+  display:flex; align-items:baseline; gap:.7rem;
+  font-size:1.5rem; font-weight:800; letter-spacing:0; line-height:1.5;
+  margin:3.4rem 0 1rem; scroll-margin-top:5rem;
+  font-family:var(--font-fa-display);
+}
+.post h2 .secnum{ font-family:var(--font-mono); font-weight:500; font-size:.95rem; color:var(--sig); }
+.post h3{ font-size:1.08rem; font-weight:700; margin:2rem 0 .5rem; font-family:var(--font-fa-display); }
+.post strong, .post b{ font-weight:700; }
+/* ایتالیک تمایزِ فارسی نیست — فقط قلم را بد کج می‌کند */
+.post em{ font-style:normal; font-weight:500; color:color-mix(in srgb, var(--fg) 74%, var(--sig)); }
+
+.post p, .post li, .post-sub,
+.tldr li, .decode-body p, .cta p{ line-height:1.95; }
+figcaption, .note, .refs li{ line-height:1.85; }
+
+.rule{
+  border:0; height:1px; margin:3rem 0 0;
+  background:color-mix(in srgb, var(--fg) 22%, transparent);
+}
+
+/* ============================================================
+   3. سربرگ مقاله
+   ============================================================ */
+.post-hero{ padding:3.4rem 0 .6rem; max-width:100%; }
+.post-kicker{ color:var(--sig); margin-bottom:.9rem; display:block; }
+.post-hero h1{
+  font-family:var(--font-fa-display);
+  font-size:clamp(2rem, 5.2vw, 3.3rem);
+  line-height:1.35; letter-spacing:0;
+  margin:0 0 1rem; font-weight:800; max-width:19ch;
+  text-wrap:balance;
+}
+.post-sub{ font-size:1.1rem; max-width:56ch; opacity:.92; font-family:var(--font-fa-display); font-weight:400; }
+
+.post-lede{
+  display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);
+  gap:2.4rem; align-items:center;
+}
+.lede-chart{ margin:0; }
+.lede-chart canvas{ display:block; width:100%; height:100%; border-radius:5px; }
+.lede-chart figcaption{ text-align:center; margin-top:.55rem; opacity:.55; }
+@media (max-width:760px){
+  .post-lede{ grid-template-columns:1fr; gap:1.4rem; }
+  .lede-chart{ max-width:320px; margin:0 auto; }
+}
+
+.byline{
+  display:flex; gap:.7rem; flex-wrap:wrap; align-items:center;
+  margin-top:1.6rem; padding-top:1rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 20%, transparent);
+  max-width:100%;
+}
+.byline .dot{ opacity:.4; }
+.backlink{ font-size:.82rem; text-decoration:none; opacity:.85; }
+.backlink:hover{ color:var(--sig); opacity:1; }
+
+/* ---------- هم‌رسانی ---------- */
+.share{
+  display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
+  margin-top:1rem; max-width:100%;
+}
+.share-label{ color:var(--sig); margin-left:.15rem; }
+.share-btn{
+  display:inline-flex; align-items:center; gap:.4rem;
+  font-size:.78rem; padding:.36rem .62rem; border-radius:3px;
+  border:1.4px solid color-mix(in srgb, var(--fg) 32%, transparent);
+  background:none; color:var(--fg); text-decoration:none;
+  cursor:pointer; white-space:nowrap;
+  font-family:var(--font-fa-display); font-weight:500;
+}
+.share-btn svg{ width:13px; height:13px; flex:none; }
+.share-btn:hover{ border-color:var(--sig); color:var(--sig); }
+.share-btn:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+.share-btn.done{ border-color:var(--sig); color:var(--sig); }
+@media (max-width:520px){
+  .share-btn{ padding:.34rem .5rem; }
+  /* روی موبایل شیت خود سیستم همهٔ این‌ها را دارد؛ فقط دوتایی که جایگزین
+     ندارند می‌مانند: کپی، و خودِ شیت */
+  .share.has-native .share-btn:not(#shareCopy):not(#shareNative){ display:none; }
+}
+
+/* ============================================================
+   4. جعبه‌ها
+   ============================================================ */
+.tldr{
+  padding:1.15rem 1.35rem; margin:2.4rem 0 0;
+  border-right:3px solid var(--sig);
+}
+.tldr > .mono-label{ color:var(--sig); display:block; margin-bottom:.7rem; }
+.tldr ul{ margin:0; padding:0 1.15rem 0 0; }
+.tldr li{ margin:.45rem 0; font-size:.97rem; }
+.tldr li::marker{ color:var(--sig); }
+.tldr .tldr-foot{ margin:.95rem 0 0; font-size:.9rem; opacity:.78; font-weight:500; }
+
+/* جعبه‌های «به زبان آدمیزاد» — بسته‌اند تا ستون اصلی برای کسی که
+   اصطلاح را بلد است شلوغ نشود، بدون اینکه تازه‌کار جا بماند */
+details.decode{
+  margin:1.4rem 0;
+  border:1px dashed color-mix(in srgb, var(--fg) 34%, transparent);
+  border-radius:4px;
+  /* مات، مثل .card — وگرنه شبکهٔ پس‌زمینهٔ صفحه از تویش رد می‌شود */
+  background:color-mix(in srgb, var(--bg) 91%, var(--sig));
+}
+html:not(.ink) details.decode{ background:color-mix(in srgb, var(--bg) 94%, var(--sig)); }
+details.decode[open]{
+  border-style:solid;
+  border-color:color-mix(in srgb, var(--sig) 38%, transparent);
+}
+details.decode > summary{
+  cursor:pointer; list-style:none;
+  padding:.62rem .9rem;
+  font-family:var(--font-fa-display); font-weight:500; font-size:.9rem;
+  color:var(--sig);
+  display:flex; align-items:baseline; gap:.55rem;
+}
+html.ink details.decode > summary{ color:color-mix(in srgb, var(--sig) 60%, var(--fg)); }
+details.decode > summary::-webkit-details-marker{ display:none; }
+details.decode > summary::before{ content:"+"; font-weight:700; line-height:1; opacity:.9; flex:none; }
+details.decode[open] > summary::before{ content:"−"; }
+details.decode > summary:hover{ text-decoration:underline; }
+details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+.decode-body{
+  margin:0 .9rem;
+  padding:0 0 .9rem;
+  border-top:1px dashed color-mix(in srgb, var(--fg) 22%, transparent);
+}
+.post .decode-body p{ margin:.7rem 0 0; font-size:.95rem; }
+.post .decode-body p:last-child{ margin-bottom:0; }
+.post .decode-body ul{ margin:.6rem 0 0; font-size:.95rem; }
+
+/* ---------- فهرست ---------- */
+.toc{ padding:1.1rem 1.3rem; margin:2.2rem 0 0; }
+.toc ol{
+  margin:.6rem 0 0; padding:0 1.2rem 0 0;
+  columns:2; column-gap:2rem; list-style-type:persian;
+}
+.toc li{ margin:.15rem 0; break-inside:avoid; }
+.toc a{ text-decoration:none; }
+.toc a:hover{ text-decoration:underline; text-decoration-color:var(--sig); }
+@media (max-width:640px){ .toc ol{ columns:1; } }
+
+/* ---------- نقل‌قول و یادداشت ---------- */
+.pull{
+  margin:2.4rem 0; padding:.2rem 1.3rem .2rem 0;
+  border-right:3px solid var(--sig);
+  font-size:1.14rem; line-height:1.75;
+  font-family:var(--font-fa-display); font-weight:500;
+}
+.note{
+  padding:.9rem 1.1rem; margin:1.6rem 0;
+  border-right:3px solid color-mix(in srgb, var(--fg) 35%, transparent);
+  font-size:.95rem; opacity:.92;
+}
+.note b{ opacity:1; }
+.note.sig{ border-right-color:var(--sig); }
+
+/* ---------- فرمول ----------
+   فرمول‌ها همیشه چپ‌به‌راست‌اند، حتی وسط یک بند فارسی */
+.eq{
+  margin:1.4rem 0; padding:.9rem 1.1rem;
+  font-family:var(--font-mono); font-size:1rem;
+  text-align:center; overflow-x:auto;
+  direction:ltr; unicode-bidi:isolate;
+}
+.eq .lbl{
+  display:block; font-family:var(--font-fa-display); font-weight:500;
+  font-size:.78rem; opacity:.65; margin-bottom:.5rem;
+  direction:rtl;
+}
+.eq .frac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 .18em; }
+.eq .frac .num{ border-bottom:1.2px solid currentColor; padding:0 .35em .12em; }
+.eq .frac .den{ padding:.12em .35em 0; }
+.eq .big{ font-size:1.3em; }
+/* دو ستون: فرمول‌ها زیر هم و هم‌تراز، و روبه‌روی هرکدام همان جمله به فارسی.
+   .row با display:contents خودش را کنار می‌کشد تا بچه‌هایش مستقیم بشوند
+   خانه‌های همان شبکه — وگرنه هر سطر مستقل می‌شد و ستون‌ها به هم نمی‌خوردند. */
+.eq-rows{
+  display:grid; grid-template-columns:max-content minmax(0, 1fr);
+  gap:.75rem 1.3rem; align-items:baseline; justify-content:center;
+  text-align:right;
+}
+.eq-rows .row{ display:contents; }
+.eq-rows .row .say{
+  font-family:var(--font-fa-text); font-size:.84rem; line-height:1.7; opacity:.75;
+  direction:rtl; text-align:right;
+}
+@media (max-width:620px){
+  /* روی گوشی دو ستون جا نمی‌شود؛ جمله می‌رود زیر فرمول خودش */
+  .eq-rows{ grid-template-columns:minmax(0,1fr); gap:.25rem; text-align:center; }
+  .eq-rows .row .say{ text-align:center; margin-bottom:.7rem; }
+}
+
+/* ============================================================
+   5. شکل‌ها
+   ============================================================ */
+figure.fig{
+  margin:2rem 0 2.4rem;
+  padding:1rem 1.15rem 1.15rem;
+  overflow:hidden;
+}
+.fig-head{
+  display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap;
+  margin-bottom:.8rem;
+}
+.fig-head .fig-n{ color:var(--sig); }
+.fig-head .fig-t{ font-weight:500; letter-spacing:.02em; }
+figure.fig figcaption{
+  margin-top:.9rem; padding-top:.8rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+  font-size:.93rem; opacity:.87;
+}
+figure.fig figcaption b{ opacity:1; }
+
+.canvas-wrap{ position:relative; width:100%; }
+figure.fig canvas{
+  display:block; width:100%; height:100%;
+  touch-action:none;            /* کشیدن نشانگر نباید صفحه را اسکرول کند */
+  border-radius:4px;
+}
+.hint{
+  font-size:.85rem; margin:.9rem 0 0; opacity:.85;
+}
+
+/* دوتایی: بوم سمت راست، کنترل‌ها سمت چپ */
+.fig-split{ display:grid; grid-template-columns:1.35fr 1fr; gap:1.2rem; align-items:start; }
+.fig-split > *{ min-width:0; }
+@media (max-width:760px){ .fig-split{ grid-template-columns:1fr; } }
+
+/* ---------- کنترل‌ها ---------- */
+.ctl{ margin:0 0 .9rem; }
+.ctl:last-child{ margin-bottom:0; }
+.ctl-label{
+  display:flex; justify-content:space-between; align-items:baseline; gap:.6rem;
+  margin-bottom:.25rem;
+}
+/* قلم مونو یک حرف فارسی هم ندارد. اگر تنها بماند، مرورگر برای بخش فارسیِ
+   یک رشتهٔ مخلوط سراغ هر قلمی که دم دستش باشد می‌رود و اتصال حروف را
+   می‌شکند («ساعتگرد» می‌شود «سا عتگرد»). پس قلم فارسی، پشتِ مونو —
+   و حتماً *قبل از* واژهٔ عامِ monospace، وگرنه آن همه‌چیز را می‌قاپد و
+   نوبت هیچ‌وقت به شبنم نمی‌رسد. برای همین اینجا از var(--font-mono)
+   استفاده نشده: خودش به monospace ختم می‌شود. */
+.ctl-val{
+  font-family:"IBM Plex Mono", ui-monospace, "Shabnam", "Vazirmatn", monospace;
+  font-size:.82rem; color:var(--sig); unicode-bidi:plaintext;
+}
+
+input[type=range].slider{
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:22px; background:none; cursor:pointer; margin:0;
+  direction:ltr;                /* یک لغزنده محور فیزیکی است: چپ همیشه کمتر */
+}
+input[type=range].slider::-webkit-slider-runnable-track{
+  height:3px; border-radius:2px;
+  background:color-mix(in srgb, var(--fg) 30%, transparent);
+}
+input[type=range].slider::-moz-range-track{
+  height:3px; border-radius:2px;
+  background:color-mix(in srgb, var(--fg) 30%, transparent);
+}
+input[type=range].slider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:16px; height:16px; margin-top:-6.5px;
+  border-radius:50%; background:var(--sig);
+  border:2px solid var(--bg); cursor:grab;
+}
+input[type=range].slider::-moz-range-thumb{
+  width:16px; height:16px; border-radius:50%;
+  background:var(--sig); border:2px solid var(--bg); cursor:grab;
+}
+
+.chip-row{ display:flex; gap:.4rem; flex-wrap:wrap; margin:0 0 .9rem; }
+.pill{
+  font-family:var(--font-fa-display); font-weight:500; font-size:.8rem;
+  padding:.34rem .62rem; border-radius:3px; cursor:pointer;
+  border:1.4px solid color-mix(in srgb, var(--fg) 40%, transparent);
+  background:none; color:var(--fg);
+  unicode-bidi:plaintext;
+}
+.pill:hover{ border-color:var(--sig); color:var(--sig); }
+.pill.on{ background:var(--sig); border-color:var(--sig); color:var(--paper); }
+
+.check-row{ display:flex; gap:1rem; flex-wrap:wrap; margin:.2rem 0 .9rem; }
+.check-row label{
+  font-family:var(--font-fa-display); font-weight:500; font-size:.82rem;
+  display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
+}
+.check-row input{ accent-color:var(--sig); }
+
+/* ---------- خوانش‌ها ---------- */
+.ro{
+  display:grid; grid-template-columns:auto 1fr; gap:.18rem .8rem;
+  font-size:.84rem;
+  margin:.9rem 0 0; padding-top:.8rem;
+  border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+}
+.ro dt{ opacity:.65; font-family:var(--font-fa-text); }
+.ro dd{
+  margin:0; text-align:left;
+  font-family:"IBM Plex Mono", ui-monospace, "Shabnam", "Vazirmatn", monospace;
+  unicode-bidi:plaintext;
+}
+.ro dd b{ color:var(--sig); font-weight:500; }
+.ro dd.warm{ color:var(--sig); }
+
+/* ============================================================
+   6. جزیره‌های لاتین داخل جملهٔ فارسی
+   ------------------------------------------------------------
+   یک کمیت، جزیرهٔ جدا و چپ‌به‌راست است تا نقطهٔ آخر جملهٔ فارسی
+   هیچ‌وقت وسطش نیفتد.
+   ============================================================ */
+.q{
+  unicode-bidi:isolate;
+  direction:ltr;
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+/* هر چیزی که شکل‌ها موقع اجرا می‌نویسند، رشتهٔ مخلوط است و استایل‌شیت
+   هیچ‌وقت نمی‌بیندش: «۲ فلش»، «−0.5»، «۰ (بی‌تغییر)». plaintext جهت را
+   از اولین حرفِ خودِ رشته می‌گیرد و نمی‌تواند اشتباه کند. */
+.pill, .ro dd, .ro dt, .ctl-val, .mono-label,
+.check-row label, .fig-head, .byline{ unicode-bidi:plaintext; }
+
+/* برچسب‌های تک‌فاصله‌ای: فارسی قلم صفحه را نگه می‌دارد و tracking را
+   می‌اندازد، چون خانوادهٔ مونواسپیس اصلاً حرف فارسی ندارد */
+main .mono-label{
+  font-family:var(--font-fa-display);
+  letter-spacing:0; text-transform:none; font-weight:500; font-size:.8rem;
+}
+main .mono-label.lat{
+  font-family:var(--font-mono); letter-spacing:.12em; text-transform:uppercase; font-size:.72rem;
+}
+main .secnum, main .eq, main .q{
+  font-family:var(--font-mono); letter-spacing:0;
+}
+
+/* نوار پیشرفت از راست پر می‌شود */
+#prog{ transform-origin:100% 50%; }
+
+/* ============================================================
+   7. پایان مقاله
+   ============================================================ */
+.cta{ padding:1.5rem 1.6rem; margin:2.6rem 0 0; }
+.cta h3{ margin:0 0 .4rem; font-size:1.25rem; }
+.cta p{ margin:0 0 1.1rem; }
+.btn{ font-family:var(--font-fa-display); font-weight:500; font-size:.86rem; letter-spacing:0; }
+
+.refs{ font-size:.92rem; opacity:.85; padding:0 1.2rem 0 0; }
+.refs li{ margin:.3rem 0; }
+.post ul, .post ol{ padding:0 1.2rem 0 0; }
+.post li{ margin:.35rem 0; }
+.post li::marker{ color:var(--sig); }
+
+/* جدول کوچک «کی چی می‌گوید» */
+.tbl{ width:100%; border-collapse:collapse; font-size:.92rem; margin:1.4rem 0; }
+.tbl th, .tbl td{
+  padding:.55rem .7rem; text-align:right;
+  border-bottom:1px dashed color-mix(in srgb, var(--fg) 25%, transparent);
+  vertical-align:baseline;
+}
+.tbl th{ font-family:var(--font-fa-display); font-weight:700; font-size:.86rem; color:var(--sig); }
+.tbl td.sym{ font-family:var(--font-mono); direction:ltr; text-align:left; white-space:nowrap; }
+/* «اسکالر ← برداری» یک عبارت است و نباید سه‌تکه بشود؛ اگر جا نبود کل جدول
+   داخل .tbl-wrap می‌لغزد، که از شکستنِ ستون بهتر است */
+.tbl td.io{ white-space:nowrap; }
+.tbl{ min-width:24rem; }
+.tbl tr:last-child td{ border-bottom:0; }
+.tbl-wrap{ overflow-x:auto; }
