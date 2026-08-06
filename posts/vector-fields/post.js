@@ -16,9 +16,24 @@ function drawLabel(ctx, text, x, y, maxW) {
   if (maxW === undefined) ctx.fillText(text, x, y);
   else ctx.fillText(text, x, y, maxW);
 }
+/* ---------------- ترجمه ----------------
+   هرچه شکل‌ها روی بوم می‌نویسند از i18n.js می‌آید. اگر آن فایل نبود یا
+   کلیدی جا افتاده بود، خودِ کلید برمی‌گردد — یعنی یک رشتهٔ گمشده به‌جای
+   اینکه بی‌صدا خالی بماند، توی چشم می‌زند. */
+function tr(key) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(key);
+  } catch (e) {}
+  return key;
+}
+
 /* عددها در متن فارسی، فارسی */
 var FA_DIG = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-function fa(n) { return String(n).replace(/[0-9]/g, function (d) { return FA_DIG[+d]; }); }
+function fa(n) {
+  /* در انگلیسی عددها لاتین می‌مانند؛ فقط متن فارسی رقم فارسی می‌خواهد */
+  if (!document.documentElement.classList.contains('lang-fa')) return String(n);
+  return String(n).replace(/[0-9]/g, function (d) { return FA_DIG[+d]; });
+}
 
 /* ---------------- تم ---------------- */
 (function () {
@@ -250,6 +265,39 @@ function edgeArrows(ctx, pts, rp, radial) {
   });
 }
 
+/* ---------------- ترازوی «بیرون در برابر تو» ----------------
+   عددِ خالص، خالص است: نمی‌گوید از جمعِ چه چیزی درآمده. این پانل دو سهم را
+   جدا نشان می‌دهد تا قبل از خواندنِ عدد ببینی کدام برده — و چقدر. همان
+   دستور زبان برای هر دو شکل ۴ و ۵ به کار می‌رود، چون هر دو یک کارند. */
+function balance(ctx, x, y, w, outSum, inSum, labOut, labIn) {
+  var big = Math.max(outSum, inSum, 1e-9);
+  var barW = w - 92, h = 7, gap = 16;
+  ctx.save();
+  ctx.fillStyle = bgA(0.82);
+  ctx.fillRect(x - 8, y - 15, w + 16, gap + h + 26);
+  ctx.font = '500 11px ' + FA_FONT;
+  ctx.textBaseline = 'middle';
+  [[outSum, labOut, sigA(0.95), 0], [inSum, labIn, fgA(0.7), gap]].forEach(function (r) {
+    var yy = y + r[3];
+    ctx.textAlign = 'right';
+    ctx.fillStyle = fgA(0.7);
+    drawLabel(ctx, r[1], x + w, yy + h / 2);
+    ctx.fillStyle = fgA(0.14);
+    ctx.fillRect(x, yy, barW, h);
+    ctx.fillStyle = r[2];
+    ctx.fillRect(x, yy, Math.max(1.5, barW * r[0] / big), h);
+  });
+  ctx.restore();
+}
+/* دیسک را به‌اندازه و علامتِ جوابِ نهایی رنگ می‌زند */
+function tintDisc(ctx, cx, cy, rp, v, ref) {
+  var t = Math.min(1, Math.abs(v) / Math.max(ref, 1e-9));
+  if (t < 0.02) return;
+  ctx.beginPath(); ctx.arc(cx, cy, rp, 0, Math.PI * 2);
+  ctx.fillStyle = v > 0 ? sigA(0.16 * t) : fgA(0.14 * t);
+  ctx.fill();
+}
+
 /* حلقهٔ روشن زیر نقطه کشیده می‌شود نه رویش، وگرنه روی پس‌زمینهٔ پررنگ
    خودِ نقطه را می‌خورد و فقط یک دایرهٔ توخالی می‌ماند */
 function dot(ctx, x, y, r, fill, ring) {
@@ -311,11 +359,11 @@ function bump(x, y, cx, cy, k) {
   return Math.exp(-k * (dx * dx + dy * dy));
 }
 var SCALARS = [
-  { key: 'heater', label: 'یک گرم‌کن',
+  { key: 'heater', label: tr('js.sc.heater'),
     f: function (x, y) { return 20 + 17 * bump(x, y, -0.25, 0.2, 1.1); } },
-  { key: 'room', label: 'گرم و سرد',
+  { key: 'room', label: tr('js.sc.room'),
     f: function (x, y) { return 21 + 15 * bump(x, y, -0.75, 0.5, 1.5) - 11 * bump(x, y, 0.8, -0.45, 1.9); } },
-  { key: 'hills', label: 'چند گرم‌کن',
+  { key: 'hills', label: tr('js.sc.hills'),
     f: function (x, y) {
       return 22 + 12 * bump(x, y, -0.9, -0.6, 2.2) + 15 * bump(x, y, 0.7, 0.7, 1.6)
                 + 8 * bump(x, y, 0.1, -0.9, 3.0) - 9 * bump(x, y, -0.6, 0.85, 2.6);
@@ -399,23 +447,23 @@ function onCore(fld, x, y) {
   return !!fld.core && Math.hypot(x, y) < CORE_R + 0.03;
 }
 var FIELDS = [
-  { key: 'uniform', label: 'جریان یکنواخت',
+  { key: 'uniform', label: tr('js.f.uniform'),
     f: function () { return [0.85, 0.3]; },
     fml: 'F = (0.85, 0.3)',
-    note: 'کل استخر یکدست به یک سمت می‌رود. هر دو مشتق صفرند، پس هم <span class="q">∇·F = 0</span> و هم <span class="q">∇×F = 0</span>. کسل‌کننده‌ترین حالت ممکن، و دقیقاً به همین دلیل مبنای مقایسه.<br><b>در الکترومغناطیس:</b> میدان یکنواخت داخل یک خازن صفحه‌ای.' },
-  { key: 'source', label: 'شیر آب',
+    note: null },
+  { key: 'source', label: tr('js.f.source'),
     f: function (x, y) { return [x, y]; },
     fml: 'F = (x, y)',
-    note: 'انگار از کفِ کل استخر آب می‌جوشد بالا: هرچه دورتر، تندتر. اینجا <span class="q">∇·F = 2</span> در <b>تمام</b> استخر است، نه فقط وسط. یعنی هر نقطه‌ای دارد آب اضافه می‌کند.<br><b>در الکترومغناطیس:</b> میدان الکتریکی داخل یک توزیع بارِ یکنواخت.' },
-  { key: 'sink', label: 'چاه تخلیه',
+    note: null },
+  { key: 'sink', label: tr('js.f.sink'),
     f: function (x, y) { return [-x, -y]; },
     fml: 'F = (−x, −y)',
-    note: 'همان قبلی با علامت وارونه: <span class="q">∇·F = −2</span> همه‌جا. هر نقطه دارد آب می‌بلعد.<br><b>در الکترومغناطیس:</b> همان، ولی با بار منفی.' },
-  { key: 'vortex', label: 'چرخش کل استخر',
+    note: null },
+  { key: 'vortex', label: tr('js.f.vortex'),
     f: function (x, y) { return [-y, x]; },
     fml: 'F = (−y, x)',
-    note: 'انگار کل استخر را روی یک صفحهٔ گردان گذاشته‌ای و می‌چرخانی. هیچ آبی تولید نمی‌شود (<span class="q">∇·F = 0</span>) ولی همه‌جا می‌چرخد: <span class="q">(∇×F)<sub>z</sub> = 2</span>، در تمام استخر و نه فقط وسط.' },
-  { key: 'charge', label: 'فوّاره', core: true,
+    note: null },
+  { key: 'charge', label: tr('js.f.charge'), core: true,
     /* دو‌بعدی است، پس میدانِ درست هم دوبعدی است: مقطعِ یک چشمهٔ خطی،
        یعنی r̂/r و نه r̂/r². هر دو همان خاصیت را دارند — دیورژانسِ صفر
        بیرون از منبع — ولی توانش در دو بعد یکی کمتر است. */
@@ -424,22 +472,22 @@ var FIELDS = [
       return [x / r2 * 0.8, y / r2 * 0.8];
     },
     fml: 'F = r̂ / r',
-    note: 'یک فوّارهٔ نقطه‌ای وسط استخر. آب دقیقاً آن‌قدری با فاصله کُند می‌شود که <span class="q">∇·F = 0</span> بماند — همه‌جا جز خود فوّاره. حلقه را هرجا ببری شار صفر است، مگر اینکه فوّاره را بغل کند.<br><b>در الکترومغناطیس:</b> میدان الکتریکی یک بار. همین جمله، خودِ قانون گاوس است.' },
-  { key: 'wire', label: 'گرداب', core: true,
+    note: null },
+  { key: 'wire', label: tr('js.f.wire'), core: true,
     f: function (x, y) {
       var r2 = Math.max(x * x + y * y, CORE2);
       return [-y / r2 * 0.8, x / r2 * 0.8];
     },
     fml: 'F = θ̂ / r',
-    note: 'یک گردابِ واقعی: هرچه به مرکز نزدیک‌تر، تندتر. خطوطش دایره‌های کاملند، ولی <span class="q">∇×F = 0</span> همه‌جا جز خود مرکز. اینکه آب دور می‌زند به معنی داشتن کرل نیست.<br><b>در الکترومغناطیس:</b> میدان مغناطیسی دور یک سیم حامل جریان.' },
-  { key: 'shear', label: 'کنار دیواره',
+    note: null },
+  { key: 'shear', label: tr('js.f.shear'),
     f: function (x, y) { return [y * 0.9, 0]; },
     fml: 'F = (0.9y, 0)',
-    note: 'آب کنار دیواره کُند است و هرچه دورتر تندتر. جریان کاملاً مستقیم است و هیچ‌جا دور نمی‌زند، ولی <span class="q">(∇×F)<sub>z</sub> = −0.9</span> همه‌جا. مهم‌ترین مثال کل مقاله: کرل از خمیدگیِ خطوط نمی‌آید، از تفاوت سرعت در عرض جریان می‌آید.' },
-  { key: 'saddle', label: 'برخورد دو جریان',
+    note: null },
+  { key: 'saddle', label: tr('js.f.saddle'),
     f: function (x, y) { return [x, -y]; },
     fml: 'F = (x, −y)',
-    note: 'دو جریان از بالا و پایین به هم می‌رسند و از دو طرف پخش می‌شوند. هرچه وارد می‌شود از طرف دیگر بیرون می‌رود: هم <span class="q">∇·F = 0</span>، هم <span class="q">∇×F = 0</span>. یک جریان کاملاً واقعی که هر دو سؤال جوابش صفر است.' }
+    note: null }
 ];
 function fieldBy(key) {
   for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].key === key) return FIELDS[i];
@@ -634,10 +682,10 @@ function Particles(G, count) {
     tag(fig.ctx, px, py, nf(fn(P.x, P.y), 1) + ' °C', sigA(1));
     fig.state.G = G;
     ro(out, [
-      ['نقطه', '(' + nf(P.x) + ' , ' + nf(P.y) + ')'],
-      ['دمای اینجا', '<b>' + nf(fn(P.x, P.y), 1) + ' °C</b>'],
-      ['سردترین جای نقشه', nf(lo, 1) + ' °C'],
-      ['گرم‌ترین جای نقشه', nf(hi, 1) + ' °C']
+      [tr('js.ro.point'), '(' + nf(P.x) + ' , ' + nf(P.y) + ')'],
+      [tr('js.ro.temp_here'), '<b>' + nf(fn(P.x, P.y), 1) + ' °C</b>'],
+      [tr('js.ro.coldest'), nf(lo, 1) + ' °C'],
+      [tr('js.ro.warmest'), nf(hi, 1) + ' °C']
     ]);
   });
 
@@ -708,15 +756,15 @@ function Particles(G, count) {
     ro(out, [
       ['<span class="q">∂f/∂x</span>', nf(g[0])],
       ['<span class="q">∂f/∂y</span>', nf(g[1])],
-      ['طول <span class="q">∇f</span>', '<b>' + nf(m) + '</b>'],
-      ['شیب', m < 0.25 ? 'تقریباً صاف' : (m < 2 ? 'ملایم' : 'تند')]
+      [tr('js.ro.gradlen'), '<b>' + nf(m) + '</b>'],
+      [tr('js.grad.slope'), m < 0.25 ? tr('js.grad.flat') : (m < 2 ? tr('js.grad.mild') : tr('js.grad.steep'))]
     ]);
   });
 
   draggable(cv, function (p) {
     var G = f.state.G; if (!G) return;
     rolling = false; rollBtn.classList.remove('on');
-    rollBtn.textContent = '▶ ولش کن بره بالا';
+    rollBtn.textContent = tr('js.grad.play');
     P.x = Math.max(G.x0, Math.min(G.x1, G.ix(p.x)));
     P.y = Math.max(G.y0, Math.min(G.y1, G.iy(p.y)));
     f.redraw();
@@ -725,7 +773,7 @@ function Particles(G, count) {
   rollBtn.addEventListener('click', function () {
     rolling = !rolling;
     rollBtn.classList.toggle('on', rolling);
-    rollBtn.textContent = rolling ? '❙❙ نگهش دار' : '▶ ولش کن بره بالا';
+    rollBtn.textContent = rolling ? tr('js.grad.pause') : tr('js.grad.play2');
   });
   pills(document.getElementById('gradPresets'), SCALARS, function (it) {
     cur = it; f.redraw();
@@ -737,7 +785,7 @@ function Particles(G, count) {
     if (m < 0.02) {                       /* رسید به قله و ایستاد */
       rolling = false;
       rollBtn.classList.remove('on');
-      rollBtn.textContent = '▶ ولش کن بره بالا';
+      rollBtn.textContent = tr('js.grad.play2');
       f.redraw();
       return;
     }
@@ -791,11 +839,11 @@ function Particles(G, count) {
        منفجر می‌شود و عددش نمایندهٔ میدان نیست. */
     var d = divOf(F, 0.62, 0.44), c = curlOf(F, 0.62, 0.44);
     ro(out, [
-      ['فرمول', cur.fml],
-      ['<span class="q">∇·F</span> (سنجش عددی)', say(d)],
-      ['<span class="q">(∇×F)z</span> (سنجش عددی)', say(c)]
+      [tr('js.ro.formula'), cur.fml],
+      [tr('js.ro.divnum'), say(d)],
+      [tr('js.ro.curlnum'), say(c)]
     ]);
-    note.innerHTML = cur.note;
+    note.innerHTML = tr('js.note.' + cur.key);
   });
 
   draggable(cv, function () {});          /* بوم را می‌گیرد تا صفحه اسکرول نشود */
@@ -804,7 +852,7 @@ function Particles(G, count) {
     cur = it; parts = null; f.redraw();
   }, 1);
   pills(document.getElementById('fieldModes'), [
-    { label: 'فلش‌ها' }, { label: 'خطوط جریان' }, { label: 'ذره‌ها' }
+    { label: tr('js.mode.arrows') }, { label: tr('js.mode.lines') }, { label: tr('js.mode.parts') }
   ], function (it, i) { mode = i; parts = null; f.redraw(); }, 0);
 
   animate(cv, function () {
@@ -874,8 +922,19 @@ function Particles(G, count) {
         v: v[0] * Math.cos(th) + v[1] * Math.sin(th)
       });
     }
+    /* دیسک را به علامت و اندازهٔ شارِ خالص رنگ کن — جواب باید قبل از عدد
+       دیده شود */
+    var outS = 0, inS = 0, ds = 2 * Math.PI * R / pts.length, big = 1e-9;
+    pts.forEach(function (q) {
+      if (q.v > 0) outS += q.v * ds; else inS -= q.v * ds;
+      big = Math.max(big, Math.abs(q.v));
+    });
+    tintDisc(ctx, cxp, cyp, rp, outS - inS, big * 2 * Math.PI * R * 0.5);
+
     edgeArrows(ctx, pts, rp, true);
-    dot(ctx, cxp, cyp, 3.5, fgA(0.9));
+    dot(ctx, cxp, cyp, 4, fgA(1), bgA(0.9));
+    balance(ctx, 14, fig.h - 40, Math.min(200, fig.w - 28), outS, inS,
+            tr('js.out'), tr('js.in'));
     fig.state.G = G;
 
     var Φ = flux(F), A = Math.PI * R * R;
@@ -886,24 +945,24 @@ function Particles(G, count) {
     var inCore = onCore(cur, P.x, P.y);
     var exact = divOf(F, P.x, P.y);
     ro(out, [
-      ['شار خالص <span class="q">∮F·n ds</span>', '<b>' + nf(Φ) + '</b>'],
-      ['مساحت حلقه', nf(A, 3)],
-      ['شار ÷ مساحت', inCore ? '—' : nf(Φ / A)],
-      ['<span class="q">∇·F</span> در مرکز', inCore ? '<b>∞</b>' : '<b>' + nf(exact) + '</b>']
+      [tr('js.ro.flux'), '<b>' + nf(Φ) + '</b>'],
+      [tr('js.ro.looparea'), nf(A, 3)],
+      [tr('js.ro.fluxarea'), inCore ? '—' : nf(Φ / A)],
+      [tr('js.ro.divcentre'), inCore ? '<b>∞</b>' : '<b>' + nf(exact) + '</b>']
     ]);
 
     var msg;
     if (Math.abs(Φ) < 0.02) {
-      msg = 'شار صفر است: هرچه وارد حلقه می‌شود، دقیقاً همان‌قدر هم خارج می‌شود. نه چشمه‌ای هست نه چاهکی — جریان فقط دارد رد می‌شود.';
+      msg = tr('js.div.zero');
     } else if (Φ > 0) {
-      msg = 'شار مثبت است: بیشتر از آنچه وارد شده خارج می‌شود، پس داخل حلقه <b>چشمه</b> هست.';
+      msg = tr('js.div.pos');
     } else {
-      msg = 'شار منفی است: کمتر از آنچه وارد شده خارج می‌شود، پس داخل حلقه <b>چاهک</b> هست.';
+      msg = tr('js.div.neg');
     }
     if (cur.key === 'charge') {
       msg += Math.hypot(P.x, P.y) < R
-        ? ' حالا <b>شعاع حلقه را عوض کن</b>: شار تکان نمی‌خورد. مهم نیست حلقه چقدر بزرگ باشد — فقط مهم است که فوّاره داخلش هست. <b>همین، قانون گاوس است.</b>'
-        : ' فوّاره بیرون حلقه است؛ حلقه را ببر رویش.';
+        ? tr('js.div.gauss')
+        : tr('js.div.outside');
     }
     note.innerHTML = msg;
   });
@@ -995,9 +1054,32 @@ function Particles(G, count) {
         v: -v[0] * Math.sin(th) + v[1] * Math.cos(th)
       });
     }
+    var ccwS = 0, cwS = 0, dsC = 2 * Math.PI * R / pts.length;
+    pts.forEach(function (q) { if (q.v > 0) ccwS += q.v * dsC; else cwS -= q.v * dsC; });
+
     edgeArrows(ctx, pts, rp, false);
 
-    /* خودِ چرخونک: چهار پره با تیغهٔ عمودی سر هر پره */
+    /* دیسک به علامت گردش رنگ می‌شود، مثل شکل ۴ */
+    tintDisc(ctx, cxp, cyp, rp, ccwS - cwS, (ccwS + cwS) * 0.6 + 1e-9);
+
+    /* کمانِ جهت: می‌گوید چرخونک به کدام طرف و چقدر تند می‌چرخد. بدون این،
+       چرخشِ آرام روی یک تصویر ثابت اصلاً دیده نمی‌شود. */
+    var wz = curlOf(F, P.x, P.y) / 2;
+    if (Math.abs(wz) > 0.04) {
+      var sweep = Math.min(Math.PI * 1.5, 0.5 + Math.abs(wz) * 0.9);
+      var ar = rp + 15, ccw = wz > 0;
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = sigA(0.9); ctx.fillStyle = sigA(0.9);
+      ctx.beginPath();
+      ctx.arc(cxp, cyp, ar, -Math.PI / 2, -Math.PI / 2 + (ccw ? -sweep : sweep), ccw);
+      ctx.stroke();
+      var ea = -Math.PI / 2 + (ccw ? -sweep : sweep);
+      var ex = cxp + ar * Math.cos(ea), ey = cyp + ar * Math.sin(ea);
+      var tx = (ccw ? 1 : -1) * Math.sin(ea), ty = (ccw ? -1 : 1) * Math.cos(ea);
+      arrow(ctx, ex - tx * 6, ey - ty * 6, ex + tx * 6, ey + ty * 6, 8);
+    }
+
+    /* خودِ چرخونک: چهار پره، که یکی‌شان نشان‌دار است تا چرخش دیده شود */
     ctx.save();
     ctx.translate(cxp, cyp); ctx.rotate(-spin);
     ctx.lineCap = 'round';
@@ -1013,9 +1095,12 @@ function Particles(G, count) {
       ctx.moveTo(tipx - sa * rp * 0.3, tipy + ca * rp * 0.3);
       ctx.lineTo(tipx + sa * rp * 0.3, tipy - ca * rp * 0.3);
       ctx.stroke();
+      if (i === 0) dot(ctx, tipx, tipy, 4.5, sigA(1), bgA(0.95));
     }
     ctx.restore();
     dot(ctx, cxp, cyp, 3.5, fgA(1), bgA(0.9));
+    balance(ctx, 14, fig.h - 40, Math.min(200, fig.w - 28), ccwS, cwS,
+            tr('js.ccw'), tr('js.cw'));
     fig.state.G = G;
 
     var Γ = circ(F), A = Math.PI * R * R;
@@ -1023,26 +1108,26 @@ function Particles(G, count) {
     var exact = curlOf(F, P.x, P.y);
     var spins = !inCore && Math.abs(exact) >= 0.05;
     ro(out, [
-      ['گردش <span class="q">∮F·dl</span>', '<b>' + nf(Γ) + '</b>'],
-      ['گردش ÷ مساحت', inCore ? '—' : nf(Γ / A)],
-      ['<span class="q">(∇×F)z</span> در مرکز', inCore ? '<b>∞</b>' : '<b>' + nf(exact) + '</b>'],
-      ['چرخونک', inCore ? 'روی خودِ گرداب' : (spins ? (exact > 0 ? 'پادساعتگرد' : 'ساعتگرد') : 'نمی‌چرخد')]
+      [tr('js.ro.circ'), '<b>' + nf(Γ) + '</b>'],
+      [tr('js.ro.circarea'), inCore ? '—' : nf(Γ / A)],
+      [tr('js.ro.curlcentre'), inCore ? '<b>∞</b>' : '<b>' + nf(exact) + '</b>'],
+      [tr('js.wheel'), inCore ? tr('js.wheel.oncore') : (spins ? (exact > 0 ? tr('js.ccw') : tr('js.cw')) : tr('js.wheel.still'))]
     ]);
 
     var msg;
     if (inCore) {
-      msg = 'چرخونک درست روی هستهٔ گرداب نشسته. اینجا تنها جایی است که کرل صفر نیست — و در یک گردابِ ایده‌آل، بی‌نهایت است.';
+      msg = tr('js.curl.oncore');
     } else if (!spins) {
-      msg = 'چرخونک بی‌حرکت است: هرچه از یک طرف هلش می‌دهد، از طرف دیگر همان‌قدر برش می‌گرداند. اینجا میدان <b>بی‌چرخش</b> است.';
+      msg = tr('js.curl.still');
     } else {
-      msg = 'فلش‌های <b>آبی</b> پادساعتگردند و <b>بی‌رنگ</b>ها ساعتگرد. هرکدام رویِ‌هم قوی‌تر باشند، چرخونک همان‌طرف می‌چرخد — و اینجا '
-          + (exact > 0 ? 'آبی‌ها بردند.' : 'بی‌رنگ‌ها بردند.');
+      msg = tr('js.curl.wins')
+          + (exact > 0 ? tr('js.curl.blue') : tr('js.curl.plain'));
     }
-    if (cur.key === 'shear') msg += ' حواست باشد جریان اینجا کاملاً مستقیم است — تنها چیزی که چرخونک را می‌چرخاند، تفاوتِ سرعت بین بالا و پایینِ آن است.';
+    if (cur.key === 'shear') msg += tr('js.curl.shear');
     if (cur.key === 'wire' && !inCore) {
-      msg += ' خطوط دایره‌اند ولی چرخونک نمی‌چرخد، چون آبِ نزدیک‌تر به مرکز آن‌قدر تندتر است که چرخش را دقیقاً خنثی می‌کند.'
+      msg += tr('js.curl.wire')
            + (Math.hypot(P.x, P.y) < R
-              ? ' <b>ولی حواست به دو عدد بالا باشد:</b> کرل صفر است و گردش نیست. حلقه مرکز را بغل کرده، و تنها جایی که کرل صفر نیست همان مرکز است. کرل محلی است، گردش نه — و همین فاصله، کلِ حرفِ قضیهٔ استوکس در بخش بعد است.'
+              ? tr('js.curl.encl')
               : '');
     }
     note.innerHTML = msg;
@@ -1091,11 +1176,11 @@ function Particles(G, count) {
      یعنی وقتی هیچ آبی وارد نمی‌شد هم می‌نوشت «شیر باز». */
   function poolWords(a, b) {
     var t = [];
-    if (a > 0.06) t.push('شیر باز');
-    else if (a < -0.06) t.push('تخلیه');
-    if (b > 0.06) t.push('چرخش پادساعتگرد');
-    else if (b < -0.06) t.push('چرخش ساعتگرد');
-    return t.length ? t.join(' + ') : 'ساکن';
+    if (a > 0.06) t.push(tr('js.pool.tap'));
+    else if (a < -0.06) t.push(tr('js.pool.drain'));
+    if (b > 0.06) t.push(tr('js.pool.ccw'));
+    else if (b < -0.06) t.push(tr('js.pool.cw'));
+    return t.length ? t.join(' + ') : tr('js.pool.still');
   }
 
   var f = Fig(cv, 1.12, function (fig) {
@@ -1112,14 +1197,14 @@ function Particles(G, count) {
     ro(out, [
       ['<span class="q">∇·F</span>', '<b>' + nf(2 * a) + '</b>'],
       ['<span class="q">∇×F</span>', '<b>' + nf(2 * b) + '</b>'],
-      ['استخر', poolWords(a, b)]
+      [tr('js.pool'), poolWords(a, b)]
     ]);
 
     var msg;
-    if (Math.abs(a) < 0.06 && Math.abs(b) < 0.06) msg = 'هر دو بسته: آب ایستاده است.';
-    else if (Math.abs(b) < 0.06) msg = 'فقط شیر آب. آب مستقیم از مرکز بیرون می‌زند — نه می‌پیچد، نه دور می‌زند.';
-    else if (Math.abs(a) < 0.06) msg = 'فقط هم‌زن. آب دور مرکز می‌چرخد، بی‌آنکه هیچ ذره‌ای از مرکز دور یا به آن نزدیک شود.';
-    else msg = 'هر دو با هم: مارپیچ. و باز هرکدام سرِ کار خودش است — لغزندهٔ بالا فقط <span class=\'q\'>∇·F</span> را عوض می‌کند و پایینی فقط <span class=\'q\'>∇×F</span> را.';
+    if (Math.abs(a) < 0.06 && Math.abs(b) < 0.06) msg = tr('js.mix.zero');
+    else if (Math.abs(b) < 0.06) msg = tr('js.mix.taponly');
+    else if (Math.abs(a) < 0.06) msg = tr('js.mix.stironly');
+    else msg = tr('js.mix.both2');
     note.innerHTML = msg;
   });
 
@@ -1131,10 +1216,10 @@ function Particles(G, count) {
   slA.addEventListener('input', upd);
   slB.addEventListener('input', upd);
   pills(document.getElementById('mixPresets'), [
-    { label: 'فقط شیر', a: 70, b: 0 },
-    { label: 'فقط هم‌زن', a: 0, b: 70 },
-    { label: 'هر دو', a: 45, b: 65 },
-    { label: 'تخلیه + چرخش', a: -55, b: 55 }
+    { label: tr('js.mix.tap'), a: 70, b: 0 },
+    { label: tr('js.mix.stir'), a: 0, b: 70 },
+    { label: tr('js.mix.both'), a: 45, b: 65 },
+    { label: tr('js.mix.drain'), a: -55, b: 55 }
   ], function (it) { slA.value = it.a; slB.value = it.b; upd(); }, 0);
 
   animate(cv, function () {
@@ -1205,13 +1290,13 @@ function Particles(G, count) {
 
     ctx.font = '500 12px ' + FA_FONT;
     faTag(ctx, fig.w / 2, y0 - 11,
-          cancel > 0.5 ? 'فقط گردشِ دورِ مرز باقی می‌ماند' : 'هر سلول، دور خودش می‌چرخد',
+          cancel > 0.5 ? tr('js.sum.only') : tr('js.sum.each'),
           fgA(0.8));
 
     ro(out, [
-      ['سلول‌ها', fa(n) + ' × ' + fa(n) + ' = ' + fa(n * n)],
-      ['لبه‌های داخلی (جفت‌به‌جفت حذف)', fa(inner)],
-      ['لبه‌های مرزی (باقی‌مانده)', '<b>' + fa(edge) + '</b>']
+      [tr('js.ro.cells'), fa(n) + ' × ' + fa(n) + ' = ' + fa(n * n)],
+      [tr('js.ro.inner'), fa(inner)],
+      [tr('js.ro.boundary'), '<b>' + fa(edge) + '</b>']
     ]);
   });
 
@@ -1224,7 +1309,7 @@ function Particles(G, count) {
   btn.addEventListener('click', function () {
     target = target > 0.5 ? 0 : 1;
     btn.classList.toggle('on', target > 0.5);
-    btn.textContent = target > 0.5 ? 'حذفِ لبه‌های داخلی' : 'برشان گردان';
+    btn.textContent = target > 0.5 ? tr('js.sum.cancel') : tr('js.sum.restore');
   });
   animate(cv, function () {
     if (Math.abs(cancel - target) < 0.004) return;
@@ -1254,7 +1339,7 @@ function Particles(G, count) {
     copy.classList.add('done');
     clearTimeout(copy._t);
     copy._t = setTimeout(function () {
-      label.textContent = 'کپی لینک';
+      label.textContent = tr('js.share.copy');
       copy.classList.remove('done');
     }, 1800);
   }
@@ -1268,12 +1353,12 @@ function Particles(G, count) {
     var ok = false;
     try { ok = document.execCommand('copy'); } catch (e) {}
     document.body.removeChild(ta);
-    flash(ok ? 'کپی شد ✓' : '⌘/Ctrl+C را بزن');
+    flash(ok ? tr('js.share.copied') : tr('js.share.press'));
   }
   copy.addEventListener('click', function () {
     /* کلیپ‌بورد API فقط در بستر امن کار می‌کند؛ بقیه می‌روند سراغ textarea */
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(url).then(function () { flash('کپی شد ✓'); }, legacy);
+      navigator.clipboard.writeText(url).then(function () { flash(tr('js.share.copied2')); }, legacy);
     } else legacy();
   });
   if (navigator.share) {

@@ -25,12 +25,18 @@
 <link rel="canonical" href="https://hkk.fyi/posts/vector-fields/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='10' fill='%23F4EFE4'/><g stroke='%231C1B1A' stroke-width='3' stroke-linecap='round' fill='none'><path d='M14 46 L26 34'/><path d='M20 34 h6 v6'/><path d='M14 24 h12'/><path d='M20 18 l6 6 l-6 6'/></g><g stroke='%232B59C3' stroke-width='3.4' stroke-linecap='round' fill='none'><path d='M50 22 a14 14 0 1 1-13 9'/><path d='M50 14 v9 h-9'/></g></svg>">
 <script>
-/* تم قبل از اولین رنگ‌آمیزی تعیین می‌شود، وگرنه صفحه یک بار سفید می‌زند */
+/* تم و زبان هر دو قبل از اولین رنگ‌آمیزی تعیین می‌شوند. زبان مهم‌تر است:
+   وگرنه صفحه یک بار چپ‌به‌راست چیده می‌شود و بعد جلوی چشم برمی‌گردد. */
 (function(){try{
   var r=document.documentElement;
   var t=localStorage.getItem('hkk-theme');
   if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';
   if(t==='ink')r.classList.add('ink');
+  var q=/[?&]lang=(fa|en)/.exec(location.search);
+  var l=q?q[1]:localStorage.getItem('hkk-lang');
+  if(l!=='fa'&&l!=='en')l='fa';
+  r.classList.add('lang-'+l);
+  r.lang=l;
 }catch(e){}})();
 </script>
 <link rel="stylesheet" href="../../assets/fonts.css">
@@ -67,6 +73,10 @@
     <a href="../../#cv">CV</a>
     <a href="../../#contact">Contact</a>
   </nav>
+  <div class="lang-switch" role="group" aria-label="Language">
+    <button type="button" class="lang-btn" data-lang-set="fa">FA</button>
+    <button type="button" class="lang-btn" data-lang-set="en">EN</button>
+  </div>
   <button id="themeBtn" class="theme-btn" type="button" aria-label="روشن / تاریک" title="روشن / تاریک">
     <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -78,10 +88,10 @@
 
   <!-- ============ سربرگ ============ -->
   <header class="post-hero">
-    <span class="mono-label post-kicker">مقاله · آنالیز برداری · حدود ۱۸ دقیقه · ۷ شکل تعاملی</span>
-    <h1>هر نقطه یک فلش</h1>
+    <span class="mono-label post-kicker" data-i18n="top.span1">مقاله · آنالیز برداری · حدود ۱۸ دقیقه · ۷ شکل تعاملی</span>
+    <h1 data-i18n="top.h11">هر نقطه یک فلش</h1>
     <div class="post-lede">
-      <p class="post-sub">
+      <p class="post-sub" data-i18n="top.p1">
         معادلات ماکسول چهار خط‌ان. دو تاشون با <span class="q">∇·</span> شروع می‌شن و دو تای
         دیگه با <span class="q">∇×</span>.
         <br><br>
@@ -93,80 +103,80 @@
       </p>
       <figure class="lede-chart">
         <div class="canvas-wrap"><canvas id="figHero"></canvas></div>
-        <figcaption class="mono-label">یک میدان برداری، در حال کار</figcaption>
+        <figcaption class="mono-label" data-i18n="top.figcaption1">یک میدان برداری، در حال کار</figcaption>
       </figure>
     </div>
     <p class="mono-label byline">
-      <span>حسن کشت‌کار</span><span class="dot">·</span><span>تهران</span>
-      <span class="dot">·</span><span>۲۰۲۶</span>
-      <span class="dot">·</span><a class="backlink" href="../../">برگرد به hkk.fyi ←</a>
+      <span data-i18n="top.by1">حسن کشت‌کار</span><span class="dot">·</span><span data-i18n="top.by2">تهران</span>
+      <span class="dot">·</span><span data-i18n="top.by3">۲۰۲۶</span>
+      <span class="dot">·</span><a class="backlink" href="../../" data-i18n="top.a1">برگرد به hkk.fyi ←</a>
     </p>
 
     <!-- لینک‌های ساده، تا با JS خاموش هم هم‌رسانی کار کنه؛ post.js فقط
          دکمهٔ کپی و شیت خود گوشی رو روش اضافه می‌کنه -->
     <div class="share" role="group" aria-label="هم‌رسانی این مقاله">
-      <span class="mono-label share-label">هم‌رسانی</span>
+      <span class="mono-label share-label" data-i18n="top.span2">هم‌رسانی</span>
       <a class="share-btn" target="_blank" rel="noopener"
          href="https://t.me/share/url?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F&text=%D9%87%D8%B1%20%D9%86%D9%82%D8%B7%D9%87%20%DB%8C%DA%A9%20%D9%81%D9%84%D8%B4">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.1 13.1 1.6 11.7c-1-.3-1-1 .2-1.5l19-7.3c.8-.3 1.5.2 1.1 1.4z"/></svg>
-        تلگرام
+        <span data-i18n="share.tg">تلگرام</span>
       </a>
       <a class="share-btn" target="_blank" rel="noopener"
          href="https://x.com/intent/tweet?text=%D9%87%D8%B1%20%D9%86%D9%82%D8%B7%D9%87%20%DB%8C%DA%A9%20%D9%81%D9%84%D8%B4&url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 3h3.2l-7 8 8.2 10.9h-6.4l-5-6.6-5.8 6.6H1.5l7.5-8.6L1.2 3h6.6l4.5 6zm-1.1 17h1.8L7.7 4.8H5.8z"/></svg>
-        X
+        <span data-i18n="share.x">X</span>
       </a>
       <a class="share-btn" target="_blank" rel="noopener"
          href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fvector-fields%2F">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.76-2.05 4.02 0 4.76 2.64 4.76 6.08V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
-        لینکدین
+        <span data-i18n="share.li">لینکدین</span>
       </a>
       <button class="share-btn" type="button" id="shareCopy">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1 1M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1-1"/></svg>
-        <span id="shareCopyLabel">کپی لینک</span>
+        <span id="shareCopyLabel" data-i18n="js.share.copy">کپی لینک</span>
       </button>
       <button class="share-btn" type="button" id="shareNative" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 3v13M8 6.5 12 3l4 3.5M5 13v6.5h14V13"/></svg>
-        <span>هم‌رسانی…</span>
+        <span data-i18n="top.sharenative">هم‌رسانی…</span>
       </button>
     </div>
   </header>
 
   <!-- ============ خلاصه ============ -->
   <aside class="tldr card">
-    <span class="mono-label">کل مقاله در ۳۰ ثانیه</span>
+    <span class="mono-label" data-i18n="top.span3">کل مقاله در ۳۰ ثانیه</span>
     <ul>
-      <li><b>میدان</b> یعنی تابعی که ورودیش یه نقطه‌ست. خروجیش اگه عدد باشه می‌شه میدان
+      <li data-i18n="top.li1"><b>میدان</b> یعنی تابعی که ورودیش یه نقطه‌ست. خروجیش اگه عدد باشه می‌شه میدان
         <b>اسکالر</b> <span class="en">scalar field</span>، اگه فلش باشه می‌شه میدان
         <b>برداری</b> <span class="en">vector field</span>.</li>
-      <li><b>گرادیان</b> <span class="en">gradient</span> از یه نقشهٔ عدد، یه نقشهٔ فلش
+      <li data-i18n="top.li2"><b>گرادیان</b> <span class="en">gradient</span> از یه نقشهٔ عدد، یه نقشهٔ فلش
         می‌سازه: توی هر نقطه به سربالایی اشاره می‌کنه.</li>
-      <li>از یه میدان برداری فقط <b>دو</b> تا سؤال محلی می‌شه پرسید. <b>دیورژانس</b>
+      <li data-i18n="top.li3">از یه میدان برداری فقط <b>دو</b> تا سؤال محلی می‌شه پرسید. <b>دیورژانس</b>
         <span class="en">divergence</span>: «اینجا آب تولید می‌شه یا بلعیده؟» و
         <b>کرل</b> <span class="en">curl</span>: «اینجا چیزی می‌چرخه؟»</li>
-      <li>و جواب این دو تا سؤال، میدان رو <b>کاملاً</b> مشخص می‌کنه. دو میدان × دو سؤال =
+      <li data-i18n="top.li4">و جواب این دو تا سؤال، میدان رو <b>کاملاً</b> مشخص می‌کنه. دو میدان × دو سؤال =
         <b>چهار معادله</b>. عددِ چهار توی «چهار معادلهٔ ماکسول» از همین‌جا میاد.</li>
-      <li>دو تا <b>قضیهٔ انتگرالی</b> هم هست — دیورژانس و استوکس — که جوابِ یه نقطه رو به
+      <li data-i18n="top.li5">دو تا <b>قضیهٔ انتگرالی</b> هم هست — دیورژانس و استوکس — که جوابِ یه نقطه رو به
         چیزی که واقعاً روی یه ناحیه اندازه می‌گیری وصل می‌کنن.</li>
     </ul>
-    <p class="tldr-foot">همین. کمتر از این برای خوندن ماکسول کم میاری، بیشتر از این فعلاً به کارت نمیاد.</p>
+    <p class="tldr-foot" data-i18n="top.p2">همین. کمتر از این برای خوندن ماکسول کم میاری، بیشتر از این فعلاً به کارت نمیاد.</p>
   </aside>
 
   <nav class="toc card" aria-label="فهرست">
-    <span class="mono-label">فهرست</span>
+    <span class="mono-label" data-i18n="top.span4">فهرست</span>
     <ol>
-      <li><a href="#s1">آب استخر چند درجه است؟</a></li>
-      <li><a href="#s2">گرادیان، و علامتی به اسم نابلا</a></li>
-      <li><a href="#s3">حالا آب راه می‌افتد</a></li>
-      <li><a href="#s4">سؤال اول: آب از کجا می‌آید؟</a></li>
-      <li><a href="#s5">سؤال دوم: اینجا چیزی می‌چرخد؟</a></li>
-      <li><a href="#s6">چرا چهار معادله؟</a></li>
-      <li><a href="#s7">از یک نقطه تا یک ناحیه</a></li>
-      <li><a href="#s8">جمع‌بندی، و قدم بعدی</a></li>
+      <li data-i18n="top.li6"><a href="#s1">آب استخر چند درجه است؟</a></li>
+      <li data-i18n="top.li7"><a href="#s2">گرادیان، و علامتی به اسم نابلا</a></li>
+      <li data-i18n="top.li8"><a href="#s3">حالا آب راه می‌افتد</a></li>
+      <li data-i18n="top.li9"><a href="#s4">سؤال اول: آب از کجا می‌آید؟</a></li>
+      <li data-i18n="top.li10"><a href="#s5">سؤال دوم: اینجا چیزی می‌چرخد؟</a></li>
+      <li data-i18n="top.li11"><a href="#s6">چرا چهار معادله؟</a></li>
+      <li data-i18n="top.li12"><a href="#s7">از یک نقطه تا یک ناحیه</a></li>
+      <li data-i18n="top.li13"><a href="#s8">جمع‌بندی، و قدم بعدی</a></li>
     </ol>
   </nav>
 
-  <div class="note card sig">
+  <div class="note card sig" data-i18n="top.div1">
     <b>یک استخر، از اول تا آخر.</b> یه استخر کم‌عمق رو تصور کن. یه گوشه‌اش یه گرم‌کن روشنه،
     یه گوشه‌اش سرده. یه شیر آب هم داره و یه چاه تخلیه، پس آبش جریان داره.
     <br><br>
@@ -177,99 +187,99 @@
   <hr class="rule">
 
   <!-- ============ ۱ ============ -->
-  <h2 id="s1"><span class="secnum">01</span> آب استخر چند درجه است؟</h2>
+  <h2 id="s1" data-i18n="s1.h21"><span class="secnum">01</span> آب استخر چند درجه است؟</h2>
 
-  <p>
+  <p data-i18n="s1.p1">
     سؤال بدیه. استخر یه دما نداره.
   </p>
-  <p>
+  <p data-i18n="s1.p2">
     نزدیک گرم‌کن <span class="q">۴۰</span> درجه‌ست، اون سرِ استخر <span class="q">۱۵</span>،
     و وسط یه چیزی بین این دوتا. هر نقطه دمای خودش رو داره.
   </p>
-  <p>
+  <p data-i18n="s1.p3">
     پس چیزی که دنبالشیم یه عدد نیست، یه <em>تابع</em>ه. تابعی که ورودیش یه <b>نقطه</b>ست. و
     همین ایدهٔ ساده، اسم داره:
   </p>
 
   <div class="thm def">
-    <span class="lbl">میدان اسکالر <span class="en bare">scalar field</span></span>
-    <p>تابعی که به هر نقطهٔ فضا یه عدد نسبت می‌ده:</p>
+    <span class="lbl" data-i18n="s1.span1">میدان اسکالر <span class="en bare">scalar field</span></span>
+    <p data-i18n="s1.p4">تابعی که به هر نقطهٔ فضا یه عدد نسبت می‌ده:</p>
     <div class="eq"><span class="ln">f (x, y, z)</span></div>
-    <p>
+    <p data-i18n="s1.p5">
       دمای استخر، فشار، چگالی — و چیزهایی که مقالهٔ بعدی لازمشون داریم: چگالی بار
       <span class="q">ρ</span> و پتانسیل الکتریکی <span class="q">V</span>.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s1.p6">
     حالا باید ببینیمش. آدم‌ها در خوندن فرمولِ دومتغیره ضعیفن و در خوندن نقشه عالی. پس
     نقشه‌اش می‌کنیم.
   </p>
-  <p>
+  <p data-i18n="s1.p7">
     راهش اینه: نقطه‌هایی که دما روشون <em>یکیه</em> رو به هم وصل کن. هر بار برای یه عدد.
     اون چیزی که درمیاد یه دسته منحنیه:
   </p>
 
   <div class="thm def">
-    <span class="lbl">خط تراز <span class="en bare">level curve · contour</span></span>
-    <p>
+    <span class="lbl" data-i18n="s1.span2">خط تراز <span class="en bare">level curve · contour</span></span>
+    <p data-i18n="s1.p8">
       همهٔ نقطه‌هایی که تابع روشون یه مقدار ثابت داره. توی سه بعد بهش <b>سطح تراز</b>
       <span class="en">level surface</span> می‌گن.
     </p>
-    <p>
+    <p data-i18n="s1.p9">
       سطحی که پتانسیل الکتریکی روش ثابته هم دقیقاً همینه، با اسم آشناترِ
       <b>سطح هم‌پتانسیل</b> <span class="en">equipotential</span>.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s1.p10">
     همون خط‌هایی که روی نقشهٔ کوهستان دیدی. و یه اطلاعات مهم توش هست که معمولاً بهش دقت
     نمی‌کنیم: <b>فاصلهٔ خط‌ها</b>.
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 1</span><span class="fig-t">دمای استخر — انگشتت رو بکش روش</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 1</span><span class="fig-t" data-i18n="s1.span3">دمای استخر — انگشتت رو بکش روش</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figScalar"></canvas></div>
       <div>
         <div class="chip-row" id="scalarPresets"></div>
         <div class="check-row">
-          <label><input type="checkbox" id="scalarIso" checked> خطوط تراز</label>
-          <label><input type="checkbox" id="scalarFill" checked> سایه‌روشن</label>
+          <label data-i18n="s1.label1"><input type="checkbox" id="scalarIso" checked> خطوط تراز</label>
+          <label data-i18n="s1.label2"><input type="checkbox" id="scalarFill" checked> سایه‌روشن</label>
         </div>
         <dl class="ro" id="scalarOut"></dl>
-        <p class="hint">
+        <p class="hint" data-i18n="s1.p11">
           نقطهٔ آبی رو بگیر و هرجا خواستی بکش. عدد کنارش، دمای همون نقطهٔ استخره.
         </p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s1.figcaption1">
       هرچه آبی‌تر، گرم‌تر. خط‌چینِ آبی، خط ترازیه که نقطه روش وایستاده — یعنی مسیری که اگه
       شناکنان روش بری، دما اصلاً عوض نمی‌شه. حالا نقطه رو ببر جایی که خط‌ها فشرده‌ان و ببین
       عدد چقدر تند تغییر می‌کنه؛ بعد ببرش وسط دشتِ بین دو تا گرم‌کن.
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s1.p12">
     هرجا خط‌ها به هم نزدیکن، دما تند عوض می‌شه. هرجا از هم دورن، دشته.
   </p>
-  <p>
+  <p data-i18n="s1.p13">
     این جمله درسته ولی مبهمه. «تند» یعنی چقدر تند؟ بخش بعد همین رو تبدیل به عدد می‌کنه.
   </p>
 
   <details class="decode">
-    <summary>یادآوری — مشتق جزئی <span class="en bare">partial derivative</span></summary>
+    <summary data-i18n="s1.summary1">یادآوری — مشتق جزئی <span class="en bare">partial derivative</span></summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s1.p14">
         مشتق معمولی می‌پرسه: «اگه ورودی یه ذره زیاد بشه، خروجی چقدر عوض می‌شه؟» اینجا دو تا
         ورودی داریم، پس باید بگی <em>کدومش</em>.
       </p>
-      <p>
+      <p data-i18n="s1.p15">
         <span class="q">∂f/∂x</span> یعنی: <span class="q">y</span> رو قفل کن، فقط یه قدم
         کوچیک به سمت شرق بردار، ببین تابع چقدر عوض شد. <span class="q">∂f/∂y</span> هم
         همون، ولی به سمت شمال.
       </p>
-      <p>
+      <p data-i18n="s1.p16">
         علامت <span class="q">∂</span> هم همون <span class="q">d</span>ِ مشتقه، فقط گِرد
         نوشته شده تا یادت بندازه بقیهٔ متغیرها فعلاً ثابتن. همین. کل حساب دیفرانسیل
         چندمتغیره روی همین یه ایده سواره: <em>یکی‌یکی، بقیه ثابت</em>.
@@ -278,54 +288,54 @@
   </details>
 
   <!-- ============ ۲ ============ -->
-  <h2 id="s2"><span class="secnum">02</span> گرادیان، و علامتی به اسم نابلا</h2>
+  <h2 id="s2" data-i18n="s2.h21"><span class="secnum">02</span> گرادیان، و علامتی به اسم نابلا</h2>
 
-  <p>
+  <p data-i18n="s2.p1">
     وسط استخر وایستادی. سؤال: <em>کدوم طرف برم آب گرم‌تر می‌شه، و چقدر تند؟</em>
   </p>
-  <p>
+  <p data-i18n="s2.p2">
     دقت کن که جوابِ این سؤال یه عدد نیست. باید هم یه <b>جهت</b> بهم بدی («اون طرف») و هم یه
     <b>شدت</b> («خیلی تند»). جهت به‌علاوهٔ شدت، یعنی یه فلش.
   </p>
-  <p>
+  <p data-i18n="s2.p3">
     اون فلش اسم داره، و ساختنش خجالت‌آور ساده‌ست:
   </p>
 
   <div class="thm def">
-    <span class="lbl">گرادیان <span class="en bare">gradient</span></span>
+    <span class="lbl" data-i18n="s2.span1">گرادیان <span class="en bare">gradient</span></span>
     <div class="eq"><span class="ln">∇f = ( ∂f/∂x , ∂f/∂y , ∂f/∂z )</span></div>
-    <p>مشتق جزئی رو در هر جهت حساب کن و بذارشون کنار هم. تمام.</p>
+    <p data-i18n="s2.p4">مشتق جزئی رو در هر جهت حساب کن و بذارشون کنار هم. تمام.</p>
   </div>
 
-  <p>
+  <p data-i18n="s2.p5">
     و سه تا خاصیت داره که اگه فقط همین سه تا رو بلد باشی، گرادیان رو بلدی:
   </p>
   <ul>
-    <li><b>جهتش، تندترین سربالاییه.</b> نه هر سربالایی — تندترینش.</li>
-    <li><b>طولش، خودِ شیبه.</b> اون «تند» و «دشت»ِ مبهمِ بخش قبل، حالا یه عدد داره:
+    <li data-i18n="s2.li1"><b>جهتش، تندترین سربالاییه.</b> نه هر سربالایی — تندترینش.</li>
+    <li data-i18n="s2.li2"><b>طولش، خودِ شیبه.</b> اون «تند» و «دشت»ِ مبهمِ بخش قبل، حالا یه عدد داره:
       <span class="q">|∇f|</span>.</li>
-    <li><b>همیشه عمود بر خط ترازه.</b> که وقتی بهش فکر کنی بدیهیه: روی خط تراز هیچ تغییری
+    <li data-i18n="s2.li3"><b>همیشه عمود بر خط ترازه.</b> که وقتی بهش فکر کنی بدیهیه: روی خط تراز هیچ تغییری
       نیست، پس تندترین تغییر باید عمود بر اون باشه.</li>
   </ul>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 2</span><span class="fig-t">گرادیان — نقطه را بکش، و ولش کن</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 2</span><span class="fig-t" data-i18n="s2.span2">گرادیان — نقطه را بکش، و ولش کن</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figGrad"></canvas></div>
       <div>
         <div class="chip-row" id="gradPresets"></div>
         <div class="check-row">
-          <label><input type="checkbox" id="gradField" checked> فلش‌های گرادیان در همه‌جا</label>
+          <label data-i18n="s2.label1"><input type="checkbox" id="gradField" checked> فلش‌های گرادیان در همه‌جا</label>
         </div>
-        <button class="pill" type="button" id="gradRoll">▶ ولش کن بره بالا</button>
+        <button class="pill" type="button" id="gradRoll" data-i18n="js.grad.play">▶ ولش کن بره بالا</button>
         <dl class="ro" id="gradOut"></dl>
-        <p class="hint">
+        <p class="hint" data-i18n="s2.p6">
           فلش آبیِ بلند، <span class="q">∇f</span> در همون نقطه‌ست. خط‌چین، خط ترازِ اون
           نقطه‌ست — نگاه کن که فلش همیشه صاف عمود بر خط‌چین می‌ایسته.
         </p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s2.figcaption1">
       دکمه رو بزن تا نقطه رها بشه و در هر لحظه در جهت گرادیان قدم برداره. همیشه هم به یه
       قله می‌رسه و همون‌جا می‌ایسته، چون روی قله هیچ جهتی سربالایی نیست و گرادیان صفر می‌شه.
       اگه با <b>gradient descent</b> توی یادگیری ماشین آشنایی، دقیقاً همینه با یه علامت
@@ -333,94 +343,94 @@
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s2.p7">
     و اینجا اولین نقطهٔ تماس با ماکسول. پتانسیل الکتریکی <span class="q">V</span> یه میدان
     اسکالره — یه نقشهٔ عدد، مثل دمای استخر. و میدان الکتریکی، گرادیانِ همونه با یه علامت
     منفی:
   </p>
 
   <div class="eq card">
-    <span class="lbl">میدان الکتریکی، از روی پتانسیل</span>
+    <span class="lbl" data-i18n="s2.span3">میدان الکتریکی، از روی پتانسیل</span>
     <span class="ln">E = −∇V</span>
-    <span class="note-under">
+    <span class="note-under" data-i18n="s2.span4">
       منفی، چون بار مثبت به سمت پتانسیلِ <em>کمتر</em> شتاب می‌گیره؛ سرازیری، نه سربالایی. و
       چون گرادیان عمود بر سطح ترازه، <span class="q">E</span> همیشه عمود بر سطح هم‌پتانسیل
       می‌ایسته.
     </span>
   </div>
 
-  <h3>حالا علامتش</h3>
+  <h3 data-i18n="s2.h31">حالا علامتش</h3>
 
-  <p>
+  <p data-i18n="s2.p8">
     قبل از اینکه جلوتر بریم، بذار نمادی رو از سر راه برداریم که بیشتر از هر چیزی آدم‌ها رو
     از این بحث فراری می‌ده.
   </p>
-  <p>
+  <p data-i18n="s2.p9">
     <span class="q">∇</span> رو «نابلا» <span class="en">nabla</span> یا «دِل»
     <span class="en">del</span> می‌خونن. و یه ترفند نوشتاریه: وانمود می‌کنیم یه <em>بردار</em>ه
     که مؤلفه‌هاش به‌جای عدد، <em>دستور</em>ن.
   </p>
 
   <div class="thm def">
-    <span class="lbl">عملگر نابلا <span class="en bare">del operator</span></span>
+    <span class="lbl" data-i18n="s2.span5">عملگر نابلا <span class="en bare">del operator</span></span>
     <div class="eq"><span class="ln">∇ ≡ î ∂/∂x + ĵ ∂/∂y + k̂ ∂/∂z</span></div>
-    <p>
+    <p data-i18n="s2.p10">
       این به‌تنهایی هیچ معنی‌ای نداره — مثل اینه که بگی «ضرب کن در». باید یه چیزی سمت راستش
       بذاری.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s2.p11">
     و دقیقاً <b>سه</b> جور می‌شه این کار رو کرد، چون سه جور می‌شه یه بردار رو به چیز دیگه‌ای
     چسبوند: ضرب در اسکالر، ضرب داخلی، ضرب برداری.
   </p>
-  <p>
+  <p data-i18n="s2.p12">
     این جدول، در واقع نقشهٔ بقیهٔ مقاله‌ست:
   </p>
 
   <div class="tbl-wrap">
   <table class="tbl">
     <thead>
-      <tr><th>می‌نویسی</th><th>اسمش</th><th>ورودی ← خروجی</th><th>یعنی داری می‌پرسی</th></tr>
+      <tr><th data-i18n="s2.th1">می‌نویسی</th><th data-i18n="s2.th2">اسمش</th><th data-i18n="s2.th3">ورودی ← خروجی</th><th data-i18n="s2.th4">یعنی داری می‌پرسی</th></tr>
     </thead>
     <tbody>
       <tr>
         <td class="sym">∇f</td>
-        <td>گرادیان<br><span class="en bare">gradient</span></td>
-        <td class="io">اسکالر ← برداری</td>
-        <td>سربالایی کدوم طرفه؟ <span class="dim">(همین بخش)</span></td>
+        <td data-i18n="s2.td1">گرادیان<br><span class="en bare">gradient</span></td>
+        <td class="io" data-i18n="s2.td2">اسکالر ← برداری</td>
+        <td data-i18n="s2.td3">سربالایی کدوم طرفه؟ <span class="dim">(همین بخش)</span></td>
       </tr>
       <tr>
         <td class="sym">∇·F</td>
-        <td>دیورژانس<br><span class="en bare">divergence</span></td>
-        <td class="io">برداری ← اسکالر</td>
-        <td>اینجا آب تولید می‌شه یا بلعیده؟ <span class="dim">(بخش ۴)</span></td>
+        <td data-i18n="s2.td4">دیورژانس<br><span class="en bare">divergence</span></td>
+        <td class="io" data-i18n="s2.td5">برداری ← اسکالر</td>
+        <td data-i18n="s2.td6">اینجا آب تولید می‌شه یا بلعیده؟ <span class="dim">(بخش ۴)</span></td>
       </tr>
       <tr>
         <td class="sym">∇×F</td>
-        <td>کرل<br><span class="en bare">curl</span></td>
-        <td class="io">برداری ← برداری</td>
-        <td>اینجا چیزی می‌چرخه؟ <span class="dim">(بخش ۵)</span></td>
+        <td data-i18n="s2.td7">کرل<br><span class="en bare">curl</span></td>
+        <td class="io" data-i18n="s2.td8">برداری ← برداری</td>
+        <td data-i18n="s2.td9">اینجا چیزی می‌چرخه؟ <span class="dim">(بخش ۵)</span></td>
       </tr>
     </tbody>
   </table>
   </div>
 
   <details class="decode">
-    <summary>یادآوری — ضرب داخلی و ضرب برداری، در یک دقیقه</summary>
+    <summary data-i18n="s2.summary1">یادآوری — ضرب داخلی و ضرب برداری، در یک دقیقه</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s2.p13">
         <b>ضرب داخلی</b> <span class="en">dot product</span> مؤلفه‌ها رو دوبه‌دو ضرب و جمع
         می‌کنه و یه <em>عدد</em> می‌ده. وقتی دو بردار هم‌جهت باشن بیشترین مقدارش رو داره و
         وقتی عمود باشن صفره. یعنی می‌سنجه <em>چقدر این دوتا هم‌راستان</em>.
       </p>
-      <p>
+      <p data-i18n="s2.p14">
         <b>ضرب برداری</b> <span class="en">cross product</span> یه <em>بردار</em> می‌ده که
         عمود بر هر دوتاست. وقتی هم‌جهت باشن صفره و وقتی عمود باشن بیشترین مقدار. یعنی
         می‌سنجه <em>چقدر این دوتا از هم زاویه دارن</em> — و جوابش رو در جهت محورِ اون چرخش
         تحویل می‌ده.
       </p>
-      <p>
+      <p data-i18n="s2.p15">
         حالا برگرد به جدول بالا و ببین چقدر معنی‌دار شد. <span class="q">∇·F</span> داره
         می‌سنجه میدان چقدر با <em>دورشدن از نقطه</em> هم‌راستاست، یعنی چقدر داره پخش می‌شه.
         <span class="q">∇×F</span> داره می‌سنجه میدان چقدر <em>دورِ</em> نقطه می‌گرده. نماد
@@ -429,55 +439,55 @@
     </div>
   </details>
 
-  <p>
+  <p data-i18n="s2.p16">
     ردیف اول رو ساختیم. برای دو تای بعدی، باید آب استخر راه بیفته.
   </p>
 
   <!-- ============ ۳ ============ -->
-  <h2 id="s3"><span class="secnum">03</span> حالا آب راه می‌افتد</h2>
+  <h2 id="s3" data-i18n="s3.h21"><span class="secnum">03</span> حالا آب راه می‌افتد</h2>
 
-  <p>
+  <p data-i18n="s3.p1">
     تا اینجا فقط دمای استخر رو دیدیم: به هر نقطه یه عدد. حالا شیر آب رو باز کن.
   </p>
-  <p>
+  <p data-i18n="s3.p2">
     برای توصیف جریان، به هر نقطه باید یه <em>فلش</em> بدی: آب اینجا به کدوم سمت می‌ره و با
     چه سرعتی.
   </p>
 
   <div class="thm def">
-    <span class="lbl">میدان برداری <span class="en bare">vector field</span></span>
-    <p>تابعی که به هر نقطه یه بردار نسبت می‌ده:</p>
+    <span class="lbl" data-i18n="s3.span1">میدان برداری <span class="en bare">vector field</span></span>
+    <p data-i18n="s3.p3">تابعی که به هر نقطه یه بردار نسبت می‌ده:</p>
     <div class="eq"><span class="ln">F(x, y, z) = P î + Q ĵ + R k̂</span></div>
-    <p>
+    <p data-i18n="s3.p4">
       یعنی سه تا میدان اسکالر، بسته‌بندی‌شده توی یه شیء. <span class="q">P</span>،
       <span class="q">Q</span> و <span class="q">R</span> از این به بعد همیشه همین معنی رو
       دارن.
     </p>
-    <p>
+    <p data-i18n="s3.p5">
       سرعت آب، میدان الکتریکی <span class="q">E</span>، میدان مغناطیسی
       <span class="q">B</span> و چگالی جریان <span class="q">J</span> — یعنی هر چهار تا
       اسمی که توی معادلات ماکسول می‌بینی — میدان برداری‌ان.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s3.p6">
     کشیدن یه فلش در هر نقطه صادقانه‌ترین نمایشه، ولی زود شلوغ می‌شه. راه دوم اینه که مسیر یه
     برگ روی آب رو بکشی:
   </p>
 
   <div class="thm def">
-    <span class="lbl">خط جریان <span class="en bare">field line · streamline</span></span>
-    <p>
+    <span class="lbl" data-i18n="s3.span2">خط جریان <span class="en bare">field line · streamline</span></span>
+    <p data-i18n="s3.p7">
       منحنی‌ای که در هر نقطه مماس بر میدانه — یعنی مسیری که یه ذرهٔ سبک، اگه رهاش کنی، طی
       می‌کنه.
     </p>
-    <p>
+    <p data-i18n="s3.p8">
       «خطوط میدان مغناطیسی» که با برادهٔ آهن می‌بینی دقیقاً همینن.
     </p>
   </div>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 3</span><span class="fig-t">جریان‌های استخر — چندتاشو ببین</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 3</span><span class="fig-t" data-i18n="s3.span3">جریان‌های استخر — چندتاشو ببین</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figField"></canvas></div>
       <div>
@@ -487,7 +497,7 @@
         <p class="hint" id="fieldNote"></p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s3.figcaption1">
       هشت حالتِ ممکن برای آبِ استخر، در سه نمایش. <b>فلش‌ها</b> صادق‌ترینن ولی شلوغ می‌شن.
       <b>خطوط جریان</b> شلوغی رو کم می‌کنن ولی اندازهٔ سرعت رو باید از فشردگیِ خط‌ها حدس
       بزنی. <b>ذره‌ها</b> بهترین حس فیزیکی رو می‌دن: انگار خاک‌اره ریختی روی آب. هرکدوم رو که
@@ -495,100 +505,100 @@
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s3.p9">
     حالا سؤال اصلی مقاله. جلوی یکی از این جریان‌ها وایستادی. چه سؤالی می‌شه ازش پرسید که
     <em>جوابش یه عدد باشه، نه یه نقاشی</em>؟
   </p>
-  <p>
+  <p data-i18n="s3.p10">
     و مهم‌تر: سؤالی که <b>محلی</b> باشه — یعنی از یه نقطهٔ مشخص پرسیده بشه، نه از کل استخر.
     چون معادلات ماکسول همه محلی‌ان: دربارهٔ یه نقطه حرف می‌زنن.
   </p>
-  <p>
+  <p data-i18n="s3.p11">
     معلوم شده در عمل فقط <b>دو</b> تا چنین سؤالی هست. بخش ۶ نشون می‌ده چرا فقط دو تا. فعلاً
     بریم سراغ خودشون — اولی دربارهٔ اینه که آب از کجا میاد.
   </p>
 
   <!-- ============ ۴ ============ -->
-  <h2 id="s4"><span class="secnum">04</span> سؤال اول: آب از کجا می‌آید؟</h2>
+  <h2 id="s4" data-i18n="s4.h21"><span class="secnum">04</span> سؤال اول: آب از کجا می‌آید؟</h2>
 
-  <p>
+  <p data-i18n="s4.p1">
     شیر آب استخر باز است و چاه تخلیه هم. آب از یه جا می‌جوشه و در یه جای دیگه فرو می‌ره.
   </p>
-  <p>
+  <p data-i18n="s4.p2">
     حالا فرض کن چشمت به شیر و چاه نمی‌افته و فقط <em>جریان</em> رو می‌بینی. از کجا بفهمی
     کجاست؟
   </p>
-  <p>
+  <p data-i18n="s4.p3">
     راهش اینه: یه حلقهٔ کوچیک بنداز توی آب، و بشمر چقدر آب خالص ازش می‌زنه بیرون. اسم این
     شمارش، شاره:
   </p>
 
   <div class="thm def">
-    <span class="lbl">شار <span class="en bare">flux</span></span>
+    <span class="lbl" data-i18n="s4.span1">شار <span class="en bare">flux</span></span>
     <div class="eq"><span class="ln">Φ = ∯<sub>S</sub> F · n̂ dS</span></div>
-    <p>
+    <p data-i18n="s4.p4">
       که <span class="q">n̂</span> بردار یکهٔ عمود بر سطحه، رو به بیرون. فقط مؤلفهٔ
       <em>عمود بر سطح</em> شمرده می‌شه؛ آبی که موازی سطح می‌گذره اصلاً ازش عبور نمی‌کنه و
       سهمی در شار نداره.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s4.p5">
     ولی شار هنوز محلی نیست: به اندازهٔ حلقه‌ای که انداختی وابسته‌ست. حلقهٔ بزرگ‌تر، شار
     بیشتر.
   </p>
-  <p>
+  <p data-i18n="s4.p6">
     محلی‌اش می‌کنیم — تقسیم بر حجم، و بعد حجم رو به صفر می‌بریم:
   </p>
 
   <div class="thm">
-    <span class="lbl">دیورژانس <span class="en bare">divergence</span></span>
+    <span class="lbl" data-i18n="s4.span2">دیورژانس <span class="en bare">divergence</span></span>
     <div class="eq">
       <span class="ln">∇·F = lim<sub>V→0</sub>
         <span class="frac"><span class="num">1</span><span class="den">V</span></span>
         ∯<sub>∂V</sub> F · n̂ dS</span>
     </div>
-    <p>
+    <p data-i18n="s4.p7">
       «شارِ خالصِ خروجی، بر واحد حجم، در همین نقطه.» مثبت یعنی <b>چشمه</b>
       <span class="en">source</span>، منفی یعنی <b>چاهک</b> <span class="en">sink</span>، و
       صفر یعنی هرچی وارد شده همون‌قدر هم خارج شده.
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s4.p8">
     این تعریف دقیقه ولی برای حساب‌کردن به درد نمی‌خوره؛ کسی حوصله نداره برای هر نقطه یه
     انتگرال سطحی بگیره.
   </p>
-  <p>
+  <p data-i18n="s4.p9">
     خوشبختانه لازم هم نیست. همین تعریف روی یه جعبهٔ خیلی کوچیک به یه فرمول ساده می‌رسه — و
     <b>این همون فرمیه که توی معادلات ماکسول می‌بینی</b>:
   </p>
 
   <div class="thm">
-    <span class="lbl">دیورژانس، به زبان مختصات</span>
+    <span class="lbl" data-i18n="s4.span3">دیورژانس، به زبان مختصات</span>
     <div class="eq"><span class="ln">∇·F = ∂P/∂x + ∂Q/∂y + ∂R/∂z</span></div>
-    <p>
+    <p data-i18n="s4.p10">
       همون چیزی که از «ضرب داخلیِ <span class="q">∇</span> در <span class="q">F</span>»
       انتظار داشتی. و خروجیش یه <em>اسکالر</em>ه.
     </p>
   </div>
 
   <details class="decode">
-    <summary>چرا؟ — با یک جعبهٔ کوچک</summary>
+    <summary data-i18n="s4.summary1">چرا؟ — با یک جعبهٔ کوچک</summary>
     <div class="decode-body">
-      <p>
+      <p data-i18n="s4.p11">
         به‌جای حلقه، یه جعبهٔ کوچیک بگیر. شش تا وجه داره، ولی لازم نیست شش‌تا رو جدا بشمری —
         دوبه‌دو جفتشون کن: چپ و راست، جلو و عقب، بالا و پایین.
       </p>
-      <p>
+      <p data-i18n="s4.p12">
         جفت اول رو نگاه کن. آب از وجه چپ وارد می‌شه و از وجه راست خارج. اگه سرعتِ افقی توی
         هر دو وجه یکی باشه، هرچی وارد شده همون‌قدر خارج شده و این جفت هیچ سهمی در شار نداره.
       </p>
-      <p>
+      <p data-i18n="s4.p13">
         پس این جفت فقط وقتی سهم داره که <b>سرعتِ افقی از چپ به راست عوض شده باشه</b>. و
         «چقدر عوض شده وقتی به سمت شرق می‌ری» دقیقاً معنیِ <span class="q">∂P/∂x</span>ه.
       </p>
-      <p>
+      <p data-i18n="s4.p14">
         همین حرف برای دو جفت دیگه هم تکرار می‌شه، با <span class="q">∂Q/∂y</span> و
         <span class="q">∂R/∂z</span>. <b>هر جملهٔ اون فرمول، سهمِ یه جفت وجهه.</b> فرمول یه
         قرارداد دلبخواه نیست؛ فهرستِ سه تا راهیه که آب می‌تونه از یه جعبه بیشتر بیرون بزنه
@@ -598,20 +608,20 @@
   </details>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 4</span><span class="fig-t">دیورژانس — حلقه را بگیر و بکش</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 4</span><span class="fig-t" data-i18n="s4.span4">دیورژانس — حلقه را بگیر و بکش</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figDiv"></canvas></div>
       <div>
         <div class="chip-row" id="divPresets"></div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">شعاع حلقه</span><span class="ctl-val" id="divRv">0.30</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s4.span5">شعاع حلقه</span><span class="ctl-val" id="divRv">0.30</span></div>
           <input class="slider" type="range" id="divR" aria-label="شعاع حلقه" min="8" max="60" step="1" value="30">
         </div>
         <dl class="ro" id="divOut"></dl>
         <p class="hint" id="divNote"></p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s4.figcaption1">
       روی مرز حلقه، فلش‌های <b>آبی</b> جاهایی‌ان که آب می‌زنه بیرون و فلش‌های <b>بی‌رنگ</b>
       جاهایی که وارد می‌شه. عددی که می‌بینی جمع جبری همینه. دو تا چیز رو حتماً امتحان کن.
       اول <b>«چرخش کل استخر»</b>: حلقه رو هرجا ببری شار صفره. بعد <b>«فوّاره»</b>: تا وقتی
@@ -619,69 +629,69 @@
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s4.p15">
     اون مثال آخر ارزش یه نگاه دقیق‌تر رو داره، چون <b>دقیقاً معادلهٔ اول ماکسوله</b>.
   </p>
-  <p>
+  <p data-i18n="s4.p16">
     میدانِ یه بار نقطه‌ای همه‌جا داره از مرکز فرار می‌کنه. خیلی طبیعیه فکر کنی «پس همه‌جا
     دیورژانس مثبت داره». ولی نداره.
   </p>
-  <p>
+  <p data-i18n="s4.p17">
     دو تا کرهٔ هم‌مرکز دور بار بکش، یکی به شعاع <span class="q">r</span> و یکی به شعاع
     <span class="q">2r</span>. دو چیز عوض شده، و در جهت عکس هم:
   </p>
   <ul>
-    <li>کرهٔ بیرونی <b>چهار برابر</b> مساحت داره — مساحت با <span class="q">r²</span> زیاد
+    <li data-i18n="s4.li1">کرهٔ بیرونی <b>چهار برابر</b> مساحت داره — مساحت با <span class="q">r²</span> زیاد
       می‌شه.</li>
-    <li>ولی میدان روش <b>یک‌چهارم</b> شده — میدان با <span class="q">r²</span> ضعیف می‌شه.</li>
+    <li data-i18n="s4.li2">ولی میدان روش <b>یک‌چهارم</b> شده — میدان با <span class="q">r²</span> ضعیف می‌شه.</li>
   </ul>
-  <p>
+  <p data-i18n="s4.p18">
     شار حاصل‌ضرب همین دوتاست، پس دقیقاً یکی می‌مونه. <b>هر خط میدانی که وارد پوستهٔ بین دو
     کره می‌شه، از اون‌طرف بیرون می‌ره.</b> نه چیزی اضافه می‌شه، نه چیزی گم.
   </p>
-  <p>
+  <p data-i18n="s4.p19">
     پس دیورژانس همه‌جا صفره، جز دقیقاً همون نقطه‌ای که بار نشسته. و این، کلمه‌به‌کلمه، همون
     حرفیه که <b>قانون گاوس</b> <span class="en">Gauss's law</span> می‌زنه: میدان الکتریکی
     فقط جایی چشمه داره که بار هست.
   </p>
-  <p>
+  <p data-i18n="s4.p20">
     اگه همین سؤال رو دربارهٔ میدان مغناطیسی بپرسی، جواب از این هم قاطع‌تره: <b>هیچ‌جا.</b>
     ولی اون حرفِ مقالهٔ بعدیه.
   </p>
 
   <!-- ============ ۵ ============ -->
-  <h2 id="s5"><span class="secnum">05</span> سؤال دوم: اینجا چیزی می‌چرخد؟</h2>
+  <h2 id="s5" data-i18n="s5.h21"><span class="secnum">05</span> سؤال دوم: اینجا چیزی می‌چرخد؟</h2>
 
-  <p>
+  <p data-i18n="s5.p1">
     سؤال دوم با همون الگوی سؤال اول ساخته می‌شه. فقط یه کلمه فرق می‌کنه.
   </p>
-  <p>
+  <p data-i18n="s5.p2">
     اون‌جا می‌دیدیم آب چقدر <em>از مرز رد می‌شه</em>. اینجا می‌بینیم چقدر
     <em>در امتداد مرز می‌ره</em>.
   </p>
-  <p>
+  <p data-i18n="s5.p3">
     تصویرش هم ساده‌ست: یه چرخونکِ کوچیک بنداز روی آب و ببین می‌چرخه یا نه.
   </p>
 
   <div class="thm def">
-    <span class="lbl">گردش <span class="en bare">circulation</span></span>
+    <span class="lbl" data-i18n="s5.span1">گردش <span class="en bare">circulation</span></span>
     <div class="eq"><span class="ln">Γ = ∮<sub>C</sub> F · dr</span></div>
-    <p>انتگرال مؤلفهٔ <em>مماسیِ</em> میدان، دور یه منحنی بستهٔ جهت‌دار.</p>
+    <p data-i18n="s5.p4">انتگرال مؤلفهٔ <em>مماسیِ</em> میدان، دور یه منحنی بستهٔ جهت‌دار.</p>
   </div>
 
-  <p>
+  <p data-i18n="s5.p5">
     و باز مثل قبل، گردش به اندازهٔ حلقه وابسته‌ست. پس باز همون کار: تقسیم بر مساحت، و حد
     گرفتن.
   </p>
 
   <div class="thm">
-    <span class="lbl">کرل <span class="en bare">curl</span></span>
+    <span class="lbl" data-i18n="s5.span2">کرل <span class="en bare">curl</span></span>
     <div class="eq">
       <span class="ln">(∇×F) · n̂ = lim<sub>A→0</sub>
         <span class="frac"><span class="num">1</span><span class="den">A</span></span>
         ∮<sub>∂A</sub> F · dr</span>
     </div>
-    <p>
+    <p data-i18n="s5.p6">
       «گردشِ خالص، بر واحد سطح.» یه فرق مهم با دیورژانس داره: چرخش <em>حول یه محور</em>
       اتفاق می‌افته، پس جواب باید هم شدت داشته باشه و هم راستا. برای همین <b>کرل یه بردار
       است</b>، نه یه عدد — و <span class="q">n̂</span> توی فرمول بالا می‌گه کدوم مؤلفه‌اش رو
@@ -689,74 +699,74 @@
     </p>
   </div>
 
-  <p>
+  <p data-i18n="s5.p7">
     فرم مختصاتیش هم دقیقاً از همون استدلالِ جعبهٔ بخش قبل درمیاد، این بار با یه مربع و مؤلفهٔ
     مماسی به‌جای عمودی. توی صفحه — که کل این مقاله توشه — فقط یه مؤلفه داره:
   </p>
 
   <div class="thm">
-    <span class="lbl">کرل در صفحه، به زبان مختصات</span>
+    <span class="lbl" data-i18n="s5.span3">کرل در صفحه، به زبان مختصات</span>
     <div class="eq"><span class="ln">(∇×F)<sub>z</sub> = ∂Q/∂x − ∂P/∂y</span></div>
-    <p>
+    <p data-i18n="s5.p8">
       مثبت یعنی پادساعتگرد، منفی یعنی ساعتگرد. توی سه بعد سه تا از این جمله‌ها داری، یکی
       برای هر محور.
     </p>
   </div>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 5</span><span class="fig-t">کرل — چرخونک را بگیر و بکش</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 5</span><span class="fig-t" data-i18n="s5.span4">کرل — چرخونک را بگیر و بکش</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figCurl"></canvas></div>
       <div>
         <div class="chip-row" id="curlPresets"></div>
         <div class="check-row">
-          <label><input type="checkbox" id="curlMap"> نقشهٔ کرل در کل استخر</label>
+          <label data-i18n="s5.label1"><input type="checkbox" id="curlMap"> نقشهٔ کرل در کل استخر</label>
         </div>
         <dl class="ro" id="curlOut"></dl>
         <p class="hint" id="curlNote"></p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s5.figcaption1">
       فلش‌های دور حلقه مؤلفهٔ <em>مماسیِ</em> جریانن: آبی یعنی پادساعتگرد، بی‌رنگ یعنی
       ساعتگرد. هرکدوم رویِ‌هم قوی‌تر باشن، چرخونک همون‌طرف می‌چرخه. حالا
       <b>«کنار دیواره»</b> و <b>«گرداب»</b> رو پشت سر هم بزن.
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s5.p9">
     اون دو تا حالت، هرکدوم یه شهودِ غلطِ رایج رو می‌شکنن. و هر دوشون رو فقط با نگاه‌کردن به
     چرخونک می‌شه فهمید.
   </p>
 
-  <p>
+  <p data-i18n="s5.p10">
     <b>اول، کنار دیواره.</b> آب همه‌جا موازی دیواره حرکت می‌کنه، ولی هرچه از دیواره دورتر،
     تندتر. چرخونک رو اونجا بذار.
   </p>
-  <p>
+  <p data-i18n="s5.p11">
     پرهٔ دور از دیواره توی آبِ تنده و محکم هل داده می‌شه. پرهٔ نزدیک دیواره توی آبِ کُنده و
     کمتر. دو تا نیروی نابرابر، در دو سرِ یه محور. نتیجه یه <b>گشتاور</b>ه و چرخونک می‌چرخه.
   </p>
-  <p>
+  <p data-i18n="s5.p12">
     هیچ خط جریانی خم نشده و هیچ چیزی دور نزده. <b>کرل از خمیدگی نمیاد، از اختلافِ سرعت در
     عرضِ جریان میاد.</b>
   </p>
 
-  <p>
+  <p data-i18n="s5.p13">
     <b>دوم، گرداب.</b> اینجا دقیقاً برعکسه: خطوطش دایره‌های کاملن، ولی چرخونک نمی‌چرخه.
     چرخونک رو جایی بیرون از مرکز بذار و دو تا پرهٔ روبه‌رو رو نگاه کن.
   </p>
   <ul>
-    <li>پرهٔ <b>داخلی</b> نزدیک‌تر به مرکزه، پس توی آبِ تندتریه و محکم‌تر هل داده می‌شه.
+    <li data-i18n="s5.li1">پرهٔ <b>داخلی</b> نزدیک‌تر به مرکزه، پس توی آبِ تندتریه و محکم‌تر هل داده می‌شه.
       می‌خواد چرخونک رو در یه جهت بچرخونه.</li>
-    <li>ولی پرهٔ <b>خارجی</b> روی کمانِ بلندتری سواره. با اینکه آبش کُندتره، همون‌قدر گشتاور
+    <li data-i18n="s5.li2">ولی پرهٔ <b>خارجی</b> روی کمانِ بلندتری سواره. با اینکه آبش کُندتره، همون‌قدر گشتاور
       در جهت <em>مخالف</em> می‌سازه.</li>
   </ul>
-  <p>
+  <p data-i18n="s5.p14">
     توی این گردابِ خاص سرعت دقیقاً با <span class="q">1/r</span> کم می‌شه، و این تنها آهنگیه
     که اون دو اثر رو کامل سر به سر می‌کنه. چرخونک بی‌حرکت می‌مونه.
   </p>
 
-  <div class="note card">
+  <div class="note card" data-i18n="s5.div1">
     <b>پس این دو تا کلمه رو با هم قاطی نکن.</b> «میدان دور می‌زنه» خاصیتی سراسریه؛ «کرل»
     خاصیتی محلی. هر دو حالتِ ممکن رو همین بالا دیدی: خطوطِ دایره‌ای با کرلِ صفر، و خطوطِ
     صافِ راست با کرلِ مخالف صفر.
@@ -766,38 +776,38 @@
     معادلهٔ چهارم ماکسوله.
   </div>
 
-  <p>
+  <p data-i18n="s5.p15">
     خب. دو تا سؤال داریم و هر دوتاش رو ساختیم. حالا سؤالی که جوابش شاید مهم‌ترین چیزی باشه
     که از این مقاله می‌بری.
   </p>
 
   <!-- ============ ۶ ============ -->
-  <h2 id="s6"><span class="secnum">06</span> چرا چهار معادله؟</h2>
+  <h2 id="s6" data-i18n="s6.h21"><span class="secnum">06</span> چرا چهار معادله؟</h2>
 
-  <p>
+  <p data-i18n="s6.p1">
     چرا معادلات ماکسول <em>چهار</em> تان؟ نه سه تا، نه هفت تا؟
   </p>
-  <p>
+  <p data-i18n="s6.p2">
     جوابش کاملاً توی همین دو تا سؤالیه که ساختیم. ولی برای دیدنش، اول باید دو تا چیز رو
     باور کنی.
   </p>
 
-  <p>
+  <p data-i18n="s6.p3">
     <b>یک: این دو سؤال مستقل‌اند.</b> جواب یکی، هیچ چیزی دربارهٔ اون یکی نمی‌گه. دو تا دسته
     زیر رو جدا جدا بچرخون و ببین:
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 6</span><span class="fig-t">دو تا شیر، یک استخر</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 6</span><span class="fig-t" data-i18n="s6.span1">دو تا شیر، یک استخر</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figMix"></canvas></div>
       <div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">شیر آب <span class="q">(∇·F)</span></span><span class="ctl-val" id="mixAv">0.7</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s6.span2">شیر آب <span class="q">(∇·F)</span></span><span class="ctl-val" id="mixAv">0.7</span></div>
           <input class="slider" type="range" id="mixA" aria-label="شدت چشمه" min="-100" max="100" step="1" value="70">
         </div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">هم‌زن <span class="q">(∇×F)</span></span><span class="ctl-val" id="mixBv">0.0</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s6.span3">هم‌زن <span class="q">(∇×F)</span></span><span class="ctl-val" id="mixBv">0.0</span></div>
           <input class="slider" type="range" id="mixB" aria-label="شدت چرخش" min="-100" max="100" step="1" value="0">
         </div>
         <div class="chip-row" id="mixPresets"></div>
@@ -805,26 +815,26 @@
         <p class="hint" id="mixNote"></p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s6.figcaption1">
       یکی شیر آب رو باز و بسته می‌کنه، یکی هم‌زن رو. فقط شیر رو باز کن: آب مستقیم از مرکز
       بیرون می‌زنه. فقط هم‌زن رو روشن کن: آب دور مرکز می‌چرخه بی‌آنکه دور یا نزدیک بشه. هر
       دو با هم، مارپیچ. <b>هیچ‌کدوم روی اون یکی اثر نداره.</b>
     </figcaption>
   </figure>
 
-  <p>
+  <p data-i18n="s6.p4">
     <b>دو: این دو سؤال کافی‌اند.</b> و این نکتهٔ اصلیه.
   </p>
 
-  <div class="pull">
+  <div class="pull" data-i18n="s6.div1">
     اگه دیورژانس و کرلِ یه میدان رو در همه‌جا بدونی، خودِ میدان کاملاً مشخصه.
   </div>
 
-  <p>
+  <p data-i18n="s6.p5">
     یعنی برای توصیف کاملِ یه میدان برداری لازم نیست فلش‌به‌فلش بگی چه خبره. کافیه دو تا سؤال
     رو جواب بدی: <b>کجا چشمه داره</b>، و <b>کجا می‌چرخه</b>. بقیه‌اش خودش درمیاد.
   </p>
-  <p>
+  <p data-i18n="s6.p6">
     حالا بشمار. ماکسول دو تا میدان داره که باید توصیفشون کنه: <span class="q">E</span> و
     <span class="q">B</span>. برای هرکدوم، دو تا سؤال:
   </p>
@@ -832,78 +842,78 @@
   <div class="tbl-wrap">
   <table class="tbl">
     <thead>
-      <tr><th></th><th>دیورژانس — چشمه‌اش کجاست؟</th><th>کرل — دورِ چه می‌چرخد؟</th></tr>
+      <tr><th></th><th data-i18n="s6.th1">دیورژانس — چشمه‌اش کجاست؟</th><th data-i18n="s6.th2">کرل — دورِ چه می‌چرخد؟</th></tr>
     </thead>
     <tbody>
       <tr>
         <td class="sym">E</td>
-        <td>معادلهٔ ۱ <span class="q">(∇·E)</span></td>
-        <td>معادلهٔ ۳ <span class="q">(∇×E)</span></td>
+        <td data-i18n="s6.td1">معادلهٔ ۱ <span class="q">(∇·E)</span></td>
+        <td data-i18n="s6.td2">معادلهٔ ۳ <span class="q">(∇×E)</span></td>
       </tr>
       <tr>
         <td class="sym">B</td>
-        <td>معادلهٔ ۲ <span class="q">(∇·B)</span></td>
-        <td>معادلهٔ ۴ <span class="q">(∇×B)</span></td>
+        <td data-i18n="s6.td3">معادلهٔ ۲ <span class="q">(∇·B)</span></td>
+        <td data-i18n="s6.td4">معادلهٔ ۴ <span class="q">(∇×B)</span></td>
       </tr>
     </tbody>
   </table>
   </div>
 
-  <p>
+  <p data-i18n="s6.p7">
     <b>چهار خانه، چهار معادله.</b> عددِ چهار از همین جدول میاد، نه از جای دیگه. و وقتی
     مقالهٔ بعدی رو باز کنی، اون چهار معادله دیگه یه فهرست نامرتب نیستن — هرکدوم یه خانه از
     این جدول رو پر می‌کنه.
   </p>
 
   <!-- ============ ۷ ============ -->
-  <h2 id="s7"><span class="secnum">07</span> از یک نقطه تا یک ناحیه</h2>
+  <h2 id="s7" data-i18n="s7.h21"><span class="secnum">07</span> از یک نقطه تا یک ناحیه</h2>
 
-  <p>
+  <p data-i18n="s7.p1">
     یه مشکل عملی مونده، و بدون حلش نمی‌شه از این مقاله رفت.
   </p>
-  <p>
+  <p data-i18n="s7.p2">
     دیورژانس و کرل هر دو <b>محلی‌</b>ان: دربارهٔ یه نقطه حرف می‌زنن، اون هم با یه حد که
     ناحیه رو به صفر می‌بره.
   </p>
-  <p>
+  <p data-i18n="s7.p3">
     ولی توی آزمایشگاه هیچ‌وقت کسی یه نقطه رو اندازه نمی‌گیره. تو یه <em>ناحیه</em> داری: یه
     سطح بسته، یه حلقهٔ سیم، یه پیچه.
   </p>
-  <p>
+  <p data-i18n="s7.p4">
     دو تا قضیه این شکاف رو پر می‌کنن، و هر دوشون دقیقاً یه جمله‌ان:
   </p>
 
-  <div class="pull">
+  <div class="pull" data-i18n="s7.div1">
     جمعِ آنچه در تمام یک ناحیه اتفاق می‌افتد = آنچه روی <em>مرزِ</em> آن ناحیه دیده می‌شود.
   </div>
 
-  <p>
+  <p data-i18n="s7.p5">
     و دلیلش هم یکیه. ناحیه رو به تیکه‌های ریز بشکن. هر چیزی که <em>داخل</em> است بین دو تیکهٔ
     همسایه دو بار شمرده می‌شه، یه بار مثبت و یه بار منفی، پس همدیگه رو می‌خورن.
   </p>
-  <p>
+  <p data-i18n="s7.p6">
     فقط لبه‌هایی می‌مونن که همسایه‌ای اون‌طرفشون نیست:
   </p>
 
   <figure class="fig card">
-    <div class="fig-head mono-label"><span class="fig-n lat">FIG 7</span><span class="fig-t">همه‌چیزِ وسط، خودش را می‌خورد</span></div>
+    <div class="fig-head mono-label"><span class="fig-n lat">FIG 7</span><span class="fig-t" data-i18n="s7.span1">همه‌چیزِ وسط، خودش را می‌خورد</span></div>
     <div class="fig-split">
       <div class="canvas-wrap"><canvas id="figSum"></canvas></div>
       <div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label">ریزیِ شبکه</span><span class="ctl-val" id="sumNv">۳ × ۳</span></div>
+          <div class="ctl-label"><span class="mono-label" data-i18n="s7.span2">ریزیِ شبکه</span><span class="ctl-val" id="sumNv" data-i18n="js.grid33">۳ × ۳</span></div>
           <input class="slider" type="range" id="sumN" aria-label="تعداد سلول‌ها" min="1" max="9" step="1" value="3">
         </div>
-        <button class="pill" type="button" id="sumCancel">حذفِ لبه‌های داخلی</button>
+        <button class="pill" type="button" id="sumCancel" data-i18n="js.sum.cancel">حذفِ لبه‌های داخلی</button>
         <dl class="ro" id="sumOut"></dl>
-        <p class="hint">
+        <p class="hint" data-i18n="s7.p7">
           استخر رو به کاشی‌های مربعی تقسیم کرده‌ایم. هر کاشی یه حلقهٔ کوچیکه که پادساعتگرد
           دور خودش می‌چرخه. هر لبهٔ داخلی برای یه کاشی رو به بالاست و برای همسایه‌اش رو به
           پایین.
         </p>
       </div>
     </div>
-    <figcaption>
+    <figcaption data-i18n="s7.figcaption1">
       دکمه رو بزن و ببین چی می‌مونه: <b>فقط مرز بیرونی</b>. هرچقدر هم شبکه رو ریزتر کنی باز
       همین اتفاق می‌افته. حالا حدِ بی‌نهایت‌ریز رو بگیر: گردشِ هر کاشیِ ریز، طبق تعریفِ بخش
       ۵، همون کرلِ اون نقطه‌ست. پس «جمع کرلِ همهٔ کاشی‌ها» برابر می‌شه با «گردش دورِ مرزِ
@@ -912,21 +922,21 @@
   </figure>
 
   <div class="thm">
-    <span class="lbl">دو قضیهٔ اساسی</span>
+    <span class="lbl" data-i18n="s7.span3">دو قضیهٔ اساسی</span>
     <div class="eq">
       <div class="eq-rows">
-        <div class="row"><span class="big">∭<sub>V</sub> (∇·F) dV = ∯<sub>∂V</sub> F · n̂ dS</span><span class="say"><b>قضیهٔ دیورژانس</b> <span class="en bare">divergence · Gauss</span> — جمع همهٔ چشمه‌ها و چاهک‌های داخل یه حجم = کل شارِ عبوری از پوستهٔ اون.</span></div>
-        <div class="row"><span class="big">∬<sub>S</sub> (∇×F) · n̂ dS = ∮<sub>∂S</sub> F · dr</span><span class="say"><b>قضیهٔ استوکس</b> <span class="en bare">Stokes</span> — جمع کرل روی یه سطح = گردش دور لبهٔ اون سطح.</span></div>
+        <div class="row"><span class="big">∭<sub>V</sub> (∇·F) dV = ∯<sub>∂V</sub> F · n̂ dS</span><span class="say" data-i18n="s7.span4"><b>قضیهٔ دیورژانس</b> <span class="en bare">divergence · Gauss</span> — جمع همهٔ چشمه‌ها و چاهک‌های داخل یه حجم = کل شارِ عبوری از پوستهٔ اون.</span></div>
+        <div class="row"><span class="big">∬<sub>S</sub> (∇×F) · n̂ dS = ∮<sub>∂S</sub> F · dr</span><span class="say" data-i18n="s7.span5"><b>قضیهٔ استوکس</b> <span class="en bare">Stokes</span> — جمع کرل روی یه سطح = گردش دور لبهٔ اون سطح.</span></div>
       </div>
     </div>
   </div>
 
-  <p>
+  <p data-i18n="s7.p8">
     هر دو یه شکلن: سمت چپ یه <em>مشتق</em> روی یه ناحیه، سمت راست خودِ میدان روی مرزِ اون
     ناحیه — مرزی که یه بُعد کمتر داره.
   </p>
 
-  <div class="note card sig">
+  <div class="note card sig" data-i18n="s7.div2">
     <b>و این چیزیه که باید با خودت به مقالهٔ بعدی ببری.</b> همین دو تا قضیه باعث می‌شن هر
     معادلهٔ ماکسول <b>دو تا لباس</b> داشته باشه: فرم <b>دیفرانسیلی</b> که در هر نقطه صادقه،
     و فرم <b>انتگرالی</b> که روی یه ناحیهٔ متناهی صادقه.
@@ -939,99 +949,102 @@
   </div>
 
   <!-- ============ ۸ ============ -->
-  <h2 id="s8"><span class="secnum">08</span> جمع‌بندی، و قدم بعدی</h2>
+  <h2 id="s8" data-i18n="s8.h21"><span class="secnum">08</span> جمع‌بندی، و قدم بعدی</h2>
 
-  <p>
+  <p data-i18n="s8.p1">
     کل چیزی که ساختیم، این جدوله:
   </p>
 
   <div class="tbl-wrap">
   <table class="tbl">
     <thead>
-      <tr><th>عملگر</th><th>می‌پرسد</th><th>به زبان مختصات</th></tr>
+      <tr><th data-i18n="s8.th1">عملگر</th><th data-i18n="s8.th2">می‌پرسد</th><th data-i18n="s8.th3">به زبان مختصات</th></tr>
     </thead>
     <tbody>
       <tr>
         <td class="sym">∇f</td>
-        <td>سربالایی کدوم طرفه؟</td>
+        <td data-i18n="s8.td1">سربالایی کدوم طرفه؟</td>
         <td class="sym">(∂f/∂x, ∂f/∂y, ∂f/∂z)</td>
       </tr>
       <tr>
         <td class="sym">∇·F</td>
-        <td>اینجا چشمه هست یا چاهک؟</td>
+        <td data-i18n="s8.td2">اینجا چشمه هست یا چاهک؟</td>
         <td class="sym">∂P/∂x + ∂Q/∂y + ∂R/∂z</td>
       </tr>
       <tr>
         <td class="sym">∇×F</td>
-        <td>اینجا چیزی می‌چرخه؟</td>
-        <td class="sym">∂Q/∂x − ∂P/∂y &nbsp;(در صفحه)</td>
+        <td data-i18n="s8.td3">اینجا چیزی می‌چرخه؟</td>
+        <td class="sym">∂Q/∂x − ∂P/∂y &nbsp;<span data-i18n="s8.inplane">(در صفحه)</span></td>
       </tr>
     </tbody>
   </table>
   </div>
 
-  <p>
+  <p data-i18n="s8.p2">
     و سه تا جمله که ارزش نگه‌داشتن دارن:
   </p>
   <ul>
-    <li><b>دیورژانس، شار بر واحد حجمه.</b> کرل، گردش بر واحد سطح. هر دو یه الگو دارن: یه
+    <li data-i18n="s8.li1"><b>دیورژانس، شار بر واحد حجمه.</b> کرل، گردش بر واحد سطح. هر دو یه الگو دارن: یه
       چیزی رو دور یه حلقه بشمر، بعد حلقه رو کوچیک کن.</li>
-    <li><b>دیورژانس و کرل با هم، یه میدان رو کاملاً مشخص می‌کنن.</b> برای همین دو تا میدانِ
+    <li data-i18n="s8.li2"><b>دیورژانس و کرل با هم، یه میدان رو کاملاً مشخص می‌کنن.</b> برای همین دو تا میدانِ
       <span class="q">E</span> و <span class="q">B</span>، چهار تا معادله لازمه.</li>
-    <li><b>قضیهٔ دیورژانس و قضیهٔ استوکس</b> هر قانونِ نقطه‌ای رو به قانونی دربارهٔ یه ناحیهٔ
+    <li data-i18n="s8.li3"><b>قضیهٔ دیورژانس و قضیهٔ استوکس</b> هر قانونِ نقطه‌ای رو به قانونی دربارهٔ یه ناحیهٔ
       واقعی ترجمه می‌کنن — و برعکس.</li>
   </ul>
 
-  <div class="note card sig">
+  <div class="note card sig" data-i18n="s8.div1">
     <b>و اینجا همون جاییه که مقالهٔ بعدی شروع می‌شه.</b> این نوشته از اول تا آخر مقدمه‌ای بود
     برای خوندنِ <b>معادلات ماکسول</b>. عمداً اینجا نیاوردمشون؛ اون‌ها موضوع مقالهٔ بعدی‌ان، و
     حالا زبانشون رو بلدی.
   </div>
 
-  <h3 style="margin-top:3rem">واژه‌نامه</h3>
-  <p style="font-size:.94rem;opacity:.85">
+  <section id="gloss">
+  <h3 style="margin-top:3rem" data-i18n="s8.h31">واژه‌نامه</h3>
+  <p style="font-size:.94rem;opacity:.85" data-i18n="s8.p3">
     بعضی از این معادل‌های فارسی جاافتاده‌ان و بعضی‌هاشون نه. هرجا شک داشتی، اصل انگلیسی
     ملاکه — مخصوصاً موقع جست‌وجو.
   </p>
 
   <div class="gloss-grid">
-    <div><span class="fa">میدان اسکالر / برداری</span><span class="en bare">scalar / vector field</span></div>
-    <div><span class="fa">خط تراز</span><span class="en bare">level curve, contour</span></div>
-    <div><span class="fa">مشتق جزئی</span><span class="en bare">partial derivative</span></div>
-    <div><span class="fa">گرادیان</span><span class="en bare">gradient</span></div>
-    <div><span class="fa">خط جریان</span><span class="en bare">field line, streamline</span></div>
-    <div><span class="fa">شار</span><span class="en bare">flux</span></div>
-    <div><span class="fa">دیورژانس (واگرایی)</span><span class="en bare">divergence</span></div>
-    <div><span class="fa">چشمه / چاهک</span><span class="en bare">source / sink</span></div>
-    <div><span class="fa">کرل (تاوایی)</span><span class="en bare">curl</span></div>
-    <div><span class="fa">گردش</span><span class="en bare">circulation</span></div>
-    <div><span class="fa">قضیهٔ دیورژانس</span><span class="en bare">divergence theorem</span></div>
-    <div><span class="fa">قضیهٔ استوکس</span><span class="en bare">Stokes' theorem</span></div>
+    <div><span class="fa" data-i18n="s8.span1">میدان اسکالر / برداری</span><span class="en bare">scalar / vector field</span></div>
+    <div><span class="fa" data-i18n="s8.span2">خط تراز</span><span class="en bare">level curve, contour</span></div>
+    <div><span class="fa" data-i18n="s8.span3">مشتق جزئی</span><span class="en bare">partial derivative</span></div>
+    <div><span class="fa" data-i18n="s8.span4">گرادیان</span><span class="en bare">gradient</span></div>
+    <div><span class="fa" data-i18n="s8.span5">خط جریان</span><span class="en bare">field line, streamline</span></div>
+    <div><span class="fa" data-i18n="s8.span6">شار</span><span class="en bare">flux</span></div>
+    <div><span class="fa" data-i18n="s8.span7">دیورژانس (واگرایی)</span><span class="en bare">divergence</span></div>
+    <div><span class="fa" data-i18n="s8.span8">چشمه / چاهک</span><span class="en bare">source / sink</span></div>
+    <div><span class="fa" data-i18n="s8.span9">کرل (تاوایی)</span><span class="en bare">curl</span></div>
+    <div><span class="fa" data-i18n="s8.span10">گردش</span><span class="en bare">circulation</span></div>
+    <div><span class="fa" data-i18n="s8.span11">قضیهٔ دیورژانس</span><span class="en bare">divergence theorem</span></div>
+    <div><span class="fa" data-i18n="s8.span12">قضیهٔ استوکس</span><span class="en bare">Stokes' theorem</span></div>
   </div>
 
+  </section>
+
   <div class="cta card">
-    <h3>قبل از مقالهٔ بعدی، یک تمرین</h3>
-    <p>
+    <h3 data-i18n="s8.h32">قبل از مقالهٔ بعدی، یک تمرین</h3>
+    <p data-i18n="s8.p4">
       برگرد به <b>شکل ۳</b>. برای هر جریان، <em>قبل</em> از اینکه دیورژانس و کرلش رو ببینی
       خودت حدس بزن: اگه اینجا حلقه بندازم چیزی بیرون می‌زنه؟ اگه چرخونک بذارم می‌چرخه؟ دو سه
       بار که درست حدس بزنی، این دو تا علامت دیگه برات نماد نیستن.
     </p>
     <div class="btn-row">
-      <a class="btn solid" href="#s3">برگرد به شکل ۳</a>
-      <a class="btn" href="../../#writing">بقیهٔ نوشته‌ها</a>
+      <a class="btn solid" href="#s3" data-i18n="s8.a1">برگرد به شکل ۳</a>
+      <a class="btn" href="../../#writing" data-i18n="s8.a2">بقیهٔ نوشته‌ها</a>
     </div>
   </div>
 
-  <h3 style="margin-top:3rem">برای ادامه دادن</h3>
+  <h3 style="margin-top:3rem" data-i18n="s8.h33">برای ادامه دادن</h3>
   <ul class="refs">
-    <li>H. M. Schey, <em>Div, Grad, Curl, and All That</em>, 4th ed., W. W. Norton — روشِ
+    <li data-i18n="s8.li4">H. M. Schey, <em>Div, Grad, Curl, and All That</em>, 4th ed., W. W. Norton — روشِ
       این مقاله از همین کتاب اومده: هر عملگر اول از یه انتگرال تعریف می‌شه، و فرم مختصاتی
       بعداً روی یه جعبهٔ کوچیک از دلش درمیاد. کوتاه، و به‌طرز عجیبی خوش‌خوان.</li>
-    <li>D. J. Griffiths, <em>Introduction to Electrodynamics</em>, 4th ed. — فصل ۱ همین
+    <li data-i18n="s8.li5">D. J. Griffiths, <em>Introduction to Electrodynamics</em>, 4th ed. — فصل ۱ همین
       مباحثه با دقت کامل، و بهترین پل به معادلات ماکسول.</li>
-    <li>E. M. Purcell &amp; D. J. Morin, <em>Electricity and Magnetism</em>, 3rd ed. — اگه
+    <li data-i18n="s8.li6">E. M. Purcell &amp; D. J. Morin, <em>Electricity and Magnetism</em>, 3rd ed. — اگه
       شهود فیزیکی می‌خوای و نه فرمالیسم، این.</li>
-    <li>3Blue1Brown, «Divergence and curl: the language of Maxwell's equations» — پونزده
+    <li data-i18n="s8.li7">3Blue1Brown, «Divergence and curl: the language of Maxwell's equations» — پونزده
       دقیقه، و بهترین انیمیشنی که از این موضوع ساخته شده.</li>
   </ul>
 
@@ -1047,6 +1060,7 @@
   <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
 </footer>
 
+<script src="i18n.js"></script>
 <script src="post.js"></script>
 </body>
 </html>

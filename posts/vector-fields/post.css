@@ -14,7 +14,7 @@ html:not(.ink){
 }
 html:not(.ink) .mono-label{ opacity:1; }
 html:not(.ink) .ro dt{ opacity:.8; }
-html:not(.ink) .eq .lbl{ opacity:.75; }
+html:not(.ink) html.lang-fa .eq .lbl{ opacity:.75; }
 html:not(.ink) .byline .dot{ opacity:.55; }
 
 /* ============================================================
@@ -24,8 +24,8 @@ html:not(.ink) .byline .dot{ opacity:.55; }
   --font-fa-text:"Shabnam","Vazirmatn","Segoe UI",Tahoma,sans-serif;
   --font-fa-display:"Estedad","Shabnam","Segoe UI",Tahoma,sans-serif;
 }
-/* فقط بدنهٔ مقاله می‌چرخد؛ هدر و فوتر سایت در هر دو حالت چپ‌به‌راست می‌مانند */
-main{
+/* فقط بدنهٔ مقاله می‌چرخد؛ هدر و فوتر سایت در هر دو زبان چپ‌به‌راست می‌مانند */
+html.lang-fa main{
   direction:rtl;
   font-family:var(--font-fa-text);
   /* ارتفاع x در شبنم کوچک‌تر از Space Grotesk است و فارسی حرف بزرگ ندارد
@@ -46,21 +46,21 @@ main{
 .post > .rule{ max-width:100%; }
 
 .post p{ margin:0 0 1.15rem; }
-.post h2{
+html.lang-fa .post h2{
   display:flex; align-items:baseline; gap:.7rem;
   font-size:1.5rem; font-weight:800; letter-spacing:0; line-height:1.5;
   margin:3.4rem 0 1rem; scroll-margin-top:5rem;
   font-family:var(--font-fa-display);
 }
 .post h2 .secnum{ font-family:var(--font-mono); font-weight:500; font-size:.95rem; color:var(--sig); }
-.post h3{ font-size:1.08rem; font-weight:700; margin:2rem 0 .5rem; font-family:var(--font-fa-display); }
+html.lang-fa .post h3{ font-size:1.08rem; font-weight:700; margin:2rem 0 .5rem; font-family:var(--font-fa-display); }
 .post strong, .post b{ font-weight:700; }
 /* ایتالیک تمایزِ فارسی نیست — فقط قلم را بد کج می‌کند */
-.post em{ font-style:normal; font-weight:500; color:color-mix(in srgb, var(--fg) 74%, var(--sig)); }
+html.lang-fa .post em{ font-style:normal; font-weight:500; color:color-mix(in srgb, var(--fg) 74%, var(--sig)); }
 
-.post p, .post li, .post-sub,
-.tldr li, .decode-body p, .cta p{ line-height:1.95; }
-figcaption, .note, .refs li{ line-height:1.85; }
+html.lang-fa .post p, html.lang-fa .post li, html.lang-fa .post-sub,
+html.lang-fa .tldr li, html.lang-fa .decode-body p, html.lang-fa .cta p{ line-height:1.95; }
+html.lang-fa figcaption, html.lang-fa .note, html.lang-fa .refs li{ line-height:1.85; }
 
 .rule{
   border:0; height:1px; margin:3rem 0 0;
@@ -72,14 +72,14 @@ figcaption, .note, .refs li{ line-height:1.85; }
    ============================================================ */
 .post-hero{ padding:3.4rem 0 .6rem; max-width:100%; }
 .post-kicker{ color:var(--sig); margin-bottom:.9rem; display:block; }
-.post-hero h1{
+html.lang-fa .post-hero h1{
   font-family:var(--font-fa-display);
   font-size:clamp(2rem, 5.2vw, 3.3rem);
   line-height:1.35; letter-spacing:0;
   margin:0 0 1rem; font-weight:800; max-width:19ch;
   text-wrap:balance;
 }
-.post-sub{ font-size:1.1rem; max-width:56ch; opacity:.92; font-family:var(--font-fa-display); font-weight:400; }
+html.lang-fa .post-sub{ font-size:1.1rem; max-width:56ch; opacity:.92; font-family:var(--font-fa-display); font-weight:400; }
 
 .post-lede{
   display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);
@@ -108,8 +108,8 @@ figcaption, .note, .refs li{ line-height:1.85; }
   display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
   margin-top:1rem; max-width:100%;
 }
-.share-label{ color:var(--sig); margin-left:.15rem; }
-.share-btn{
+html.lang-fa .share-label{ color:var(--sig); margin-left:.15rem; }
+html.lang-fa .share-btn{
   display:inline-flex; align-items:center; gap:.4rem;
   font-size:.78rem; padding:.36rem .62rem; border-radius:3px;
   border:1.4px solid color-mix(in srgb, var(--fg) 32%, transparent);
@@ -131,12 +131,12 @@ figcaption, .note, .refs li{ line-height:1.85; }
 /* ============================================================
    4. جعبه‌ها
    ============================================================ */
-.tldr{
+html.lang-fa .tldr{
   padding:1.15rem 1.35rem; margin:2.4rem 0 0;
   border-right:3px solid var(--sig);
 }
 .tldr > .mono-label{ color:var(--sig); display:block; margin-bottom:.7rem; }
-.tldr ul{ margin:0; padding:0 1.15rem 0 0; }
+html.lang-fa .tldr ul{ margin:0; padding:0 1.15rem 0 0; }
 .tldr li{ margin:.45rem 0; font-size:.97rem; }
 .tldr li::marker{ color:var(--sig); }
 .tldr .tldr-foot{ margin:.95rem 0 0; font-size:.9rem; opacity:.78; font-weight:500; }
@@ -155,7 +155,7 @@ details.decode[open]{
   border-style:solid;
   border-color:color-mix(in srgb, var(--sig) 38%, transparent);
 }
-details.decode > summary{
+html.lang-fa details.decode > summary{
   cursor:pointer; list-style:none;
   padding:.62rem .9rem;
   font-family:var(--font-fa-display); font-weight:500; font-size:.9rem;
@@ -179,7 +179,7 @@ details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-of
 
 /* ---------- فهرست ---------- */
 .toc{ padding:1.1rem 1.3rem; margin:2.2rem 0 0; }
-.toc ol{
+html.lang-fa .toc ol{
   margin:.6rem 0 0; padding:0 1.2rem 0 0;
   columns:2; column-gap:2rem; list-style-type:persian;
 }
@@ -189,13 +189,13 @@ details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-of
 @media (max-width:640px){ .toc ol{ columns:1; } }
 
 /* ---------- نقل‌قول و یادداشت ---------- */
-.pull{
+html.lang-fa .pull{
   margin:2.4rem 0; padding:.2rem 1.3rem .2rem 0;
   border-right:3px solid var(--sig);
   font-size:1.14rem; line-height:1.75;
   font-family:var(--font-fa-display); font-weight:500;
 }
-.note{
+html.lang-fa .note{
   padding:.9rem 1.1rem; margin:1.6rem 0;
   border-right:3px solid color-mix(in srgb, var(--fg) 35%, transparent);
   font-size:.95rem; opacity:.92;
@@ -247,7 +247,7 @@ details.decode > summary:focus-visible{ outline:2px solid var(--sig); outline-of
 }
 .eq-rows .row{ display:contents; }
 .eq-rows .row .big{ white-space:nowrap; }
-.eq-rows .row .say{
+html.lang-fa .eq-rows .row .say{
   font-family:var(--font-fa-text); font-weight:400; white-space:normal;
   font-size:.86rem; line-height:1.75; opacity:.78;
   direction:rtl; text-align:right;
@@ -280,6 +280,9 @@ figure.fig figcaption{
 figure.fig figcaption b{ opacity:1; }
 
 .canvas-wrap{ position:relative; width:100%; }
+/* چهار شکلی که چیزی توشان کشیده می‌شود، باید کشیدنی به نظر برسند */
+#figScalar, #figGrad, #figDiv, #figCurl{ cursor:grab; }
+#figScalar:active, #figGrad:active, #figDiv:active, #figCurl:active{ cursor:grabbing; }
 figure.fig canvas{
   display:block; width:100%; height:100%;
   touch-action:none;            /* کشیدن نشانگر نباید صفحه را اسکرول کند */
@@ -337,7 +340,7 @@ input[type=range].slider::-moz-range-thumb{
 }
 
 .chip-row{ display:flex; gap:.4rem; flex-wrap:wrap; margin:0 0 .9rem; }
-.pill{
+html.lang-fa .pill{
   font-family:var(--font-fa-display); font-weight:500; font-size:.8rem;
   padding:.34rem .62rem; border-radius:3px; cursor:pointer;
   border:1.4px solid color-mix(in srgb, var(--fg) 40%, transparent);
@@ -348,7 +351,7 @@ input[type=range].slider::-moz-range-thumb{
 .pill.on{ background:var(--sig); border-color:var(--sig); color:var(--paper); }
 
 .check-row{ display:flex; gap:1rem; flex-wrap:wrap; margin:.2rem 0 .9rem; }
-.check-row label{
+html.lang-fa .check-row label{
   font-family:var(--font-fa-display); font-weight:500; font-size:.82rem;
   display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
 }
@@ -361,8 +364,8 @@ input[type=range].slider::-moz-range-thumb{
   margin:.9rem 0 0; padding-top:.8rem;
   border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
 }
-.ro dt{ opacity:.65; font-family:var(--font-fa-text); }
-.ro dd{
+html.lang-fa .ro dt{ font-family:var(--font-fa-text); }
+html.lang-fa .ro dd{
   margin:0; text-align:left;
   font-family:"IBM Plex Mono", ui-monospace, "Shabnam", "Vazirmatn", monospace;
   unicode-bidi:plaintext;
@@ -391,7 +394,7 @@ input[type=range].slider::-moz-range-thumb{
 
 /* برچسب‌های تک‌فاصله‌ای: فارسی قلم صفحه را نگه می‌دارد و tracking را
    می‌اندازد، چون خانوادهٔ مونواسپیس اصلاً حرف فارسی ندارد */
-main .mono-label{
+html.lang-fa main .mono-label{
   font-family:var(--font-fa-display);
   letter-spacing:0; text-transform:none; font-weight:500; font-size:.8rem;
 }
@@ -403,7 +406,7 @@ main .secnum, main .eq, main .q{
 }
 
 /* نوار پیشرفت از راست پر می‌شود */
-#prog{ transform-origin:100% 50%; }
+html.lang-fa #prog{ transform-origin:100% 50%; }
 
 /* ---------- نوار بالا، روی گوشی ----------
    استایل مشترک سایت برای منوی پنج‌لینکیِ صفحهٔ اصلی نوشته شده: زیر ۵۶۰
@@ -450,7 +453,7 @@ main .secnum, main .eq, main .q{
   background:color-mix(in srgb, var(--bg) 93%, var(--sig));
 }
 html:not(.ink) .thm{ background:color-mix(in srgb, var(--bg) 95%, var(--sig)); }
-.thm > .lbl{
+html.lang-fa .thm > .lbl{
   display:block; font-family:var(--font-fa-display); font-weight:700;
   font-size:.82rem; color:var(--sig); margin-bottom:.55rem;
 }
@@ -471,7 +474,7 @@ html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
 }
 
 /* یک ردیف فرمول با توضیح فارسیِ کوچک زیرش */
-.eq .note-under{
+html.lang-fa .eq .note-under{
   display:block; white-space:normal; direction:rtl;
   font-family:var(--font-fa-text); font-weight:400;
   font-size:.84rem; line-height:1.85; opacity:.72; margin-top:.7rem;
@@ -484,22 +487,23 @@ html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
 .cta{ padding:1.5rem 1.6rem; margin:2.6rem 0 0; }
 .cta h3{ margin:0 0 .4rem; font-size:1.25rem; }
 .cta p{ margin:0 0 1.1rem; }
-.btn{ font-family:var(--font-fa-display); font-weight:500; font-size:.86rem; letter-spacing:0; }
+html.lang-fa .btn{ font-family:var(--font-fa-display); font-weight:500; font-size:.86rem; letter-spacing:0; }
 
-.refs{ font-size:.92rem; opacity:.85; padding:0 1.2rem 0 0; }
+.refs{ font-size:.92rem; opacity:.85; }
+html.lang-fa .refs{ padding:0 1.2rem 0 0; }
 .refs li{ margin:.3rem 0; }
-.post ul, .post ol{ padding:0 1.2rem 0 0; }
+html.lang-fa .post ul, html.lang-fa .post ol{ padding:0 1.2rem 0 0; }
 .post li{ margin:.35rem 0; }
 .post li::marker{ color:var(--sig); }
 
 /* جدول کوچک «کی چی می‌گوید» */
 .tbl{ width:100%; border-collapse:collapse; font-size:.92rem; margin:1.4rem 0; }
 .tbl th, .tbl td{
-  padding:.55rem .7rem; text-align:right;
+  padding:.55rem .7rem; text-align:start;
   border-bottom:1px dashed color-mix(in srgb, var(--fg) 25%, transparent);
   vertical-align:baseline;
 }
-.tbl th{ font-family:var(--font-fa-display); font-weight:700; font-size:.86rem; color:var(--sig); }
+html.lang-fa .tbl th{ font-family:var(--font-fa-display); font-weight:700; font-size:.86rem; color:var(--sig); }
 .tbl td.sym{ font-family:var(--font-mono); direction:ltr; text-align:left; white-space:nowrap; }
 /* «اسکالر ← برداری» یک عبارت است و نباید سه‌تکه بشود؛ اگر جا نبود کل جدول
    داخل .tbl-wrap می‌لغزد، که از شکستنِ ستون بهتر است */
@@ -523,5 +527,110 @@ html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
   border-bottom:1px dashed color-mix(in srgb, var(--fg) 20%, transparent);
   font-size:.92rem;
 }
-.gloss-grid .fa{ font-family:var(--font-fa-text); }
+html.lang-fa .gloss-grid .fa{ font-family:var(--font-fa-text); }
 .gloss-grid .en{ opacity:.85; font-size:.82rem; text-align:left; }
+
+/* ============================================================
+   9. انگلیسی
+   ------------------------------------------------------------
+   نسخهٔ لاتین همان صفحه است با همان سه رنگ، فقط با قلم‌های لاتینِ خودِ
+   سایت و فاصله‌گذاریِ متناسب با آن‌ها: ارتفاع x بزرگ‌تر، پس ارتفاع خط
+   کمتر؛ و حروف بزرگ دارد، پس برچسب‌های تک‌فاصله‌ای دوباره tracking
+   می‌گیرند. جهت هم از dir روی <main> می‌آید، نه از اینجا.
+   ============================================================ */
+html.lang-en main{ direction:ltr; }
+
+html.lang-en .post h2{
+  display:flex; align-items:baseline; gap:.7rem;
+  font-size:1.6rem; font-weight:700; letter-spacing:-.01em; line-height:1.2;
+  margin:3.4rem 0 1rem; scroll-margin-top:5rem;
+}
+html.lang-en .post h3{ font-size:1.06rem; font-weight:700; margin:2rem 0 .5rem; }
+html.lang-en .post em{ font-style:italic; }
+html.lang-en .post-hero h1{
+  font-size:clamp(2.2rem, 5.6vw, 3.6rem);
+  line-height:1.05; letter-spacing:-.025em;
+  margin:0 0 1rem; font-weight:700; max-width:16ch;
+  text-wrap:balance;
+}
+html.lang-en .post-sub{ font-size:1.12rem; max-width:56ch; opacity:.9; }
+
+html.lang-en .tldr{ padding:1.15rem 1.35rem; margin:2.4rem 0 0; border-left:3px solid var(--sig); }
+html.lang-en .tldr ul{ margin:0; padding-left:1.15rem; }
+html.lang-en .toc ol{ margin:.6rem 0 0; padding-left:1.2rem; columns:2; column-gap:2rem; }
+html.lang-en .post ul, html.lang-en .post ol, html.lang-en .refs{ padding-left:1.2rem; }
+html.lang-en .pull{
+  margin:2.4rem 0; padding:.2rem 0 .2rem 1.3rem;
+  border-left:3px solid var(--sig); font-size:1.16rem; line-height:1.5; font-weight:400;
+}
+html.lang-en .note{
+  padding:.9rem 1.1rem; margin:1.6rem 0;
+  border-left:3px solid color-mix(in srgb, var(--fg) 35%, transparent);
+  font-size:.94rem;
+}
+html.lang-en .note.sig{ border-left-color:var(--sig); }
+html.lang-en .ro dd{ text-align:right; }
+html.lang-en .share-label{ margin-right:.15rem; margin-left:0; }
+html.lang-en .eq .lbl,
+html.lang-en .eq .note-under,
+html.lang-en .eq-rows .row .say,
+html.lang-en .thm > .lbl{ direction:ltr; text-align:left; }
+html.lang-en .eq .lbl,
+html.lang-en .thm > .lbl{
+  font-family:var(--font-mono); font-size:.7rem;
+  letter-spacing:.12em; text-transform:uppercase;
+}
+html.lang-en .eq .note-under{ font-family:inherit; font-size:.88rem; }
+html.lang-en .eq-rows{ text-align:left; }
+html.lang-en .eq-rows .row .say{ font-family:inherit; }
+html.lang-en .gloss-grid .en{ text-align:right; }
+
+/* برچسب‌های تک‌فاصله‌ای در انگلیسی همان چیزی‌اند که بقیهٔ سایت دارد */
+html.lang-en main .mono-label,
+html.lang-en main .pill,
+html.lang-en main .check-row label,
+html.lang-en main .share-btn,
+html.lang-en main .btn,
+html.lang-en main details.decode > summary{
+  font-family:var(--font-mono); letter-spacing:.05em; font-weight:500;
+}
+html.lang-en main .mono-label{ text-transform:uppercase; font-size:.78rem; }
+html.lang-en main .pill, html.lang-en main .share-btn{ font-size:.72rem; }
+html.lang-en main details.decode > summary{ font-size:.76rem; letter-spacing:.04em; text-transform:none; }
+html.lang-en .ro dt{ font-family:var(--font-mono); }
+html.lang-en .tbl th{
+  font-family:var(--font-mono); font-size:.72rem;
+  letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--sig);
+}
+html.lang-en .tbl td.sym{ text-align:left; }
+html.lang-en #prog{ transform-origin:0 50%; }
+
+/* واژه‌نامه فقط برای فارسی معنی دارد: در انگلیسی هر دو ستونش یک چیز
+   می‌شوند */
+html.lang-en #gloss{ display:none; }
+
+/* کلید زبان — هم‌قد و هم‌شکلِ دکمهٔ تم کنارش، تا دو تا کنترل مثل یک جفت
+   دیده شوند و نه دو ویجت بی‌ربط */
+.lang-switch{
+  display:inline-flex; align-items:stretch;
+  height:34px; flex:none;
+  border:1.5px solid var(--fg);
+  border-radius:6px; overflow:hidden;
+}
+.lang-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:2.3rem;
+  font-family:var(--font-mono); font-size:.74rem; letter-spacing:.05em;
+  font-weight:600; padding:0 .65rem;
+  border:0; background:none; color:var(--fg);
+  cursor:pointer; opacity:.55;
+  transition:background-color .15s ease, color .15s ease, opacity .15s ease;
+}
+.lang-btn + .lang-btn{ border-left:1.5px solid var(--fg); }
+.lang-btn:hover{ opacity:1; color:var(--sig); }
+.lang-btn.on{ opacity:1; background:var(--sig); color:var(--paper); }
+.lang-btn:focus-visible{ outline:2px solid var(--sig); outline-offset:2px; }
+@media (max-width:560px){
+  .lang-switch{ height:31px; }
+  .lang-btn{ min-width:1.9rem; padding:0 .4rem; font-size:.68rem; }
+}
