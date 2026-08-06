@@ -386,6 +386,77 @@ main .secnum, main .eq, main .q{
 /* نوار پیشرفت از راست پر می‌شود */
 #prog{ transform-origin:100% 50%; }
 
+/* ---------- نوار بالا، روی گوشی ----------
+   استایل مشترک سایت برای منوی پنج‌لینکیِ صفحهٔ اصلی نوشته شده: زیر ۵۶۰
+   پیکسل کل منو را می‌اندازد روی یک ردیف جدا و لینک‌ها را لبه‌تا‌لبه پخش
+   می‌کند. این صفحه چهار لینک دارد و راحت کنار نشان و دکمهٔ تم جا می‌شود،
+   پس نوار یک خطِ مرتب می‌ماند به‌جای دو ردیفِ نامتوازن. */
+@media (max-width:560px){
+  .topbar{ flex-wrap:nowrap; gap:.7rem; }
+  .nav{
+    order:0; flex-basis:auto; flex-wrap:nowrap;
+    margin-left:auto; justify-content:flex-end; gap:.8rem;
+    overflow:visible;
+  }
+  .nav a{ font-size:.68rem; letter-spacing:.04em; }
+  .theme-btn{ margin-left:0; width:34px; height:31px; }
+  .brand svg{ width:26px; height:26px; }
+}
+@media (max-width:380px){
+  .nav{ gap:.6rem; }
+  .nav a{ font-size:.63rem; letter-spacing:.02em; }
+}
+
+/* ============================================================
+   8. دستگاه ریاضی — تعریف، قضیه، اصطلاح
+   ============================================================ */
+
+/* اصطلاح انگلیسیِ کنار معادل فارسی. پرانتزها از خود CSS می‌آیند تا در
+   کل مقاله یک‌شکل بمانند، و جزیرهٔ جدا چپ‌به‌راست است تا حرف فارسیِ
+   بعدش هیچ‌وقت داخلش نیفتد. */
+.en{
+  font-family:var(--font-mono); font-size:.82em; letter-spacing:0;
+  direction:ltr; unicode-bidi:isolate; white-space:nowrap;
+  opacity:.72;
+}
+.en::before{ content:"("; }
+.en::after{ content:")"; }
+.en.bare::before, .en.bare::after{ content:""; }
+
+/* تعریف و قضیه: چیزی که باید بشود جدایش کرد و دوباره پیدایش کرد */
+.thm{
+  margin:1.6rem 0; padding:.95rem 1.15rem;
+  border:1px solid color-mix(in srgb, var(--sig) 40%, transparent);
+  border-radius:5px;
+  background:color-mix(in srgb, var(--bg) 93%, var(--sig));
+}
+html:not(.ink) .thm{ background:color-mix(in srgb, var(--bg) 95%, var(--sig)); }
+.thm > .lbl{
+  display:block; font-family:var(--font-fa-display); font-weight:700;
+  font-size:.82rem; color:var(--sig); margin-bottom:.55rem;
+}
+html.ink .thm > .lbl{ color:color-mix(in srgb, var(--sig) 55%, var(--fg)); }
+.post .thm p{ margin:0 0 .7rem; font-size:.97rem; }
+.post .thm p:last-child{ margin-bottom:0; }
+.thm .eq{ margin:.8rem 0; background:none; border:0; padding:.2rem 0; }
+/* تعریف، خنثی‌تر از قضیه — تا صفحه پر از کادر آبی نشود */
+.thm.def{ border-color:color-mix(in srgb, var(--fg) 30%, transparent); background:none; }
+.thm.def > .lbl{ color:var(--fg); opacity:.7; }
+
+/* دترمینان صوری: دو خط عمودی از خودِ کادر می‌آیند */
+.det{
+  display:inline-grid; grid-template-columns:repeat(3, auto);
+  gap:.3rem 1.4rem; padding:.4rem .8rem; margin:0 .3rem;
+  border-left:1.6px solid currentColor; border-right:1.6px solid currentColor;
+  text-align:center; vertical-align:middle;
+}
+
+/* یک ردیف فرمول با توضیح فارسیِ کوچک زیرش */
+.eq .note-under{
+  display:block; direction:rtl; font-family:var(--font-fa-text);
+  font-size:.8rem; opacity:.7; margin-top:.5rem;
+}
+
 /* ============================================================
    7. پایان مقاله
    ============================================================ */
@@ -415,3 +486,19 @@ main .secnum, main .eq, main .q{
 .tbl{ min-width:24rem; }
 .tbl tr:last-child td{ border-bottom:0; }
 .tbl-wrap{ overflow-x:auto; }
+
+/* ---------- واژه‌نامه ----------
+   جدول چهارستونی روی گوشی له می‌شد؛ این شبکه خودش از دو ستون به یک ستون
+   می‌افتد و هیچ‌وقت لازم نیست افقی بلغزد. */
+.gloss-grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(17rem, 1fr));
+  gap:0 2rem; margin:1.2rem 0 0;
+}
+.gloss-grid > div{
+  display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+  padding:.42rem 0;
+  border-bottom:1px dashed color-mix(in srgb, var(--fg) 20%, transparent);
+  font-size:.92rem;
+}
+.gloss-grid .fa{ font-family:var(--font-fa-text); }
+.gloss-grid .en{ opacity:.85; font-size:.82rem; text-align:left; }
