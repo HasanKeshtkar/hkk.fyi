@@ -566,3 +566,19 @@ html.ink .chip.solid{
   .hcard-link{ border-bottom:0; }
   a{ text-decoration:none; }
 }
+
+/* An essay held back while it is being revised. It keeps its place in the
+   list so the section doesn't read as empty, and it is an <article>, not a
+   <details> — nothing folds open and nothing links out, so the only way in
+   is a URL you already have. */
+.wr-soon{
+  display:flex; align-items:center; gap:.5rem .9rem; flex-wrap:wrap;
+  padding:.95rem 1.2rem;
+  border-style:dashed;
+  opacity:.72;
+}
+.wr-soon::before{
+  content:""; width:12px; height:12px; flex:none;
+  border:2px solid var(--sig); border-radius:2px;
+}
+.wr-soon .wr-when{ color:var(--sig); opacity:.9; letter-spacing:.06em; }
