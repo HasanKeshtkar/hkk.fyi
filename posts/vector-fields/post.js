@@ -1281,7 +1281,9 @@ function Particles(G, count) {
 
   function upd() {
     a = +slA.value / 100; b = +slB.value / 100;
-    lbA.textContent = a.toFixed(1); lbB.textContent = b.toFixed(1);
+    /* برچسبِ لغزنده همان چیزی را نشان می‌دهد که خوانش پایین می‌گوید:
+       برای F = (ax − by, ay + bx) دیورژانس 2a است و کرل 2b، نه a و b. */
+    lbA.textContent = (2 * a).toFixed(1); lbB.textContent = (2 * b).toFixed(1);
     f.redraw();
   }
   slA.addEventListener('input', upd);
