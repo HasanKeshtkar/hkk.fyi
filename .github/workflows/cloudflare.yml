@@ -1,0 +1,85 @@
+# hkk.fyi is served by Cloudflare Pages, not GitHub Pages. Until this file
+# existed, publishing meant running `wrangler pages deploy` by hand from a
+# laptop — so a push to main changed the repository and nothing else, and
+# the site drifted behind the branch. This closes that gap.
+#
+# One-time setup, both under Settings → Secrets and variables → Actions:
+#
+#   CLOUDFLARE_API_TOKEN    Cloudflare dashboard → My Profile → API Tokens →
+#                           Create Token → Custom token, with the single
+#                           permission  Account · Cloudflare Pages · Edit.
+#   CLOUDFLARE_ACCOUNT_ID   The hex id in any dashboard URL, or run
+#                           `npx wrangler whoami` locally.
+#
+# If the Pages project is not called "hkk-fyi", add a repository *variable*
+# named CF_PAGES_PROJECT with the real name — no need to edit this file.
+# `npx wrangler pages project list` prints it.
+
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two pushes in quick succession should not race each other onto the same
+# project. Queue the second rather than cancelling it — a cancelled deploy
+# would leave whichever upload got furthest, which is not necessarily the
+# newer commit.
+concurrency:
+  group: "cloudflare-pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Without this gate the job fails with an opaque wrangler auth error
+      # whenever the secrets are missing — which is exactly the state this
+      # repository is in until the token above is added. A skipped job with
+      # a warning says what to do; a red X does not.
+      - name: Check credentials
+        id: gate
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set — skipping the deploy. See the comment at the top of .github/workflows/cloudflare.yml."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        if: steps.gate.outputs.ready == 'true'
+        id: pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # --branch must match the project's production branch, or the
+          # upload lands as a preview on a *.pages.dev URL and hkk.fyi
+          # keeps serving the old build.
+          command: >-
+            pages deploy .
+            --project-name=${{ vars.CF_PAGES_PROJECT || 'hkk-fyi' }}
+            --branch=main
+
+      - name: Summary
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          {
+            echo "### Deployed to Cloudflare Pages"
+            echo ""
+            echo "- commit: \`${GITHUB_SHA:0:7}\`"
+            echo "- project: \`${{ vars.CF_PAGES_PROJECT || 'hkk-fyi' }}\`"
+            echo "- url: ${{ steps.pages.outputs.deployment-url }}"
+            echo "- live: https://hkk.fyi/"
+          } >> "$GITHUB_STEP_SUMMARY"
