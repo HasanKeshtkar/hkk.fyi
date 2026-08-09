@@ -196,6 +196,38 @@ function draggable(canvas, move) {
 }
 
 /* ============================================================
+   Layout that follows the width
+   ------------------------------------------------------------
+   A figure is not one picture that gets smaller. It is a stack of lanes, each
+   of which needs a minimum height to be a lane at all, and labels that need a
+   minimum size to be legible. Holding one aspect ratio across every screen
+   breaks both: on a 340-pixel column a two-lane scope drawn at 2:1 is 170
+   pixels tall, which leaves each lane about the height of the label sitting
+   on it, and the labels themselves — sized in fixed pixels — run off the ends
+   and collide with the traces.
+
+   So the aspect ratio is a function of the width, and everything inside is
+   measured against the same reading of it. Narrow screens get taller figures
+   with smaller type, shorter labels and thinner gutters; where a figure is two
+   panels side by side, `narrow` is the signal to stack them instead.
+   ============================================================ */
+function LAY(w) {
+  var narrow = w < 560, tiny = w < 430;
+  return {
+    w: w, narrow: narrow, tiny: tiny,
+    f:  tiny ? 9 : 10,            /* axis ticks and lane names */
+    f2: tiny ? 10 : 11,           /* the odd emphasised label  */
+    p:  tiny ? 5 : 9,             /* generic breathing room    */
+    gut: tiny ? 18 : (narrow ? 26 : 38),   /* left gutter for a y axis */
+    lane: tiny ? 8 : 12           /* gap between stacked lanes */
+  };
+}
+/* one aspect ratio for a roomy column, a taller one for a phone */
+function AR(wide, narrow) {
+  return function (w) { return w < 560 ? narrow : wide; };
+}
+
+/* ============================================================
    Plot furniture
    ============================================================ */
 function clear(f) { f.ctx.clearRect(0, 0, f.w, f.h); }
@@ -273,22 +305,39 @@ function tag(ctx, x, y, text, color, align) {
   drawLabel(ctx, text, lx + 5, y);
 }
 
-/* the caption that names a lane in a stacked figure */
+/* The caption that names a lane in a stacked figure.
+
+   Sized from the plot it sits on, and always given a maximum width: on a
+   phone these run the full width of the lane, and a label that overruns its
+   own plot lands on top of the trace and then off the edge of the canvas. */
 function laneName(ctx, P, text, color) {
-  ctx.font = '500 10.5px ' + LBL_FONT;
+  var fz = P.w < 330 ? 9 : (P.w < 520 ? 9.5 : 10.5);
+  ctx.font = '500 ' + fz + 'px ' + LBL_FONT;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  /* Punch the page colour in behind it first. On a phone the lanes are short
+     and the trace runs right under the caption; without a plate the two
+     interleave and neither is readable. */
+  var maxW = P.w - 10;
+  var tw = Math.min(ctx.measureText(text).width, maxW);
+  ctx.fillStyle = rgba(pal().bg, 0.82);
+  ctx.fillRect(P.x0 + 2, P.y0 + 2, tw + 6, fz + 5);
   ctx.fillStyle = color || fgA(0.55);
-  drawLabel(ctx, text, P.x0 + 5, P.y0 + 4);
+  drawLabel(ctx, text, P.x0 + 5, P.y0 + 4, maxW);
 }
 
-/* x-axis ticks in hertz */
+/* X-axis ticks. Below about 380 px there is not room for a label every tick,
+   so the ticks all stay — they carry the scale — and every other label goes.
+   Thinning the ticks instead would change what the axis says. */
 function xticks(ctx, P, vals, fmt) {
-  ctx.font = '500 10px ' + LBL_FONT;
+  var fz = P.w < 330 ? 9 : 10;
+  var skip = P.w / Math.max(vals.length, 1) < 52 ? 2 : 1;
+  ctx.font = '500 ' + fz + 'px ' + LBL_FONT;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  vals.forEach(function (v) {
+  vals.forEach(function (v, i) {
     var x = P.X(v);
     ctx.strokeStyle = fgA(0.2); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, P.y1); ctx.lineTo(x, P.y1 + 4); ctx.stroke();
+    if (i % skip) return;
     ctx.fillStyle = fgA(0.55);
     drawLabel(ctx, fmt ? fmt(v) : fa(String(v)), x, P.y1 + 6);
   });
@@ -442,6 +491,89 @@ function voiceMsg(f0) {
   ]);
 }
 
+/* ---------------- a recording, as a message ----------------
+   Same interface as Msg, so the figures take it without knowing the
+   difference: at(), integral(), power, top(). Two things are genuinely
+   different and both matter.
+
+   A tone has a line spectrum and a recording does not, so anything that draws
+   spectral lines takes a Msg and only a Msg — bbLines() would have nothing to
+   draw from a clip, and inventing something would be a lie.
+
+   And the integral of real audio wanders. A tone's integral is another tone;
+   a recording's is a random walk, and normalising it to a peak of 1 would
+   scale the whole thing by whatever the worst excursion happened to be. So
+   nothing that carries a clip uses integral() for frequency modulation —
+   those paths accumulate phase from the instantaneous frequency instead,
+   which is both the definition and the only form that survives real audio. */
+function Clip(rate, b64, bandHz) {
+  /* base64 in, bytes out, then µ-law out of the bytes. Skipping the first of
+     those two steps is a mistake that does not announce itself: the page still
+     plays something, and what it plays is the ASCII of the base64 read as
+     audio — which sounds exactly like the noise these figures are about. */
+  var mu = atob(b64), n = mu.length, i, x = new Float32Array(n), MU = 255, y;
+  for (i = 0; i < n; i++) {
+    y = mu.charCodeAt(i) / 127.5 - 1;
+    x[i] = (y < 0 ? -1 : 1) * (Math.pow(1 + MU, Math.abs(y)) - 1) / MU;
+  }
+  /* Band-limit to whatever the figure's geometry can actually carry. A real
+     AM channel is about 4.5 kHz wide and these carriers are audio frequencies
+     rather than radio ones, so the ceiling here is lower still — which is not
+     a compromise so much as the point: this is what the scheme delivers. */
+  if (bandHz && bandHz < rate / 2) {
+    var lp = LPtwo(rate, bandHz), k;
+    for (k = 0; k < 3; k++) {
+      for (i = 0; i < n; i++) x[i] = lp(x[i]);          /* forwards … */
+      for (i = n - 1; i >= 0; i--) x[i] = lp(x[i]);     /* … and back, for flat phase */
+    }
+  }
+  var peak = 0, pwr = 0, dc = 0;
+  for (i = 0; i < n; i++) dc += x[i];
+  dc /= n;
+  for (i = 0; i < n; i++) { x[i] -= dc; if (Math.abs(x[i]) > peak) peak = Math.abs(x[i]); }
+  if (!peak) peak = 1;
+  for (i = 0; i < n; i++) { x[i] /= peak; pwr += x[i] * x[i]; }
+
+  var dur = n / rate;
+  return {
+    tones: null,                       /* no line spectrum: see above */
+    clip: true,
+    dur: dur,
+    power: pwr / n,
+    top: function () { return bandHz || rate / 2; },
+    /* linear interpolation, wrapping at the end of the clip */
+    at: function (t) {
+      var u = t / dur;
+      u = (u - Math.floor(u)) * n;
+      var k = u | 0, fr = u - k, a = x[k], b = x[k + 1 === n ? 0 : k + 1];
+      return a + (b - a) * fr;
+    }
+  };
+}
+/* a one-pole used inside Clip, before LP1 has anything to do with a figure */
+function LPtwo(fs, fc) {
+  var y = 0, a = 1 - Math.exp(-2 * Math.PI * fc / fs);
+  return function (v) { y += a * (v - y); return y; };
+}
+
+/* An oscillator as a rotating unit vector.
+
+   Three carriers at a quarter of a million samples a second is a million
+   calls to Math.cos per second of audio, and that is most of the time the
+   listen button takes. Turning the phasor by a fixed angle each sample is
+   four multiplies, and the slow drift in its length is fixed by pulling it
+   back onto the unit circle every few thousand steps. */
+function Osc(fs, f) {
+  var dr = Math.cos(2 * Math.PI * f / fs), di = Math.sin(2 * Math.PI * f / fs);
+  var re = 1, im = 0, k = 0;
+  return function () {
+    var r = re * dr - im * di, i2 = re * di + im * dr;
+    re = r; im = i2;
+    if ((++k & 2047) === 0) { var m = 1 / Math.sqrt(re * re + im * im); re *= m; im *= m; }
+    return re;
+  };
+}
+
 /* --- modulators ---
    All take a message, a carrier frequency and a time, and return the
    instantaneous transmitted voltage with a peak carrier amplitude of 1. */
@@ -540,6 +672,46 @@ function LP1(fs, fc) {
   var y = 0, a = 1 - Math.exp(-2 * Math.PI * fc / fs);
   return function (x) { y += a * (x - y); return y; };
 }
+/* Butterworth low-pass of even order, as `order/2` biquad sections.
+
+   Cascading one-pole sections is cheap and it lies about where its corner is:
+   three of them labelled 3 kHz pass 1.5. That was tolerable while every
+   message here was a few hundred hertz of synthesised buzz. It is not
+   tolerable now that the message can be music, where the difference between
+   a 3 kHz ceiling and a 1.5 kHz one is the difference between a radio and a
+   telephone. Butterworth is flat up to its corner and steep after it. */
+function Butter(fs, fc, order) {
+  var k = Math.max(Math.round(order / 2), 1), i, st = [];
+  var w0 = 2 * Math.PI * clamp(fc, 1, fs * 0.49) / fs, cw = Math.cos(w0), sw = Math.sin(w0);
+  for (i = 0; i < k; i++) {
+    var Q = 1 / (2 * Math.cos((2 * i + 1) * Math.PI / (4 * k)));
+    var al = sw / (2 * Q), a0 = 1 + al;
+    st.push({
+      b0: (1 - cw) / 2 / a0, b1: (1 - cw) / a0, b2: (1 - cw) / 2 / a0,
+      a1: (-2 * cw) / a0, a2: (1 - al) / a0,
+      x1: 0, x2: 0, y1: 0, y2: 0
+    });
+  }
+  return function (x) {
+    for (var j = 0; j < k; j++) {
+      var q = st[j];
+      var y = q.b0 * x + q.b1 * q.x1 + q.b2 * q.x2 - q.a1 * q.y1 - q.a2 * q.y2;
+      q.x2 = q.x1; q.x1 = x; q.y2 = q.y1; q.y1 = y;
+      x = y;
+    }
+    return x;
+  };
+}
+
+/* Throw away three samples in four. Safe only because whatever reaches here
+   has already been low-passed to the message band, which is far below the
+   output rate's Nyquist — there is nothing left up there to fold down. */
+function decimate(x, k) {
+  var m = Math.floor(x.length / k), o = buf(m), i;
+  for (i = 0; i < m; i++) o[i] = x[i * k];
+  return o;
+}
+
 /* Three of them, for stripping the carrier ripple off a detector output.
    One pole is not enough and the shortfall is visible: the capacitor sags
    measurably between carrier peaks, and a single pole leaves several percent
@@ -800,7 +972,20 @@ function listen(btnId, hostEl, render) {
 
   btn.addEventListener('click', function () {
     if (AUDIO.playing() === key) { AUDIO.stop(); return; }
-    if (!AUDIO.play(key, render) && note) note.textContent = tr('js.audio.failed');
+    /* Building eight seconds of music through a whole radio takes a few
+       hundred milliseconds, and it blocks the page while it happens. Show that
+       first and start the work on the next tick, or the button appears dead
+       and gets clicked again. */
+    if (lbl) lbl.textContent = tr('js.audio.wait');
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.disabled = false;
+      var ok = AUDIO.play(key, render);
+      if (!ok) {
+        if (lbl) lbl.textContent = tr('js.audio.listen');
+        if (note) note.textContent = tr('js.audio.failed');
+      }
+    }, 30);
   });
   AUDIO.subscribe(function (k) {
     var on = k === key;
@@ -857,7 +1042,7 @@ function seam(a, fs) {
   var msg = voiceMsg(1), FC = 21, M = 0.72;
   var S = { t0: 0 };
 
-  var f = Fig(cv, 1.18, function (f) {
+  var f = Fig(cv, AR(1.18, 1.18), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
     var P = Plot(4, 8, w - 4, h - 8, 0, 2, -1.95, 1.95);
@@ -881,106 +1066,140 @@ function seam(a, fs) {
 /* ============================================================
    FIG 1 — the crowded band
    ------------------------------------------------------------
-   Three stations, first all shouting at once in the same few hundred hertz,
-   then each lifted onto its own carrier. The point is not that the carrier
-   version looks tidier; it is that in the tidy one there is somewhere to put
-   a filter, and you can drag it.
+   Three stations, first all shouting at once in the same few kilohertz, then
+   each lifted onto its own carrier. The point is not that the carrier version
+   looks tidier; it is that in the tidy one there is somewhere to put a filter,
+   and you can drag it.
+
+   The frequencies here are audio frequencies, not radio ones — a carrier at
+   16 kHz rather than at 1 MHz — because the figure has to be able to play
+   itself through a speaker. Every ratio in it is the same as a real band's,
+   and the arithmetic does not know the difference.
    ============================================================ */
 (function () {
   var cv = document.getElementById('figBand');
   if (!cv) return;
 
-  var FS = 48000, MDEPTH = 0.85;
-  /* Low fundamentals on purpose. An envelope detector needs the carrier to be
-     several times the highest note it is carrying, and these carriers have to
-     stay inside an audio sample rate so the figure can play itself. */
+  /* Four times the output rate. A real carrier needs the detector to see it
+     as much faster than the message, and at ordinary audio rates a 48 kHz
+     carrier does not fit. Everything below runs oversampled and the audio is
+     decimated at the very end, where the output is already band-limited and
+     the decimation costs nothing. */
+  var OS = 4, DISP = 48000 * OS, MDEPTH = 0.85;
+  var WMUS = 2500;                        /* what one of these channels carries */
+
+  var VOICES = [voiceMsg(120), voiceMsg(165), voiceMsg(95)];
+  var MUSIC = null;                       /* built on first use — see srcOf() */
   var ST = [
-    { fc: 6000,  msg: voiceMsg(120), name: 'js.band.s1' },
-    { fc: 11000, msg: voiceMsg(165), name: 'js.band.s2' },
-    { fc: 16000, msg: voiceMsg(95),  name: 'js.band.s3' }
+    { fc: 16000, name: 'js.band.s1', warp: 1.00, off: 0.0 },
+    { fc: 32000, name: 'js.band.s2', warp: 1.28, off: 2.6 },
+    { fc: 48000, name: 'js.band.s3', warp: 0.82, off: 5.1 }
   ];
+  /* One clip, three stations. Playing it back at three speeds shifts the
+     pitch as well as the pace, which is all it takes for three neighbours on
+     a dial to be told apart by ear. */
+  function warped(c, k, off) {
+    return { clip: true, tones: null, dur: c.dur / k, power: c.power,
+             top: function () { return c.top() * k; },
+             at: function (t) { return c.at(t * k + off); } };
+  }
+  function srcOf(i) {
+    if (!S.music) return VOICES[i];
+    if (!MUSIC) {
+      var base = Clip(CLIP_RATE, CLIP_MU, WMUS);
+      MUSIC = ST.map(function (o) { return warped(base, o.warp, o.off); });
+    }
+    return MUSIC[i];
+  }
+  function bandOf(i) { return S.music ? WMUS * ST[i].warp : VOICES[i].top(); }
+
   /* `bw` is the width the reader asked for; `sec` is what each of the three
      tuned circuits has to be set to in order to deliver it */
-  var S = { carriers: true, ft: 11000, bw: 2200, sec: 2200 };
-  function resolve() { S.sec = bwFor(FS, S.ft, S.bw, 3); }
+  var S = { carriers: true, music: false, ft: 32000, bw: 6000, sec: 6000 };
+  function resolve() { S.sec = bwFor(DISP, S.ft, S.bw, 3); }
   resolve();
 
-  var out  = document.getElementById('bandOut');
+  var out = document.getElementById('bandOut');
   var cache = Cache();
 
-  function composite(t) {
-    var s = 0;
-    for (var i = 0; i < ST.length; i++) {
-      s += S.carriers ? amAt(ST[i].msg, ST[i].fc, MDEPTH, t) : ST[i].msg.at(t);
-    }
-    return s;
-  }
   /* which station the dial is actually sitting on, or null between them */
   function tuned() {
-    var best = null, bd = 1e9;
-    ST.forEach(function (s) {
-      var d = Math.abs(s.fc - S.ft);
-      if (d < bd) { bd = d; best = s; }
+    var best = -1, bd = 1e9;
+    ST.forEach(function (o, i) {
+      var d = Math.abs(o.fc - S.ft);
+      if (d < bd) { bd = d; best = i; }
     });
-    return bd < 1800 ? best : null;
+    return bd < 5000 ? best : -1;
   }
 
-  /* run the receiver and hand back the recovered audio */
+  /* the whole band, and then one receiver pointed at part of it */
   function receive(n, fs, skip) {
-    var flt = BPBank(fs, S.ft, S.sec, 3);
+    var sec = fs === DISP ? S.sec : bwFor(fs, S.ft, S.bw, 3);
+    var flt = BPBank(fs, S.ft, sec, 3);
     var det = EnvDet(fs, 3 / Math.max(S.ft, 500));
-    var dc  = DCBlock(fs, 30);
-    var lp  = LP3(fs, 1800);
-    var o = buf(n), i, v;
+    var dc = DCBlock(fs, 30), lp = Butter(fs, 3200, 6);
+    var osc = ST.map(function (o) { return Osc(fs, o.fc); });
+    var src = [srcOf(0), srcOf(1), srcOf(2)];
+    var o = buf(n), i, k, t, air, v;
     for (i = -skip; i < n; i++) {
-      v = lp(dc(det(flt(composite(i / fs)))));
+      t = i / fs;
+      air = 0;
+      for (k = 0; k < 3; k++) {
+        var c = osc[k]();
+        air += S.carriers ? (1 + MDEPTH * src[k].at(t)) * c : src[k].at(t);
+      }
+      v = lp(dc(det(flt(air))));
       if (i >= 0) o[i] = v;
     }
     return o;
   }
 
-  var f = Fig(cv, 2.05, function (f) {
+  var f = Fig(cv, AR(2.05, 0.98), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
+    var L = LAY(w);
     var top = Math.round(h * 0.58);
-    var SP  = Plot(38, 14, w - 10, top - 18, 0, S.carriers ? 19000 : 1100, 0, 1.12);
-    var TL  = Plot(38, top + 14, w - 10, h - 20, 0, 1, -1.15, 1.15);
+    var XMAX = S.carriers ? 58000 : 4200;
+    var SP = Plot(L.gut, 16 + L.f, w - 10, top - 18, 0, XMAX, 0, 1.12);
+    f.state.SP = SP;                     /* the drag handler reads this back */
+    var TL = Plot(L.gut, top + L.lane, w - 10, h - 22, 0, 1, -1.15, 1.15);
 
-    /* --- axes, once per size and theme --- */
-    ctx.drawImage(cache(S.carriers ? 'c' : 'b', w, h, function (c) {
-      c.font = '500 10px ' + LBL_FONT;
+    ctx.drawImage(cache((S.carriers ? 'c' : 'b') + (S.music ? 'm' : 'v'), w, h, function (c) {
+      c.font = '500 ' + L.f + 'px ' + LBL_FONT;
       frame(c, SP, 0.14); frame(c, TL, 0.14);
       c.strokeStyle = fgA(0.22); c.lineWidth = 1;
       c.beginPath(); c.moveTo(TL.x0, TL.Y(0)); c.lineTo(TL.x1, TL.Y(0)); c.stroke();
-      xticks(c, SP, S.carriers ? [0, 5000, 10000, 15000] : [0, 250, 500, 750, 1000],
-             function (v) { return S.carriers ? fa(v / 1000) + 'k' : fa(v); });
-      c.save();
-      c.translate(12, (SP.y0 + SP.y1) / 2); c.rotate(-Math.PI / 2);
-      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
-      drawLabel(c, tr('js.band.axis'), 0, 0);
-      c.restore();
+      xticks(c, SP, S.carriers ? [0, 16000, 32000, 48000] : [0, 1000, 2000, 3000, 4000],
+             function (v) { return fa(v / 1000) + 'k'; });
+      if (!L.tiny) {
+        c.save();
+        c.translate(L.gut - 26, (SP.y0 + SP.y1) / 2); c.rotate(-Math.PI / 2);
+        c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
+        drawLabel(c, tr('js.band.axis'), 0, 0, SP.y1 - SP.y0);
+        c.restore();
+      }
     }), 0, 0, w, h);
 
     laneName(ctx, SP, tr(S.carriers ? 'js.band.lane1c' : 'js.band.lane1b'));
     laneName(ctx, TL, tr(S.carriers ? 'js.band.lane2c' : 'js.band.lane2b'));
 
-    var t = tuned(), flt = null;
+    var ti = tuned(), flt = null;
 
     /* --- the filter, drawn as the shape it actually is --- */
     if (S.carriers) {
-      flt = BPBank(FS, S.ft, S.sec, 3);
-      var N = 260, i, ff, xs = [], best = 0;
+      flt = BPBank(DISP, S.ft, S.sec, 3);
+      var N = 300, i, ff, ys = [], best = 0;
       for (i = 0; i <= N; i++) {
         ff = SP.xa + i / N * (SP.xb - SP.xa);
-        xs.push(flt.mag(ff));
-        if (xs[i] > best) best = xs[i];
+        ys.push(flt.mag(ff));
+        if (ys[i] > best) best = ys[i];
       }
       ctx.save(); SP.clip(ctx);
       ctx.beginPath();
       ctx.moveTo(SP.X(SP.xa), SP.Y(0));
       for (i = 0; i <= N; i++) {
         ff = SP.xa + i / N * (SP.xb - SP.xa);
-        ctx.lineTo(SP.X(ff), SP.Y(xs[i] / (best || 1) * 1.06));
+        ctx.lineTo(SP.X(ff), SP.Y(ys[i] / (best || 1) * 1.06));
       }
       ctx.lineTo(SP.X(SP.xb), SP.Y(0));
       ctx.closePath();
@@ -989,31 +1208,61 @@ function seam(a, fs) {
       ctx.restore();
     }
 
-    /* --- the stations --- */
+    /* --- the stations ---
+       Tones get lines because tones are lines. A recording does not have a
+       line spectrum, so in music mode each station is drawn as the band it
+       actually occupies — the honest shape, and the one that makes the
+       carrier's isolation at the top of it obvious. */
+    ctx.save(); SP.clip(ctx);
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.font = '500 10px ' + LBL_FONT;
-    ST.forEach(function (s) {
-      var on = S.carriers && t === s;
-      var col = on ? sigA(1) : fgA(S.carriers ? 0.42 : 0.55);
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
+    ST.forEach(function (o, i) {
+      var on = S.carriers && ti === i;
+      var col = on ? sigA(1) : fgA(S.carriers ? 0.42 : 0.5);
+      var band = bandOf(i), src = srcOf(i);
       if (S.carriers) {
-        stem(ctx, SP, s.fc, 1, col, on ? 2.4 : 1.8, on ? 2.6 : 0);
-        s.msg.lines().forEach(function (L) {
-          var a = MDEPTH * L.a / 2;
-          stem(ctx, SP, s.fc - L.f, a, col, on ? 1.8 : 1.3);
-          stem(ctx, SP, s.fc + L.f, a, col, on ? 1.8 : 1.3);
-        });
-        ctx.fillStyle = on ? sigA(1) : fgA(0.5);
-        drawLabel(ctx, tr(s.name), SP.X(s.fc), SP.Y(1) - 7);
+        if (S.music) {
+          ctx.fillStyle = on ? sigA(0.32) : fgA(0.16);
+          ctx.beginPath();
+          for (var q = -1; q <= 1; q += 2) {
+            ctx.moveTo(SP.X(o.fc), SP.Y(0));
+            for (var u = 0; u <= 1; u += 0.04) {
+              ctx.lineTo(SP.X(o.fc + q * u * band), SP.Y(0.44 * Math.pow(1 - u, 0.8)));
+            }
+            ctx.lineTo(SP.X(o.fc + q * band), SP.Y(0));
+          }
+          ctx.fill();
+        } else {
+          src.lines().forEach(function (Ln) {
+            var a = MDEPTH * Ln.a / 2;
+            stem(ctx, SP, o.fc - Ln.f, a, col, on ? 1.8 : 1.3);
+            stem(ctx, SP, o.fc + Ln.f, a, col, on ? 1.8 : 1.3);
+          });
+        }
+        stem(ctx, SP, o.fc, 1, col, on ? 2.4 : 1.8, on ? 2.6 : 0);
+      } else if (S.music) {
+        ctx.fillStyle = fgA([0.24, 0.18, 0.13][i]);
+        ctx.beginPath();
+        ctx.moveTo(SP.X(0), SP.Y(0));
+        for (var u2 = 0; u2 <= 1; u2 += 0.03) ctx.lineTo(SP.X(u2 * band), SP.Y(0.8 * Math.pow(1 - u2, 0.7)));
+        ctx.lineTo(SP.X(band), SP.Y(0));
+        ctx.fill();
       } else {
         /* Three stations, three sets of lines, all in the same few hundred
            hertz. Different weights so you can see there are three of them —
            not different positions, because that is exactly the problem. */
-        var a3 = [0.62, 0.42, 0.26][ST.indexOf(s)];
-        s.msg.lines().forEach(function (L) {
-          stem(ctx, SP, L.f, L.a * 0.9, fgA(a3), 2.2);
-        });
+        var a3 = [0.62, 0.42, 0.26][i];
+        src.lines().forEach(function (Ln) { stem(ctx, SP, Ln.f, Ln.a * 0.9, fgA(a3), 2.2); });
       }
     });
+    ctx.restore();
+    if (S.carriers) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ST.forEach(function (o, i) {
+        ctx.fillStyle = ti === i ? sigA(1) : fgA(0.5);
+        drawLabel(ctx, tr(o.name), SP.X(o.fc), SP.Y(1) - 7);
+      });
+    }
 
     /* --- the dial --- */
     if (S.carriers) {
@@ -1026,36 +1275,37 @@ function seam(a, fs) {
     }
 
     /* --- what comes out of the speaker --- */
-    var M = 1024, rec, i2, p;
+    var SPAN = S.music ? 0.03 : 0.025;
+    var M = Math.round(SPAN * DISP), rec, i2;
     if (S.carriers) {
-      rec = receive(M, FS, 3000);
+      rec = receive(M, DISP, Math.round(0.02 * DISP));
       /* Fixed scale, deliberately not auto-ranged. Tune between two stations
          and the trace should go quiet; normalising it would fill the lane
          with amplified nothing and hide the one thing worth seeing. */
       for (i2 = 0; i2 < M; i2++) rec[i2] *= 1.15;
     } else {
-      /* no carriers: there is nothing to tune, and the detector has nothing
-         to detect — what you get is the three of them added together */
       rec = buf(M);
-      for (i2 = 0; i2 < M; i2++) rec[i2] = composite(i2 / FS);
-      p = pk(rec);
-      for (i2 = 0; i2 < M; i2++) rec[i2] /= p;
+      var sA = srcOf(0), sB = srcOf(1), sC = srcOf(2);
+      for (i2 = 0; i2 < M; i2++) {
+        var tt = i2 / DISP;
+        rec[i2] = sA.at(tt) + sB.at(tt) + sC.at(tt);
+      }
+      var pp = pk(rec);
+      for (i2 = 0; i2 < M; i2++) rec[i2] /= pp;
     }
 
-    if (S.carriers && t) {
-      var ref = buf(M), lag, i3;
-      for (i2 = 0; i2 < M; i2++) ref[i2] = t.msg.at(i2 / FS);
+    ctx.save(); TL.clip(ctx);
+    if (S.carriers && ti >= 0) {
+      var ref = buf(M), lag, i3, wanted = srcOf(ti);
+      for (i3 = 0; i3 < M; i3++) ref[i3] = wanted.at(i3 / DISP);
       /* slide the sent message along to meet the receiver's own delay */
-      lag = bestLag(rec, ref, 260);
-      for (i3 = 0; i3 < M; i3++) ref[i3] = t.msg.at((i3 - lag) / FS);
-      ctx.save(); TL.clip(ctx);
+      lag = bestLag(rec, ref, 400);
+      for (i3 = 0; i3 < M; i3++) ref[i3] = wanted.at((i3 - lag) / DISP);
       ctx.setLineDash([5, 4]);
       trace(ctx, TL, ref, fgA(0.42), 1.4);
       ctx.setLineDash([]);
-      ctx.restore();
     }
-    ctx.save(); TL.clip(ctx);
-    trace(ctx, TL, rec, sigA(1), 1.7);
+    trace(ctx, TL, rec, sigA(1), 1.6);
     ctx.restore();
 
     /* --- readout --- */
@@ -1063,20 +1313,19 @@ function seam(a, fs) {
     if (!S.carriers) {
       ro(out, [
         [tr('js.band.ro_state'), '<b>' + tr('js.band.ro_mush') + '</b>'],
-        [tr('js.band.ro_span'),  fa('0 – 825') + ' Hz'],
-        [tr('js.band.ro_pick'),  tr('js.band.ro_no')]
+        [tr('js.band.ro_span'), fa(0) + ' – ' + hz(Math.round(Math.max(bandOf(0), bandOf(1), bandOf(2))))],
+        [tr('js.band.ro_pick'), tr('js.band.ro_no')]
       ]);
       return;
     }
-    /* how much of the loudest neighbour is getting through */
-    var wanted = t ? flt.mag(t.fc) : 0, worst = 0;
-    ST.forEach(function (s) { if (s !== t) worst = Math.max(worst, flt.mag(s.fc)); });
-    var rej = (wanted > 1e-9 && worst > 1e-12) ? 20 * Math.log10(wanted / worst) : null;
+    var wanted2 = ti >= 0 ? flt.mag(ST[ti].fc) : 0, worst = 0;
+    ST.forEach(function (o, i) { if (i !== ti) worst = Math.max(worst, flt.mag(o.fc)); });
+    var rej = (wanted2 > 1e-9 && worst > 1e-12) ? 20 * Math.log10(wanted2 / worst) : null;
     ro(out, [
-      [tr('js.band.ro_dial'), '<b>' + hz(Math.round(S.ft / 10) * 10) + '</b>'],
-      [tr('js.band.ro_bw'),   hz(Math.round(flt.bw3()))],
-      [tr('js.band.ro_state'), t ? '<b>' + tr(t.name) + '</b>' : tr('js.band.ro_between')],
-      [tr('js.band.ro_rej'),  t ? (rej === null ? '∞' : db(rej, 0)) : '—']
+      [tr('js.band.ro_dial'), '<b>' + hz(Math.round(S.ft / 100) * 100) + '</b>'],
+      [tr('js.band.ro_bw'), hz(Math.round(flt.bw3()))],
+      [tr('js.band.ro_state'), ti >= 0 ? '<b>' + tr(ST[ti].name) + '</b>' : tr('js.band.ro_between')],
+      [tr('js.band.ro_rej'), ti >= 0 ? (rej === null ? '∞' : db(rej, 0)) : '—']
     ]);
   });
 
@@ -1086,26 +1335,34 @@ function seam(a, fs) {
     { label: tr('js.band.mode_c'), c: true }
   ], function (it) { S.carriers = it.c; f.redraw(); audio.refresh(); }, 1);
 
+  pills(document.getElementById('bandSrc'), [
+    { label: tr('js.src.voice'), m: false },
+    { label: tr('js.src.music'), m: true }
+  ], function (it) { S.music = it.m; f.redraw(); audio.refresh(); }, 0);
+
   slider('bandBW', 'bandBWv', function (v) { return hz(v); },
     function (v) { S.bw = v; resolve(); f.redraw(); }, function () { audio.refresh(); });
 
   draggable(cv, function (p) {
-    if (!S.carriers) return;
-    var SP = Plot(38, 14, f.w - 10, 1, 0, 19000, 0, 1);
-    S.ft = clamp(SP.ix(p.x), 3000, 19000);
+    if (!S.carriers || !f.state.SP) return;
+    S.ft = clamp(f.state.SP.ix(p.x), 8000, 56000);
     resolve(); f.redraw();
   });
   cv.style.cursor = 'ew-resize';
   /* the dial has to be reachable without a mouse too */
   cv.tabIndex = 0;
   cv.addEventListener('keydown', function (e) {
-    var d = e.key === 'ArrowLeft' ? -250 : (e.key === 'ArrowRight' ? 250 : 0);
+    var d = e.key === 'ArrowLeft' ? -800 : (e.key === 'ArrowRight' ? 800 : 0);
     if (!d || !S.carriers) return;
-    S.ft = clamp(S.ft + d, 3000, 19000); resolve(); f.redraw(); audio.refresh(); e.preventDefault();
+    S.ft = clamp(S.ft + d, 8000, 56000); resolve(); f.redraw(); audio.refresh(); e.preventDefault();
   });
 
   var audio = listen('bandPlay', cv, function (fs) {
-    return seam(receive(Math.round(AUDIO_SECONDS * fs), fs, Math.round(0.05 * fs)), fs);
+    /* Three stations at three speeds are never all periodic together, so
+       there is no clean loop length to find — the crossfade in seam() is what
+       joins it. Long enough with music to recognise a station by ear. */
+    var sim = fs * OS, secs = S.music ? 5 : AUDIO_SECONDS;
+    return seam(decimate(receive(Math.round(secs * sim), sim, Math.round(0.04 * sim)), OS), fs);
   });
 })();
 
@@ -1140,10 +1397,10 @@ function seam(a, fs) {
     { k: 'js.knobs.l_pm',  s: 1.6, f: function (msg, d, t) { return pmAt(msg, FC, d * 7, t); } }
   ];
 
-  var f = Fig(cv, 1.55, function (f) {
+  var f = Fig(cv, AR(1.55, 0.82), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var pad = 8, gap = 8, n = LANES.length;
+    var L = LAY(w), pad = L.tiny ? 5 : 8, gap = L.lane, n = LANES.length;
     var lh = (h - pad * 2 - gap * (n - 1)) / n;
     var N = Math.max(Math.round(w * 5), 900);
 
@@ -1195,12 +1452,23 @@ function seam(a, fs) {
   var cv = document.getElementById('figDepth');
   if (!cv) return;
 
-  var FS = 48000, FC = 6000;
+  /* Oversampled for the same reason FIG 1 is: a 20 kHz carrier carrying music
+     up to 2.5 kHz needs headroom that an ordinary audio rate does not have. */
+  var OS = 4, DISP = 48000 * OS, FC = 20000, WMUS = 2500;
+  var CLIPMSG = null;
+  function music() {
+    if (!CLIPMSG) CLIPMSG = Clip(CLIP_RATE, CLIP_MU, WMUS);
+    return CLIPMSG;
+  }
   var MSGS = [
-    { k: 'js.depth.m_tone',  m: toneMsg(150) },
-    { k: 'js.depth.m_voice', m: voiceMsg(120) }
+    { k: 'js.depth.m_tone',  get: function () { return toneMsg(150); } },
+    { k: 'js.depth.m_voice', get: function () { return voiceMsg(120); } },
+    { k: 'js.src.music',     get: music }
   ];
+  MSGS[0].m = MSGS[0].get(); MSGS[1].m = MSGS[1].get();
   var S = { m: 0.7, msg: MSGS[0].m };
+  /* how long a slice of time the top lane should show */
+  function span() { return S.msg.clip ? 0.006 : 3 / S.msg.tones[0].f; }
   var out = document.getElementById('depthOut');
   var cache = Cache();
 
@@ -1213,25 +1481,26 @@ function seam(a, fs) {
      what keeps the comparison fair: both are delayed and rolled off by the
      same amount, so the only thing left between them is the rectifier. */
   function detect(n, fs, skip, want) {
-    var det = EnvDet(fs, 3 / FC), dc = DCBlock(fs, 25), lp = LP3(fs, 1700);
-    var dcI = DCBlock(fs, 25), lpI = LP3(fs, 1700);
+    var det = EnvDet(fs, 3 / FC), dc = DCBlock(fs, 25), lp = Butter(fs, 3200, 6);
+    var dcI = DCBlock(fs, 25), lpI = Butter(fs, 3200, 6);
+    var osc = Osc(fs, FC);
     var o = buf(n), ideal = want ? buf(n) : null, i, t, env, v, u;
     for (i = -skip; i < n; i++) {
       t = i / fs;
       env = 1 + S.m * S.msg.at(t);
-      v = lp(dc(det(env * Math.cos(2 * Math.PI * FC * t))));
+      v = lp(dc(det(env * osc())));
       u = want ? lpI(dcI(env)) : 0;
       if (i >= 0) { o[i] = v; if (want) ideal[i] = u; }
     }
     return want ? { rx: o, ideal: ideal } : o;
   }
 
-  var f = Fig(cv, 1.75, function (f) {
+  var f = Fig(cv, AR(1.75, 0.95), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.56);
-    var TX = Plot(8, 10, w - 8, top - 8, 0, 1, -2.7, 2.7);
-    var RX = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.35, 1.35);
+    var L = LAY(w), top = Math.round(h * 0.56);
+    var TX = Plot(8, 10, w - 8, top - L.lane / 2, 0, 1, -2.7, 2.7);
+    var RX = Plot(8, top + L.lane / 2, w - 8, h - 10, 0, 1, -1.35, 1.35);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, TX, 0.13); frame(c, RX, 0.13);
@@ -1239,7 +1508,7 @@ function seam(a, fs) {
 
     /* --- transmitted --- */
     var N = Math.max(Math.round(w * 6), 1200), i, t, e;
-    var SPAN = 3 / S.msg.tones[0].f;          /* three cycles of the slowest tone */
+    var SPAN = span();
     var ys = buf(N), up = buf(N), dn = buf(N);
     var crosses = false;
     for (i = 0; i < N; i++) {
@@ -1263,8 +1532,8 @@ function seam(a, fs) {
     laneName(ctx, TX, tr('js.depth.l_tx'), fgA(0.6));
 
     /* --- received --- */
-    var M = Math.round(SPAN * FS);
-    var D = detect(M, FS, 2000, true);
+    var M = Math.round(SPAN * DISP);
+    var D = detect(M, DISP, Math.round(0.01 * DISP), true);
     var rec = D.rx, ref = D.ideal;
     ctx.save(); RX.clip(ctx);
     ctx.setLineDash([5, 4]);
@@ -1285,14 +1554,16 @@ function seam(a, fs) {
   });
 
   pills(document.getElementById('depthMsg'), MSGS.map(function (o) {
-    return { label: tr(o.k), m: o.m };
-  }), function (it) { S.msg = it.m; f.redraw(); audio.refresh(); }, 0);
+    return { label: tr(o.k), o: o };
+  }), function (it) { S.msg = it.o.m || (it.o.m = it.o.get()); f.redraw(); audio.refresh(); }, 0);
 
   slider('depthM', 'depthMv', function (v) { return 'm = ' + fix(v, 2); },
     function (v) { S.m = v; f.redraw(); }, function () { audio.refresh(); });
 
   var audio = listen('depthPlay', cv, function (fs) {
-    return seam(detect(loopLen(fs, S.msg.tones[0].f), fs, Math.round(0.03 * fs)), fs);
+    var sim = fs * OS;
+    var n = S.msg.clip ? Math.round(S.msg.dur * sim) : loopLen(sim, S.msg.tones[0].f);
+    return seam(decimate(detect(n, sim, Math.round(0.02 * sim)), OS), fs);
   });
 })();
 
@@ -1319,16 +1590,18 @@ function seam(a, fs) {
   /* the fraction of the transmitted power that is doing any work */
   function eff(m, msg) { var s = m * m * msg.power; return s / (1 + s); }
 
-  var f = Fig(cv, 2.3, function (f) {
+  var f = Fig(cv, AR(2.3, 1.15), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var barTop = 16, barH = 40;
+    var L = LAY(w);
+    var barTop = 16, barH = L.tiny ? 30 : 40;
     var BAR = Plot(10, barTop, w - 10, barTop + barH, 0, 1, 0, 1);
-    var CV  = Plot(44, barTop + barH + 34, w - 12, h - 36, 0, 1.5, 0, 1);
+    var CV  = Plot(L.tiny ? 30 : 44, barTop + barH + (L.tiny ? 26 : 34), w - 12,
+                   h - (L.tiny ? 30 : 36), 0, 1.5, 0, 1);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, CV, 0.13);
-      c.font = '500 10px ' + LBL_FONT;
+      c.font = '500 ' + L.f + 'px ' + LBL_FONT;
       xticks(c, CV, [0, 0.5, 1, 1.5], function (v) { return fa(v.toFixed(1)); });
       /* the two thirds line, so the number in the prose has somewhere to land */
       c.strokeStyle = fgA(0.25); c.lineWidth = 1; c.setLineDash([3, 3]);
@@ -1339,7 +1612,7 @@ function seam(a, fs) {
       drawLabel(c, fa('0'),   CV.x0 - 6, CV.Y(0));
       drawLabel(c, fa('1'),   CV.x0 - 6, CV.Y(1));
       c.textAlign = 'center'; c.textBaseline = 'top';
-      drawLabel(c, tr('js.pw.xaxis'), (CV.x0 + CV.x1) / 2, CV.y1 + 18);
+      drawLabel(c, tr('js.pw.xaxis'), (CV.x0 + CV.x1) / 2, CV.y1 + 18, CV.w);
     }), 0, 0, w, h);
 
     /* --- the split, as one bar --- */
@@ -1351,7 +1624,7 @@ function seam(a, fs) {
     ctx.strokeStyle = fgA(0.3); ctx.lineWidth = 1;
     ctx.strokeRect(BAR.x0 + 0.5, BAR.y0 + 0.5, BAR.w - 1, barH - 1);
 
-    ctx.font = '500 11px ' + LBL_FONT;
+    ctx.font = '500 ' + L.f2 + 'px ' + LBL_FONT;
     ctx.textBaseline = 'middle';
     var my = BAR.y0 + barH / 2;
     if (xc - BAR.x0 > 90) {
@@ -1377,9 +1650,9 @@ function seam(a, fs) {
     ctx.setLineDash([]);
     dot(ctx, CV.X(S.m), CV.Y(e), 5, pal().sig, rgba(pal().bg, 1));
     ctx.restore();
-    ctx.font = '500 10px ' + LBL_FONT;
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.45);
-    drawLabel(ctx, tr('js.pw.overmod'), CV.X(1) + 6, CV.y0 + 5);
+    drawLabel(ctx, tr('js.pw.overmod'), CV.X(1) + 6, CV.y0 + 5, CV.x1 - CV.X(1) - 10);
 
     if (!out) return;
     ro(out, [
@@ -1435,12 +1708,13 @@ function seam(a, fs) {
   var out = document.getElementById('sideOut');
   var cache = Cache();
 
-  var f = Fig(cv, 1.95, function (f) {
+  var f = Fig(cv, AR(1.95, 0.95), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
+    var L = LAY(w);
     var top = Math.round(h * 0.56);
-    var SP = Plot(30, 14, w - 12, top - 20, FC - 4200, FC + 4200, 0, 1.14);
-    var TL = Plot(30, top + 12, w - 12, h - 16, 0, 1, -2.1, 2.1);
+    var SP = Plot(L.tiny ? 14 : 30, 14, w - 12, top - 22, FC - 4200, FC + 4200, 0, 1.14);
+    var TL = Plot(L.tiny ? 14 : 30, top + L.lane, w - 12, h - 16, 0, 1, -2.1, 2.1);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, SP, 0.13); frame(c, TL, 0.13);
@@ -1477,10 +1751,10 @@ function seam(a, fs) {
     });
     ctx.restore();
     if (S.mode !== 'am') {
-      ctx.font = '500 10px ' + LBL_FONT;
+      ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = fgA(0.5);
-      drawLabel(ctx, tr('js.side.nocarrier'), SP.X(FC), SP.Y(1) + 6);
+      drawLabel(ctx, tr('js.side.nocarrier'), SP.X(FC), SP.Y(1) + 6, SP.w * 0.6);
     }
 
     /* --- time, with the shape a diode would follow --- */
@@ -1533,9 +1807,16 @@ function seam(a, fs) {
   var cv = document.getElementById('figStatic');
   if (!cv) return;
 
-  var FS = 48000, FC = 6000, BW = 2600, M = 0.8;
-  var msg = voiceMsg(120);
-  var S = { cn: 26 };
+  var OS = 4, DISP = 48000 * OS, FC = 20000, WMUS = 2500, M = 0.8;
+  var VOICE = voiceMsg(120), CLIPMSG = null;
+  function music() {
+    if (!CLIPMSG) CLIPMSG = Clip(CLIP_RATE, CLIP_MU, WMUS);
+    return CLIPMSG;
+  }
+  var S = { cn: 26, music: false };
+  function msgNow() { return S.music ? music() : VOICE; }
+  /* the receiver's own front end: wide enough for the message it is carrying */
+  function bwNow() { return S.music ? 2 * WMUS * 1.15 : 2600; }
   var out = document.getElementById('staticOut');
   var cache = Cache();
 
@@ -1544,13 +1825,14 @@ function seam(a, fs) {
      rather than deriving it means the number is right whatever the filter is,
      and the decibels on the slider are decibels a meter would agree with. */
   var NR = {};
-  function noiseRef(fs) {
-    if (NR[fs]) return NR[fs];
-    var flt = BPBank(fs, FC, BW, 3), rng = Rng(7), n = 16384, tmp = buf(n), i;
+  function noiseRef(fs, bw) {
+    var key = fs + '|' + Math.round(bw);
+    if (NR[key]) return NR[key];
+    var flt = BPBank(fs, FC, bw, 3), rng = Rng(7), n = 32768, tmp = buf(n), i;
     gaussFill(tmp, rng, 1);
     for (i = 0; i < n; i++) tmp[i] = flt(tmp[i]);
-    NR[fs] = Math.max(rms(tmp.subarray(n >> 2)), 1e-9);
-    return NR[fs];
+    NR[key] = Math.max(rms(tmp.subarray(n >> 2)), 1e-9);
+    return NR[key];
   }
 
   /* The whole radio: transmitter, sky, receiver — run twice side by side, once
@@ -1564,12 +1846,15 @@ function seam(a, fs) {
      the part the slider is responsible for, and it is what the dashed line in
      the lower lane is too. */
   function link(n, fs, skip, cn, quiet) {
+    var msg = msgNow(), BW = bwNow();
     /* an unmodulated carrier of unit height has an rms of 1/√2 — that is the
        C the carrier-to-noise ratio is named after */
-    var g = (Math.SQRT1_2 / Math.pow(10, cn / 20)) / noiseRef(fs);
-    var fN = BPBank(fs, FC, BW, 3), dN = EnvDet(fs, 3 / FC), cN = DCBlock(fs, 25), lN = LP3(fs, 1500);
+    var g = (Math.SQRT1_2 / Math.pow(10, cn / 20)) / noiseRef(fs, BW);
+    var AF = Math.min(BW / 2, 3200);
+    var fN = BPBank(fs, FC, BW, 3), dN = EnvDet(fs, 3 / FC), cN = DCBlock(fs, 25), lN = Butter(fs, AF, 6);
     var fQ, dQ, cQ, lQ;
-    if (quiet) { fQ = BPBank(fs, FC, BW, 3); dQ = EnvDet(fs, 3 / FC); cQ = DCBlock(fs, 25); lQ = LP3(fs, 1500); }
+    if (quiet) { fQ = BPBank(fs, FC, BW, 3); dQ = EnvDet(fs, 3 / FC); cQ = DCBlock(fs, 25); lQ = Butter(fs, AF, 6); }
+    var oscN = Osc(fs, FC), oscQ = quiet ? Osc(fs, FC) : null;
     var rng = Rng(20260809);
     var rx = buf(n), air = buf(n), cl = quiet ? buf(n) : null;
     var i, u, v, r, th, z = 0, have = false, nz, s;
@@ -1581,7 +1866,7 @@ function seam(a, fs) {
         u = Math.max(rng(), 1e-12); r = Math.sqrt(-2 * Math.log(u)); th = 2 * Math.PI * rng();
         nz = r * Math.cos(th); z = r * Math.sin(th); have = true;
       }
-      s = amAt(msg, FC, M, i / fs);
+      s = (1 + M * msg.at(i / fs)) * oscN();
       v = fN(s + g * nz);
       u = lN(cN(dN(v)));
       if (quiet) { var q = lQ(cQ(dQ(fQ(s)))); if (i >= 0) cl[i] = q; }
@@ -1590,23 +1875,23 @@ function seam(a, fs) {
     return { air: air, rx: rx, clean: cl };
   }
 
-  var f = Fig(cv, 1.8, function (f) {
+  var f = Fig(cv, AR(1.8, 0.95), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.5);
-    var TX = Plot(8, 10, w - 8, top - 8, 0, 1, -2.4, 2.4);
-    var RX = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.3, 1.3);
+    var L = LAY(w), top = Math.round(h * 0.5);
+    var TX = Plot(8, 10, w - 8, top - L.lane / 2, 0, 1, -2.4, 2.4);
+    var RX = Plot(8, top + L.lane / 2, w - 8, h - 10, 0, 1, -1.3, 1.3);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, TX, 0.13); frame(c, RX, 0.13);
     }), 0, 0, w, h);
 
-    var SPAN = 3 / 120, N = Math.round(SPAN * FS), i;
-    var L = link(N, FS, 2400, S.cn, true);
-    var ref = L.clean;
+    var SPAN = S.music ? 0.02 : 3 / 120, N = Math.round(SPAN * DISP), i;
+    var L2 = link(N, DISP, Math.round(0.012 * DISP), S.cn, true);
+    var ref = L2.clean;
 
     ctx.save(); TX.clip(ctx);
-    trace(ctx, TX, L.air, fgA(0.5), 1);
+    trace(ctx, TX, L2.air, fgA(0.5), 1);
     ctx.restore();
     laneName(ctx, TX, tr('js.static.l_air'), fgA(0.6));
 
@@ -1614,14 +1899,14 @@ function seam(a, fs) {
     ctx.setLineDash([5, 4]);
     trace(ctx, RX, ref, fgA(0.45), 1.4);
     ctx.setLineDash([]);
-    trace(ctx, RX, L.rx, sigA(1), 1.6);
+    trace(ctx, RX, L2.rx, sigA(1), 1.6);
     ctx.restore();
     laneName(ctx, RX, tr('js.static.l_rx'), fgA(0.6));
 
     if (!out) return;
     /* the message that got through, against the noise that came with it */
     var e = 0, p = 0, d;
-    for (i = 0; i < N; i++) { d = L.rx[i] - ref[i]; e += d * d; p += ref[i] * ref[i]; }
+    for (i = 0; i < N; i++) { d = L2.rx[i] - ref[i]; e += d * d; p += ref[i] * ref[i]; }
     var snr = (e < 1e-14 || p < 1e-16) ? 99 : clamp(10 * Math.log10(p / e), -20, 99);
     var verdict = snr > 26 ? 'js.static.v_clean'
                 : snr > 15 ? 'js.static.v_hiss'
@@ -1638,8 +1923,15 @@ function seam(a, fs) {
   slider('staticCN', 'staticCNv', function (v) { return db(v, 0); },
     function (v) { S.cn = v; f.redraw(); }, function () { audio.refresh(); });
 
+  pills(document.getElementById('staticSrc'), [
+    { label: tr('js.src.voice'), m: false },
+    { label: tr('js.src.music'), m: true }
+  ], function (it) { S.music = it.m; f.redraw(); audio.refresh(); }, 0);
+
   var audio = listen('staticPlay', cv, function (fs) {
-    return seam(link(loopLen(fs, 120), fs, Math.round(0.04 * fs), S.cn).rx, fs);
+    var sim = fs * OS;
+    var n = S.music ? Math.round(music().dur * sim) : loopLen(sim, 120);
+    return seam(decimate(link(n, sim, Math.round(0.03 * sim), S.cn).rx, OS), fs);
   });
 })();
 

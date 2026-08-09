@@ -371,6 +371,25 @@
     how much of the <em>angle</em> the little arrow manages to steal.
   </p>
 
+  <details class="decode">
+    <summary data-i18n="s4.sum2">Hold on — what is a phasor?</summary>
+    <div class="decode-body">
+      <p data-i18n="s4.p8">
+        A bookkeeping trick, and the most useful one in radio. A steady sine wave has only two
+        properties worth tracking — how tall it is and where in its cycle it currently is — so
+        draw it as <b>an arrow</b>: the length is the height of the wave, the angle is where in
+        the cycle it has got to. The whole arrow spins round at the carrier frequency, and you
+        agree to stop watching the spin and look only at what is left.
+      </p>
+      <p data-i18n="s4.p9">
+        The payoff is that adding two waves becomes adding two arrows, tip to tail, which is
+        something you can see. That is the entire content of the figure below: a big arrow for
+        the signal, a small one for the noise stuck on its end, and the question of how much
+        the small one can twist the sum.
+      </p>
+    </div>
+  </details>
+
   <p data-i18n="s4.p3">
     Not much, and here is the crucial bit: <b>how much it steals does not depend on how far the
     signal's own angle is swinging.</b> The noise arrow is the length it is. It tilts the sum by
@@ -447,6 +466,25 @@
     Enough geometry. Same message, same transmitter power, same storm, two receivers.
   </p>
 
+  <details class="decode">
+    <summary data-i18n="s5.sum1">What the “arriving” slider actually measures</summary>
+    <div class="decode-body">
+      <p data-i18n="s5.p4">
+        Comparing two schemes fairly is harder than it sounds, because they do not occupy the
+        same amount of room. Quote the signal against the noise <em>in each one's own
+        bandwidth</em> and the wide one looks worse before it has done anything, purely for
+        being wide. Quote it against the noise in a fixed slice and you have quietly assumed
+        the answer.
+      </p>
+      <p data-i18n="s5.p5">
+        So the slider is set in the one unit that does not take sides: <b>received power
+        against the noise in a single message bandwidth</b> — how much signal arrives, per unit
+        of the thing being sent. Both schemes get the same transmitter power and the same sky.
+        What each does with its bandwidth is then theirs to answer for.
+      </p>
+    </div>
+  </details>
+
   <p data-i18n="s5.p2">
     The figure below is a real simulation of both — noise added to the signal, then put through
     an actual envelope detector on one side and an actual discriminator on the other, with the
@@ -464,6 +502,7 @@
           <input class="slider" type="range" id="quietG" aria-label="Channel signal to noise ratio" min="5" max="45" step="1" value="26">
         </div>
         <div class="chip-row" id="quietBeta"></div>
+        <div class="chip-row" id="quietSrc"></div>
         <button class="audio-btn" type="button" id="quietPlayAm" aria-pressed="false">
           <svg class="spk" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="currentColor" d="M4 9h3.6L12 5.2v13.6L7.6 15H4z"/>
@@ -489,7 +528,7 @@
       transmitting the same power, both hit with the same noise, each drawn against a dashed
       copy of itself in perfect conditions. Set the slider around <b>26 dB</b> and click the two
       listen buttons one after the other; it is the same comparison a 1935 audience made in a
-      room in New York. Then step β from 1 to 8 and watch the bottom lane clean up while the top
+      room in New York. Switch the source to <b>MUSIC</b> and it stops being an argument. Then step β from 1 to 8 and watch the bottom lane clean up while the top
       lane does not move at all — because AM has no β. It has no knob to turn. There is nothing
       it can spend.
     </figcaption>
@@ -524,6 +563,7 @@
     <div class="fig-split">
       <div>
         <div class="chip-row" id="cliffBeta"></div>
+        <div class="chip-row" id="cliffSrc"></div>
         <div class="ctl">
           <div class="ctl-label"><span class="mono-label" data-i18n="s6.span3">SIGNAL OVER NOISE, ARRIVING</span><span class="ctl-val" id="cliffGv">22 dB</span></div>
           <input class="slider" type="range" id="cliffG" aria-label="Channel signal to noise ratio" min="2" max="45" step="1" value="22">
@@ -546,7 +586,9 @@
       knee is where it lands on its own rather than where anybody put it. Dashed grey is AM:
       dull, straight, no surprises, worse everywhere it is allowed to be. Blue is FM, running
       far above it — until it falls off the world. <b>Drag along the picture and listen at each
-      end.</b> At 25 dB, FM is twenty decibels ahead. At 15 dB it is losing. The higher you set
+      end</b>, with <b>MUSIC</b> selected: above the knee it is a recording, below it the
+      recording is still there underneath a hail of clicks that were not in it.
+      At 25 dB, FM is nearly twenty decibels ahead. At 15 dB it is losing. The higher you set
       β the further ahead it gets, and — look carefully — <b>the earlier the cliff arrives.</b>
       You do not get to buy quiet without also buying the edge.
     </figcaption>
@@ -765,6 +807,7 @@
   <span class="footer-love" data-i18n="s8.span10">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
 </footer>
 
+<script src="clip.js"></script>
 <script src="i18n.js"></script>
 <script src="post.js"></script>
 </body>

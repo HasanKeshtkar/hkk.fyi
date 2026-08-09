@@ -196,6 +196,38 @@ function draggable(canvas, move) {
 }
 
 /* ============================================================
+   Layout that follows the width
+   ------------------------------------------------------------
+   A figure is not one picture that gets smaller. It is a stack of lanes, each
+   of which needs a minimum height to be a lane at all, and labels that need a
+   minimum size to be legible. Holding one aspect ratio across every screen
+   breaks both: on a 340-pixel column a two-lane scope drawn at 2:1 is 170
+   pixels tall, which leaves each lane about the height of the label sitting
+   on it, and the labels themselves — sized in fixed pixels — run off the ends
+   and collide with the traces.
+
+   So the aspect ratio is a function of the width, and everything inside is
+   measured against the same reading of it. Narrow screens get taller figures
+   with smaller type, shorter labels and thinner gutters; where a figure is two
+   panels side by side, `narrow` is the signal to stack them instead.
+   ============================================================ */
+function LAY(w) {
+  var narrow = w < 560, tiny = w < 430;
+  return {
+    w: w, narrow: narrow, tiny: tiny,
+    f:  tiny ? 9 : 10,            /* axis ticks and lane names */
+    f2: tiny ? 10 : 11,           /* the odd emphasised label  */
+    p:  tiny ? 5 : 9,             /* generic breathing room    */
+    gut: tiny ? 18 : (narrow ? 26 : 38),   /* left gutter for a y axis */
+    lane: tiny ? 8 : 12           /* gap between stacked lanes */
+  };
+}
+/* one aspect ratio for a roomy column, a taller one for a phone */
+function AR(wide, narrow) {
+  return function (w) { return w < 560 ? narrow : wide; };
+}
+
+/* ============================================================
    Plot furniture
    ============================================================ */
 function clear(f) { f.ctx.clearRect(0, 0, f.w, f.h); }
@@ -273,22 +305,39 @@ function tag(ctx, x, y, text, color, align) {
   drawLabel(ctx, text, lx + 5, y);
 }
 
-/* the caption that names a lane in a stacked figure */
+/* The caption that names a lane in a stacked figure.
+
+   Sized from the plot it sits on, and always given a maximum width: on a
+   phone these run the full width of the lane, and a label that overruns its
+   own plot lands on top of the trace and then off the edge of the canvas. */
 function laneName(ctx, P, text, color) {
-  ctx.font = '500 10.5px ' + LBL_FONT;
+  var fz = P.w < 330 ? 9 : (P.w < 520 ? 9.5 : 10.5);
+  ctx.font = '500 ' + fz + 'px ' + LBL_FONT;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  /* Punch the page colour in behind it first. On a phone the lanes are short
+     and the trace runs right under the caption; without a plate the two
+     interleave and neither is readable. */
+  var maxW = P.w - 10;
+  var tw = Math.min(ctx.measureText(text).width, maxW);
+  ctx.fillStyle = rgba(pal().bg, 0.82);
+  ctx.fillRect(P.x0 + 2, P.y0 + 2, tw + 6, fz + 5);
   ctx.fillStyle = color || fgA(0.55);
-  drawLabel(ctx, text, P.x0 + 5, P.y0 + 4);
+  drawLabel(ctx, text, P.x0 + 5, P.y0 + 4, maxW);
 }
 
-/* x-axis ticks in hertz */
+/* X-axis ticks. Below about 380 px there is not room for a label every tick,
+   so the ticks all stay — they carry the scale — and every other label goes.
+   Thinning the ticks instead would change what the axis says. */
 function xticks(ctx, P, vals, fmt) {
-  ctx.font = '500 10px ' + LBL_FONT;
+  var fz = P.w < 330 ? 9 : 10;
+  var skip = P.w / Math.max(vals.length, 1) < 52 ? 2 : 1;
+  ctx.font = '500 ' + fz + 'px ' + LBL_FONT;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  vals.forEach(function (v) {
+  vals.forEach(function (v, i) {
     var x = P.X(v);
     ctx.strokeStyle = fgA(0.2); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, P.y1); ctx.lineTo(x, P.y1 + 4); ctx.stroke();
+    if (i % skip) return;
     ctx.fillStyle = fgA(0.55);
     drawLabel(ctx, fmt ? fmt(v) : fa(String(v)), x, P.y1 + 6);
   });
@@ -447,6 +496,89 @@ function voiceMsg(f0) {
     { f: f0 * 3, a: 0.32, p: 2.1 },
     { f: f0 * 5, a: 0.16, p: 1.2 }
   ]);
+}
+
+/* ---------------- a recording, as a message ----------------
+   Same interface as Msg, so the figures take it without knowing the
+   difference: at(), integral(), power, top(). Two things are genuinely
+   different and both matter.
+
+   A tone has a line spectrum and a recording does not, so anything that draws
+   spectral lines takes a Msg and only a Msg — bbLines() would have nothing to
+   draw from a clip, and inventing something would be a lie.
+
+   And the integral of real audio wanders. A tone's integral is another tone;
+   a recording's is a random walk, and normalising it to a peak of 1 would
+   scale the whole thing by whatever the worst excursion happened to be. So
+   nothing that carries a clip uses integral() for frequency modulation —
+   those paths accumulate phase from the instantaneous frequency instead,
+   which is both the definition and the only form that survives real audio. */
+function Clip(rate, b64, bandHz) {
+  /* base64 in, bytes out, then µ-law out of the bytes. Skipping the first of
+     those two steps is a mistake that does not announce itself: the page still
+     plays something, and what it plays is the ASCII of the base64 read as
+     audio — which sounds exactly like the noise these figures are about. */
+  var mu = atob(b64), n = mu.length, i, x = new Float32Array(n), MU = 255, y;
+  for (i = 0; i < n; i++) {
+    y = mu.charCodeAt(i) / 127.5 - 1;
+    x[i] = (y < 0 ? -1 : 1) * (Math.pow(1 + MU, Math.abs(y)) - 1) / MU;
+  }
+  /* Band-limit to whatever the figure's geometry can actually carry. A real
+     AM channel is about 4.5 kHz wide and these carriers are audio frequencies
+     rather than radio ones, so the ceiling here is lower still — which is not
+     a compromise so much as the point: this is what the scheme delivers. */
+  if (bandHz && bandHz < rate / 2) {
+    var lp = LPtwo(rate, bandHz), k;
+    for (k = 0; k < 3; k++) {
+      for (i = 0; i < n; i++) x[i] = lp(x[i]);          /* forwards … */
+      for (i = n - 1; i >= 0; i--) x[i] = lp(x[i]);     /* … and back, for flat phase */
+    }
+  }
+  var peak = 0, pwr = 0, dc = 0;
+  for (i = 0; i < n; i++) dc += x[i];
+  dc /= n;
+  for (i = 0; i < n; i++) { x[i] -= dc; if (Math.abs(x[i]) > peak) peak = Math.abs(x[i]); }
+  if (!peak) peak = 1;
+  for (i = 0; i < n; i++) { x[i] /= peak; pwr += x[i] * x[i]; }
+
+  var dur = n / rate;
+  return {
+    tones: null,                       /* no line spectrum: see above */
+    clip: true,
+    dur: dur,
+    power: pwr / n,
+    top: function () { return bandHz || rate / 2; },
+    /* linear interpolation, wrapping at the end of the clip */
+    at: function (t) {
+      var u = t / dur;
+      u = (u - Math.floor(u)) * n;
+      var k = u | 0, fr = u - k, a = x[k], b = x[k + 1 === n ? 0 : k + 1];
+      return a + (b - a) * fr;
+    }
+  };
+}
+/* a one-pole used inside Clip, before LP1 has anything to do with a figure */
+function LPtwo(fs, fc) {
+  var y = 0, a = 1 - Math.exp(-2 * Math.PI * fc / fs);
+  return function (v) { y += a * (v - y); return y; };
+}
+
+/* An oscillator as a rotating unit vector.
+
+   Three carriers at a quarter of a million samples a second is a million
+   calls to Math.cos per second of audio, and that is most of the time the
+   listen button takes. Turning the phasor by a fixed angle each sample is
+   four multiplies, and the slow drift in its length is fixed by pulling it
+   back onto the unit circle every few thousand steps. */
+function Osc(fs, f) {
+  var dr = Math.cos(2 * Math.PI * f / fs), di = Math.sin(2 * Math.PI * f / fs);
+  var re = 1, im = 0, k = 0;
+  return function () {
+    var r = re * dr - im * di, i2 = re * di + im * dr;
+    re = r; im = i2;
+    if ((++k & 2047) === 0) { var m = 1 / Math.sqrt(re * re + im * im); re *= m; im *= m; }
+    return re;
+  };
 }
 
 /* --- modulators ---
@@ -807,7 +939,20 @@ function listen(btnId, hostEl, render) {
 
   btn.addEventListener('click', function () {
     if (AUDIO.playing() === key) { AUDIO.stop(); return; }
-    if (!AUDIO.play(key, render) && note) note.textContent = tr('js.audio.failed');
+    /* Building eight seconds of music through a whole radio takes a few
+       hundred milliseconds, and it blocks the page while it happens. Show that
+       first and start the work on the next tick, or the button appears dead
+       and gets clicked again. */
+    if (lbl) lbl.textContent = tr('js.audio.wait');
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.disabled = false;
+      var ok = AUDIO.play(key, render);
+      if (!ok) {
+        if (lbl) lbl.textContent = tr('js.audio.listen');
+        if (note) note.textContent = tr('js.audio.failed');
+      }
+    }, 30);
   });
   AUDIO.subscribe(function (k) {
     var on = k === key;
@@ -890,6 +1035,15 @@ function Butter(fs, fc, order) {
   };
 }
 
+/* Throw away every other sample. Safe only because whatever reaches here has
+   already been low-passed to the message band, far below the output rate's
+   Nyquist — there is nothing left up there to fold down. */
+function decimate(x, k) {
+  var m = Math.floor(x.length / k), o = buf(m), i;
+  for (i = 0; i < m; i++) o[i] = x[i * k];
+  return o;
+}
+
 /* ---------------- Bessel ----------------
    J_n(β) for n = 0…nmax, by Miller's downward recurrence.
 
@@ -964,8 +1118,16 @@ function cxLink(n, fs, skip, cfg) {
 
   /* AM at m = 1, scaled so its mean power matches FM's */
   var amG = 1 / Math.sqrt(1 + msg.power);
-  /* peak phase deviation that puts the peak frequency deviation at β·W */
-  var D = cfg.beta * W / msg.devK;
+  /* Frequency modulation, by the definition rather than by a shortcut.
+
+     The instantaneous frequency is pushed β·W hertz off centre at full
+     message, and the phase is whatever that adds up to — accumulated sample
+     by sample. The earlier version integrated a closed form and normalised
+     the result to a peak of 1, which is identical for a tone and wrong for
+     anything else: the integral of real audio is a random walk, and dividing
+     by its worst excursion would shrink the modulation to nothing.
+     Accumulating works for a tone, a voice and a recording alike. */
+  var kPh = 2 * Math.PI * cfg.beta * W / fs, phAcc = 0;
 
   var rng = Rng(cfg.seed || 4041);
   var out = buf(n), clean = cfg.clean ? buf(n) : null;
@@ -977,7 +1139,11 @@ function cxLink(n, fs, skip, cfg) {
   for (i = -skip; i < n; i++) {
     t = i / fs;
     if (kind === 'am') { zr = amG * (1 + msg.at(t)); zi = 0; }
-    else { ph = D * msg.integral(t); zr = Math.cos(ph); zi = Math.sin(ph); }
+    else {
+      phAcc += kPh * msg.at(t);
+      if (phAcc > 1e7 || phAcc < -1e7) phAcc = phAcc % (2 * Math.PI);
+      zr = Math.cos(phAcc); zi = Math.sin(phAcc);
+    }
 
     /* one Box–Muller pair feeds both quadratures */
     if (have) { nr = spare; have = false; }
@@ -1053,7 +1219,7 @@ function outSNR(L) {
   if (!cv) return;
   var msg = toneMsg(1), BETA = 2.6, S = { t: 0 };
 
-  var f = Fig(cv, 1.05, function (f) {
+  var f = Fig(cv, AR(1.05, 1.05), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
     var cx = w / 2, cy = h * 0.46, R = Math.min(w, h * 0.9) / 2 - 22;
@@ -1110,23 +1276,26 @@ function outSNR(L) {
   /* the first four zeros of J₀ — the ones a deviation meter is calibrated on */
   var NULLS = [2.4048, 5.5201, 8.6537, 11.7915];
 
-  var f = Fig(cv, 2.15, function (f) {
+  var f = Fig(cv, AR(2.15, 1.1), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var P = Plot(30, 40, w - 12, h - 30, 0, 2700, 0, 1.05);
+    var L = LAY(w);
+    var P = Plot(L.tiny ? 20 : 30, L.tiny ? 30 : 40, w - 12, h - (L.tiny ? 30 : 34), 0, 2700, 0, 1.05);
     var J = besselAll(S.beta, NMAX);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, P, 0.13);
       xticks(c, P, [0, 500, 1000, 1500, 2000, 2500], function (v) { return fa(v); });
-      c.font = '500 10px ' + LBL_FONT;
+      c.font = '500 ' + L.f + 'px ' + LBL_FONT;
       c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = fgA(0.5);
-      drawLabel(c, tr('js.beta.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 17);
-      c.save();
-      c.translate(11, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      drawLabel(c, tr('js.beta.yaxis'), 0, 0);
-      c.restore();
+      drawLabel(c, tr('js.beta.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 17, P.w);
+      if (!L.tiny) {
+        c.save();
+        c.translate(11, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        drawLabel(c, tr('js.beta.yaxis'), 0, 0, P.y1 - P.y0);
+        c.restore();
+      }
     }), 0, 0, w, h);
 
     /* Carson's rule, drawn as the bracket it is */
@@ -1139,9 +1308,9 @@ function outSNR(L) {
     ctx.moveTo(P.X(lo), P.y0); ctx.lineTo(P.X(lo), P.y1);
     ctx.moveTo(P.X(hi), P.y0); ctx.lineTo(P.X(hi), P.y1);
     ctx.stroke(); ctx.setLineDash([]);
-    ctx.font = '500 10px ' + LBL_FONT;
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = sigA(0.85);
-    drawLabel(ctx, tr('js.beta.carson') + '  ' + hz(Math.round(B)), (P.X(lo) + P.X(hi)) / 2, P.y0 - 6);
+    drawLabel(ctx, tr('js.beta.carson') + '  ' + hz(Math.round(B)), (P.X(lo) + P.X(hi)) / 2, P.y0 - 6, P.w);
 
     /* the lines */
     var n, a, ff, big = 0;
@@ -1164,9 +1333,9 @@ function outSNR(L) {
     ctx.restore();
 
     if (j0 < 0.03) {
-      ctx.font = '600 11px ' + LBL_FONT;
+      ctx.font = '600 ' + L.f2 + 'px ' + LBL_FONT;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = fgA(0.9);
-      drawLabel(ctx, tr('js.beta.gone'), P.X(FC), P.Y(0.30));
+      drawLabel(ctx, tr('js.beta.gone'), P.X(FC), P.Y(0.30), P.w * 0.9);
     }
 
     if (!out) return;
@@ -1218,18 +1387,25 @@ function outSNR(L) {
   var S = { beta: 3, cn: 20, t: 0 };
   var out = document.getElementById('phOut');
 
-  var f = Fig(cv, 2.05, function (f) {
+  var f = Fig(cv, AR(2.05, 0.78), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var cx = w * 0.27, cy = h / 2, R = Math.min(w * 0.24, h * 0.44);
+    var L = LAY(w);
+    /* Wide: the circle on the left, the two bars beside it. Narrow: there is
+       no beside — the circle takes the top and the bars go underneath, which
+       is the only way either of them stays big enough to read. */
+    var cx = L.narrow ? w / 2 : w * 0.27;
+    var cy = L.narrow ? h * 0.34 : h / 2;
+    var R  = L.narrow ? Math.min(w * 0.34, h * 0.28) : Math.min(w * 0.24, h * 0.44);
     var an = Math.pow(10, -S.cn / 20);                 /* noise / signal */
 
     /* the circle the signal never leaves */
     ctx.strokeStyle = fgA(0.18); ctx.lineWidth = 1.1;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    var xr = R * (L.narrow ? 1.14 : 1.25);
     ctx.strokeStyle = fgA(0.1);
-    ctx.beginPath(); ctx.moveTo(cx - R * 1.25, cy); ctx.lineTo(cx + R * 1.25, cy);
-    ctx.moveTo(cx, cy - R * 1.25); ctx.lineTo(cx, cy + R * 1.25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - xr, cy); ctx.lineTo(cx + xr, cy);
+    ctx.moveTo(cx, cy - xr); ctx.lineTo(cx, cy + xr); ctx.stroke();
 
     /* the signal, wobbling by ±β */
     var ps = S.beta * Math.sin(2 * Math.PI * 0.22 * S.t);
@@ -1281,9 +1457,12 @@ function outSNR(L) {
        right ratio and the wrong story: the noise bar would appear to shrink
        when you widen the swing, and the noise is precisely the thing that is
        not changing. */
-    var BX = w * 0.63, BW = w * 0.28, bh = 16, FULL = 8;
-    var y0 = h * 0.30, y1 = h * 0.30 + bh + 40;
-    ctx.font = '500 10px ' + LBL_FONT;
+    var bh = 16, FULL = 8;
+    var BX = L.narrow ? 14 : w * 0.63;
+    var BW = L.narrow ? w * 0.52 : w * 0.28;
+    var y0 = L.narrow ? h * 0.70 : h * 0.30;
+    var y1 = y0 + bh + (L.narrow ? 34 : 40);
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = fgA(0.6);
     drawLabel(ctx, tr('js.ph.bar1'), BX, y0 - 6);
@@ -1298,15 +1477,15 @@ function outSNR(L) {
     ctx.strokeRect(BX + 0.5, y0 + 0.5, BW - 1, bh - 1);
     ctx.strokeRect(BX + 0.5, y1 + 0.5, BW - 1, bh - 1);
     ctx.textBaseline = 'middle'; ctx.fillStyle = fgA(0.75);
-    ctx.font = '500 11px ' + LBL_FONT;
+    ctx.font = '500 ' + L.f2 + 'px ' + LBL_FONT;
     ctx.textAlign = 'left';
     drawLabel(ctx, fix(S.beta, 2) + ' rad', BX + BW + 9, y0 + bh / 2);
     drawLabel(ctx, fix(an / Math.SQRT2, 3) + ' rad', BX + BW + 9, y1 + bh / 2);
 
     if (an > 0.45) {
-      ctx.font = '600 10.5px ' + LBL_FONT;
+      ctx.font = '600 ' + L.f + 'px ' + LBL_FONT;
       ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.9);
-      drawLabel(ctx, tr('js.ph.click'), BX, y1 + bh + 22, w - BX - 10);
+      drawLabel(ctx, tr('js.ph.click'), BX, y1 + bh + (L.narrow ? 12 : 22), w - BX - 10);
     }
 
     if (!out) return;
@@ -1340,36 +1519,60 @@ function outSNR(L) {
    receivers. Part one's figure 6 is the top lane, and it has not got any
    better; what has changed is the lane underneath it.
    ============================================================ */
-var LINK = { FS: 48000, W: 500, msg: voiceMsg(90) };
-LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
+/* Two sources, and each brings its own numbers with it.
+
+   A synthesised voice a few hundred hertz wide fits comfortably at an ordinary
+   audio rate. A recording does not: at β = 8 the transmission is
+   2(β+1)W = 45 kHz wide, which is most of the way to Nyquist at 48 kHz, and a
+   filter that close to the edge is warped out of shape. So the music source
+   runs the whole simulation at twice the rate. Nothing else about it changes —
+   γ counts noise per unit of message bandwidth, so the two sources stay
+   directly comparable even though their bandwidths differ by a factor of five. */
+var LINK = {
+  voice: { FS: 48000, W: 500, msg: voiceMsg(90), base: 90 },
+  music: null,
+  cur: null
+};
+LINK.pick = function (music) {
+  if (music && !LINK.music) {
+    LINK.music = { FS: 96000, W: 2500, msg: Clip(CLIP_RATE, CLIP_MU, 2500), base: 0 };
+  }
+  LINK.cur = music ? LINK.music : LINK.voice;
+  return LINK.cur;
+};
+LINK.pick(false);
+LINK.BT = function (beta, W) { return 2 * (beta + 1) * W; };
 
 (function () {
   var cv = document.getElementById('figQuiet');
   if (!cv) return;
 
-  var S = { gamma: 26, beta: 5 };
+  var S = { gamma: 26, beta: 5, music: false };
   var out = document.getElementById('quietOut');
   var cache = Cache();
 
   function run(kind, n, fs, skip) {
+    var C = LINK.pick(S.music);
     return cxLink(n, fs, skip, {
-      kind: kind, msg: LINK.msg, W: LINK.W, beta: S.beta,
-      BT: kind === 'am' ? 2 * LINK.W : LINK.BT(S.beta),
+      kind: kind, msg: C.msg, W: C.W, beta: S.beta,
+      BT: kind === 'am' ? 2 * C.W : LINK.BT(S.beta, C.W),
       gamma: Math.pow(10, S.gamma / 10), clean: true, seed: 4041
     });
   }
 
-  var f = Fig(cv, 1.75, function (f) {
+  var f = Fig(cv, AR(1.75, 0.95), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.5);
-    var A = Plot(8, 10, w - 8, top - 8, 0, 1, -1.35, 1.35);
-    var B = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.35, 1.35);
+    var L = LAY(w), top = Math.round(h * 0.5);
+    var A = Plot(8, 10, w - 8, top - L.lane / 2, 0, 1, -1.35, 1.35);
+    var B = Plot(8, top + L.lane / 2, w - 8, h - 10, 0, 1, -1.35, 1.35);
 
     ctx.drawImage(cache('g', w, h, function (c) { frame(c, A, 0.13); frame(c, B, 0.13); }), 0, 0, w, h);
 
-    var N = Math.round(LINK.FS * 3 / 90), i;
-    var am = run('am', N, LINK.FS, 6000), fm = run('fm', N, LINK.FS, 6000);
+    var C = LINK.pick(S.music);
+    var N = Math.round(C.FS * (S.music ? 0.02 : 3 / 90)), i;
+    var sk = Math.round(0.12 * C.FS);
+    var am = run('am', N, C.FS, sk), fm = run('fm', N, C.FS, sk);
 
     /* Each is drawn against its own quiet run, scaled the same way, so the
        two lanes are directly comparable however differently the two
@@ -1392,7 +1595,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     var sa = outSNR(am), sf = outSNR(fm);
     ro(out, [
       [tr('js.quiet.ro_g'),  '<b>' + db(S.gamma, 0) + '</b>'],
-      [tr('js.quiet.ro_bw'), fa(Math.round(LINK.BT(S.beta) / (2 * LINK.W))) + '×'],
+      [tr('js.quiet.ro_bw'), fa(S.beta + 1) + '×'],
       [tr('js.quiet.ro_am'), db(sa, 0)],
       [tr('js.quiet.ro_fm'), '<b>' + db(sf, 0) + '</b>'],
       [tr('js.quiet.ro_win'), (sf > sa ? '+' : '') + db(sf - sa, 0)]
@@ -1407,12 +1610,27 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     return { label: 'β = ' + fa(b), b: b };
   }), function (it) { S.beta = it.b; f.redraw(); aAm.refresh(); aFm.refresh(); }, 2);
 
-  var aAm = listen('quietPlayAm', cv, function (fs) {
-    return seam(run('am', loopLen(fs, 90), fs, Math.round(0.06 * fs)).out, fs);
-  });
-  var aFm = listen('quietPlayFm', cv, function (fs) {
-    return seam(run('fm', loopLen(fs, 90), fs, Math.round(0.06 * fs)).out, fs);
-  });
+  pills(document.getElementById('quietSrc'), [
+    { label: tr('js.src.voice'), m: false },
+    { label: tr('js.src.music'), m: true }
+  ], function (it) { S.music = it.m; f.redraw(); aAm.refresh(); aFm.refresh(); }, 0);
+
+  /* The music runs at twice the output rate, so it is rendered there and
+     halved on the way out; the voice needs no such thing. */
+  function play(kind) {
+    return function (fs) {
+      var C = LINK.pick(S.music), os = S.music ? 2 : 1, sim = fs * os;
+      var n = S.music ? Math.round(C.msg.dur * sim) : loopLen(sim, C.base);
+      var y = cxLink(n, sim, Math.round(0.1 * sim), {
+        kind: kind, msg: C.msg, W: C.W, beta: S.beta,
+        BT: kind === 'am' ? 2 * C.W : LINK.BT(S.beta, C.W),
+        gamma: Math.pow(10, S.gamma / 10), seed: 4041
+      }).out;
+      return seam(os > 1 ? decimate(y, os) : y, fs);
+    };
+  }
+  var aAm = listen('quietPlayAm', cv, play('am'));
+  var aFm = listen('quietPlayFm', cv, play('fm'));
 })();
 
 /* ============================================================
@@ -1425,7 +1643,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
   var cv = document.getElementById('figCliff');
   if (!cv) return;
 
-  var S = { beta: 5, gamma: 22 };
+  var S = { beta: 5, gamma: 22, music: false };
   var out = document.getElementById('cliffOut');
   var cache = Cache();
   var GS = [], i;
@@ -1433,12 +1651,14 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
   var CURVES = {};                                        /* keyed on kind|β */
 
   function curve(kind, beta) {
-    var key = kind + '|' + beta;
+    var C = LINK.pick(S.music);
+    var key = kind + '|' + beta + '|' + (S.music ? 'm' : 'v');
     if (CURVES[key]) return CURVES[key];
+    var n = Math.round(C.FS * 0.26), skip = Math.round(C.FS * 0.1);
     var ys = GS.map(function (g) {
-      return outSNR(cxLink(12288, LINK.FS, 4000, {
-        kind: kind, msg: LINK.msg, W: LINK.W, beta: beta,
-        BT: kind === 'am' ? 2 * LINK.W : LINK.BT(beta),
+      return outSNR(cxLink(n, C.FS, skip, {
+        kind: kind, msg: C.msg, W: C.W, beta: beta,
+        BT: kind === 'am' ? 2 * C.W : LINK.BT(beta, C.W),
         gamma: Math.pow(10, g / 10), clean: true, seed: 4041
       }));
     });
@@ -1451,10 +1671,12 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     return lerp(ys[i0], ys[i0 + 1], k - i0);
   }
 
-  var f = Fig(cv, 1.6, function (f) {
+  var f = Fig(cv, AR(1.6, 0.95), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var P = Plot(44, 14, w - 14, h - 34, 0, 46, -5, 70);
+    var L = LAY(w);
+    var P = Plot(L.tiny ? 30 : 44, 14, w - 14, h - (L.tiny ? 30 : 34), 0, 46, -5, 70);
+    f.state.P = P;                       /* the drag handler reads this back */
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, P, 0.13);
@@ -1462,16 +1684,18 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
       [0, 10, 20, 30, 40, 50, 60, 70].forEach(function (v) {
         c.beginPath(); c.moveTo(P.x0, P.Y(v)); c.lineTo(P.x1, P.Y(v)); c.stroke();
       });
-      c.font = '500 10px ' + LBL_FONT;
+      c.font = '500 ' + L.f + 'px ' + LBL_FONT;
       c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
       [0, 20, 40, 60].forEach(function (v) { drawLabel(c, fa(v), P.x0 - 6, P.Y(v)); });
       xticks(c, P, [0, 10, 20, 30, 40], function (v) { return fa(v); });
       c.textAlign = 'center'; c.textBaseline = 'top';
-      drawLabel(c, tr('js.cliff.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18);
-      c.save(); c.translate(12, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      drawLabel(c, tr('js.cliff.yaxis'), 0, 0);
-      c.restore();
+      drawLabel(c, tr('js.cliff.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18, P.w);
+      if (!L.tiny) {
+        c.save(); c.translate(12, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        drawLabel(c, tr('js.cliff.yaxis'), 0, 0, P.y1 - P.y0);
+        c.restore();
+      }
     }), 0, 0, w, h);
 
     function draw(ys, color, lw, dash) {
@@ -1491,7 +1715,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     draw(amY, fgA(0.6), 1.8, [5, 4]);
     draw(fmY, sigA(1), 2.2);
 
-    ctx.font = '500 10.5px ' + LBL_FONT;
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = fgA(0.65);
     drawLabel(ctx, tr('js.cliff.am'), P.X(41), P.Y(at(amY, 41)) + 12);
@@ -1517,7 +1741,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
       [tr('js.cliff.ro_am'),  db(ga, 0)],
       [tr('js.cliff.ro_fm'),  '<b>' + db(gf, 0) + '</b>'],
       [tr('js.cliff.ro_win'), (gf > ga ? '+' : '') + db(gf - ga, 0)],
-      [tr('js.cliff.ro_bw'),  fa(Math.round(LINK.BT(S.beta) / (2 * LINK.W))) + '×'],
+      [tr('js.cliff.ro_bw'),  fa(S.beta + 1) + '×'],
       [tr('js.cliff.ro_knee'), db(kn, 0)],
       [tr('js.cliff.ro_st'),  tr(S.gamma >= kn ? 'js.cliff.above' : 'js.cliff.below')]
     ]);
@@ -1527,12 +1751,17 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     return { label: 'β = ' + fa(b), b: b };
   }), function (it) { S.beta = it.b; f.redraw(); audio.refresh(); }, 2);
 
+  pills(document.getElementById('cliffSrc'), [
+    { label: tr('js.src.voice'), m: false },
+    { label: tr('js.src.music'), m: true }
+  ], function (it) { S.music = it.m; f.redraw(); audio.refresh(); }, 0);
+
   slider('cliffG', 'cliffGv', function (v) { return db(v, 0); },
     function (v) { S.gamma = v; f.redraw(); }, function () { audio.refresh(); });
 
   draggable(cv, function (p) {
-    var P = Plot(44, 14, f.w - 14, 1, 0, 46, 0, 1);
-    S.gamma = Math.round(clamp(P.ix(p.x), 2, 45));
+    if (!f.state.P) return;
+    S.gamma = Math.round(clamp(f.state.P.ix(p.x), 2, 45));
     var el = document.getElementById('cliffG');
     if (el) { el.value = String(S.gamma); el.dispatchEvent(new Event('input', { bubbles: true })); }
     f.redraw();
@@ -1540,10 +1769,13 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
   cv.style.cursor = 'ew-resize';
 
   var audio = listen('cliffPlay', cv, function (fs) {
-    return seam(cxLink(loopLen(fs, 90), fs, Math.round(0.06 * fs), {
-      kind: 'fm', msg: LINK.msg, W: LINK.W, beta: S.beta, BT: LINK.BT(S.beta),
+    var C = LINK.pick(S.music), os = S.music ? 2 : 1, sim = fs * os;
+    var n = S.music ? Math.round(C.msg.dur * sim) : loopLen(sim, C.base);
+    var y = cxLink(n, sim, Math.round(0.1 * sim), {
+      kind: 'fm', msg: C.msg, W: C.W, beta: S.beta, BT: LINK.BT(S.beta, C.W),
       gamma: Math.pow(10, S.gamma / 10), seed: 4041
-    }).out, fs);
+    }).out;
+    return seam(os > 1 ? decimate(y, os) : y, fs);
   });
 })();
 
@@ -1570,23 +1802,23 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
          + 0.5 * (L - R) * Math.sin(2 * Math.PI * 38000 * t);
   }
 
-  var f = Fig(cv, 2.15, function (f) {
+  var f = Fig(cv, AR(2.15, 1.05), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.55);
+    var L = LAY(w), top = Math.round(h * 0.55);
     /* a clear strip above the frame, so the annotation for the old receiver's
        hearing range has somewhere to live that is not on top of a band label */
-    var P = Plot(16, 46, w - 12, top - 22, 0, 62000, 0, 1.1);
-    var T = Plot(16, top + 12, w - 12, h - 16, 0, 1, -1.15, 1.15);
+    var P = Plot(16, L.tiny ? 38 : 46, w - 12, top - 24, 0, 62000, 0, 1.1);
+    var T = Plot(16, top + L.lane, w - 12, h - 16, 0, 1, -1.15, 1.15);
 
     ctx.drawImage(cache('g', w, h, function (c) {
       frame(c, P, 0.13); frame(c, T, 0.13);
       c.strokeStyle = fgA(0.2); c.lineWidth = 1;
       c.beginPath(); c.moveTo(T.x0, T.Y(0)); c.lineTo(T.x1, T.Y(0)); c.stroke();
       xticks(c, P, [0, 15000, 19000, 23000, 38000, 53000, 57000], function (v) { return fa(v / 1000); });
-      c.font = '500 10px ' + LBL_FONT;
+      c.font = '500 ' + L.f + 'px ' + LBL_FONT;
       c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = fgA(0.5);
-      drawLabel(c, tr('js.mpx.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18);
+      drawLabel(c, tr('js.mpx.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18, P.w);
       /* where a 1961 receiver stopped listening */
       c.strokeStyle = fgA(0.3); c.setLineDash([4, 3]); c.lineWidth = 1.2;
       c.beginPath(); c.moveTo(P.X(15000), P.y0); c.lineTo(P.X(15000), P.y1); c.stroke();
@@ -1599,7 +1831,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
       ctx.fillStyle = col;
       ctx.fillRect(x0, y, Math.max(x1 - x0, 2), P.Y(0) - y);
       if (!label) return;
-      ctx.font = '500 9.5px ' + LBL_FONT;
+      ctx.font = '500 ' + (L.tiny ? 8.5 : 9.5) + 'px ' + LBL_FONT;
       ctx.textAlign = 'center';
       /* A tall block has no room above it, so the label goes inside in the
          page colour. A short one has nowhere inside, so it goes above. */
@@ -1618,9 +1850,9 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     band(38000, 53000, dif, live, tr('js.mpx.dif'));
     band(56700, 57300, 0.05, S.mono ? fgA(0.2) : fgA(0.5), tr('js.mpx.rds'));
     if (S.mono) {
-      ctx.font = '600 10.5px ' + LBL_FONT;
+      ctx.font = '600 ' + (L.tiny ? 9 : 10.5) + 'px ' + LBL_FONT;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = fgA(0.85);
-      drawLabel(ctx, tr('js.mpx.deaf'), P.X(24000), P.Y(0.62), P.x1 - P.X(24000) - 8);
+      drawLabel(ctx, tr('js.mpx.deaf'), P.X(20000), P.Y(0.62), P.x1 - P.X(20000) - 8);
     }
     /* the old receiver's hearing, bracketed above the frame */
     var bx0 = P.X(0), bx1 = P.X(15000), by = P.y0 - 12;
@@ -1629,7 +1861,7 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     ctx.moveTo(bx0 + 0.5, by + 5); ctx.lineTo(bx0 + 0.5, by);
     ctx.lineTo(bx1 - 0.5, by); ctx.lineTo(bx1 - 0.5, by + 5);
     ctx.stroke();
-    ctx.font = '500 9.5px ' + LBL_FONT;
+    ctx.font = '500 ' + (L.tiny ? 8.5 : 9.5) + 'px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = fgA(0.5);
     drawLabel(ctx, tr('js.mpx.oldset'), (bx0 + bx1) / 2, by - 4, bx1 - bx0 - 8);
 
@@ -1704,23 +1936,28 @@ LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
     return [lerp(A[0], B[0], f2) * 0.85, lerp(A[1], B[1], f2) * 0.85];
   }
 
-  var f = Fig(cv, 1.85, function (f) {
+  var f = Fig(cv, AR(1.85, 0.8), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var R = Math.min(w * 0.30, h * 0.42);
-    var cx = R + 26, cy = h / 2;
-    var P = Plot(cx + R + 34, 16, w - 12, h - 16, 0, 1, -1.15, 1.15);
+    var L = LAY(w);
+    var R  = L.narrow ? Math.min(w * 0.30, h * 0.26) : Math.min(w * 0.30, h * 0.42);
+    var cx = L.narrow ? w / 2 : R + 26;
+    var cy = L.narrow ? R + 20 : h / 2;
+    var P  = L.narrow
+      ? Plot(14, cy + R + 26, w - 12, h - 14, 0, 1, -1.15, 1.15)
+      : Plot(cx + R + 34, 16, w - 12, h - 16, 0, 1, -1.15, 1.15);
 
     /* the plane */
     ctx.strokeStyle = fgA(0.13); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx - R * 1.22, cy); ctx.lineTo(cx + R * 1.22, cy);
-    ctx.moveTo(cx, cy - R * 1.22); ctx.lineTo(cx, cy + R * 1.22); ctx.stroke();
-    ctx.font = '500 10px ' + LBL_FONT;
+    var xr2 = R * (L.narrow ? 1.12 : 1.22);
+    ctx.beginPath(); ctx.moveTo(cx - xr2, cy); ctx.lineTo(cx + xr2, cy);
+    ctx.moveTo(cx, cy - xr2); ctx.lineTo(cx, cy + xr2); ctx.stroke();
+    ctx.font = '500 ' + L.f + 'px ' + LBL_FONT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.45);
-    drawLabel(ctx, 'I', cx + R * 1.22 - 4, cy + 4);
+    drawLabel(ctx, 'I', cx + xr2 - 4, cy + 4);
     ctx.textBaseline = 'bottom';
-    drawLabel(ctx, 'Q', cx + 9, cy - R * 1.22 + 12);
+    drawLabel(ctx, 'Q', cx + 9, cy - xr2 + 12);
 
     if (S.mode === 'qam') {
       var gx, gy;

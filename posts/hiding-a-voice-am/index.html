@@ -243,9 +243,10 @@
     <div class="fig-split">
       <div>
         <div class="chip-row" id="bandMode"></div>
+        <div class="chip-row" id="bandSrc"></div>
         <div class="ctl">
-          <div class="ctl-label"><span class="mono-label" data-i18n="s1.span3">RECEIVER BANDWIDTH</span><span class="ctl-val" id="bandBWv">2.2 kHz</span></div>
-          <input class="slider" type="range" id="bandBW" aria-label="Receiver bandwidth" min="400" max="6000" step="50" value="2200">
+          <div class="ctl-label"><span class="mono-label" data-i18n="s1.span3">RECEIVER BANDWIDTH</span><span class="ctl-val" id="bandBWv">6 kHz</span></div>
+          <input class="slider" type="range" id="bandBW" aria-label="Receiver bandwidth" min="600" max="12000" step="100" value="6000">
         </div>
         <button class="audio-btn" type="button" id="bandPlay" aria-pressed="false">
           <svg class="spk" viewBox="0 0 24 24" aria-hidden="true">
@@ -260,16 +261,54 @@
       <dl class="ro" id="bandOut"></dl>
     </div>
     <figcaption data-i18n="s1.cap1">
-      Three stations, each with a different voice. Press <b>NO CARRIERS</b> and they are all
-      piled into the same few hundred hertz — the lower lane is what a microphone would hear,
-      and there is nothing you can do to it that separates the three. Press
-      <b>ON THREE CARRIERS</b> and the same three voices are suddenly in three different
-      places. Now <b>drag anywhere on the picture</b> to move the dial. The shaded hump is your
-      receiver's filter, and the bottom lane is what comes out of the speaker, against the
-      dashed line of what was sent. Park between two stations and it goes quiet. Then open the
-      bandwidth up past about 4 kHz and listen to the neighbour walk in.
+      Three stations. Press <b>NO CARRIERS</b> and they are all piled into the same few
+      kilohertz — the lower lane is what a microphone would hear, and there is nothing you can
+      do to it that separates the three. Press <b>ON THREE CARRIERS</b> and the same three are
+      suddenly in three different places. Now <b>drag anywhere on the picture</b> to move the
+      dial. The shaded hump is your receiver's filter, and the bottom lane is what comes out of
+      the speaker, against the dashed line of what was sent. Park between two stations and it
+      goes quiet. Then open the bandwidth up past about 10 kHz and listen to the neighbour walk
+      in. <b>Switch the source to MUSIC</b> and the three stations become the same recording at
+      three speeds; that is also the moment the picture stops being lines and becomes bands,
+      because a recording does not have a line spectrum to draw.
     </figcaption>
   </figure>
+
+  <details class="decode">
+    <summary data-i18n="s1.sum1">Hold on — what does “bandwidth” mean?</summary>
+    <div class="decode-body">
+      <p data-i18n="s1.p8">
+        A signal is never at one frequency. A voice is a bundle of them at once — the low
+        rumble of the vocal cords, the hiss of the consonants, everything between.
+        <b>Bandwidth is how wide that bundle is</b>: the distance from the lowest frequency in
+        it to the highest, measured in hertz like everything else.
+      </p>
+      <p data-i18n="s1.p9">
+        It matters because it is the thing you buy. A station does not own a frequency, it
+        owns a <em>strip</em> of them, and the strip has to be at least as wide as the bundle
+        it is carrying or the top of the message gets cut off. Everything in both halves of
+        this article is an argument about how wide a strip a given idea needs, and what you
+        get in return for it.
+      </p>
+    </div>
+  </details>
+
+  <details class="decode">
+    <summary data-i18n="s1.sum2">Why are the numbers in these figures so small?</summary>
+    <div class="decode-body">
+      <p data-i18n="s1.p10">
+        A real AM station sits somewhere around a megahertz. The carriers in the figures below
+        are at sixteen, thirty-two and forty-eight <em>kilo</em>hertz — about fifty times lower.
+        That is deliberate, and it is so the figures can play themselves: a signal has to fit
+        inside the range a sound card can produce before you can hear what has happened to it.
+      </p>
+      <p data-i18n="s1.p11">
+        Nothing else is changed. Every <em>ratio</em> — carrier to message, station to
+        neighbour, signal to noise — is the ratio a real band has, and the arithmetic cannot
+        tell the difference. Think of it as the same radio, played slowly enough to listen to.
+      </p>
+    </div>
+  </details>
 
   <p data-i18n="s1.p7">
     That is the whole justification for radio being complicated. The fast wave is not the
@@ -467,11 +506,13 @@
       Top: what leaves the transmitter, with its envelope drawn on. Bottom: what an actual
       diode-and-capacitor detector gets back, against the dashed line of what a detector that
       could see signs would have got. Below <b>m = 1</b> the two lie on top of each other and
-      only a couple of percent separates them — that residue is the capacitor sagging between
-      carrier peaks, and it is as good as this circuit gets. Take m past 1 and the envelope's two halves cross over — and the recovered trace
-      stops being the message and starts being its absolute value. <b>Press listen and drag
-      through m = 1</b>; the point at which it stops sounding like a voice and starts sounding
-      like a fault is not subtle.
+      under one percent separates them — that residue is the capacitor sagging between carrier
+      peaks, and it is as good as this circuit gets. Take m past 1 and the envelope's two
+      halves cross over, and the recovered trace stops being the message and starts being its
+      absolute value. <b>Press listen and drag through m = 1</b>; the point at which it stops
+      sounding like music and starts sounding like a fault is not subtle. The <b>MUSIC</b>
+      setting is a real recording, band-limited to what one AM channel can hold — which is why
+      it already sounds like a radio before anything has gone wrong with it.
     </figcaption>
   </figure>
 
@@ -640,6 +681,26 @@
     arrives at your antenna as a voltage that jumps about at random.
   </p>
 
+  <details class="decode">
+    <summary data-i18n="s7.sum1">Hold on — what is a decibel?</summary>
+    <div class="decode-body">
+      <p data-i18n="s7.p6">
+        A way of writing a ratio when the ratios you care about run to a factor of a million.
+        It is not a quantity — <b>a decibel is always one thing compared to another</b> — and
+        the scale is squashed so that every <span class="q">10 dB</span> is another factor of
+        ten in power.
+      </p>
+      <p data-i18n="s7.p7">
+        So <span class="q">0 dB</span> means the two are equal. <span class="q">20 dB</span>
+        means one has a hundred times the power of the other. <span class="q">40 dB</span> is
+        ten thousand times. When the figure below says the signal is <span class="q">26 dB</span>
+        above the noise, the signal carries about four hundred times the power — which sounds
+        like an enormous margin, and is roughly the point at which you start to hear a hiss
+        behind the music.
+      </p>
+    </div>
+  </details>
+
   <p data-i18n="s7.p3">
     Now ask what your receiver does with it. Your receiver is a diode that reports how tall
     the wave is. Noise makes the wave taller and shorter at random. <em>The message also
@@ -654,6 +715,7 @@
     <div class="canvas-wrap"><canvas id="figStatic"></canvas></div>
     <div class="fig-split">
       <div>
+        <div class="chip-row" id="staticSrc"></div>
         <div class="ctl">
           <div class="ctl-label"><span class="mono-label" data-i18n="s7.span3">CARRIER OVER NOISE</span><span class="ctl-val" id="staticCNv">26 dB</span></div>
           <input class="slider" type="range" id="staticCN" aria-label="Carrier to noise ratio" min="0" max="40" step="1" value="26">
@@ -675,7 +737,9 @@
       done what it can. Bottom lane: what the detector makes of it, against the dashed line of
       <em>the same receiver with the storm switched off</em> — so the gap between the two is
       the noise and nothing else. Drag the slider down and watch them come apart.
-      <b>Press listen and do it again.</b> Then watch the readout marked <em>gain</em>: it is
+      <b>Press listen and do it again</b>, with <b>MUSIC</b> selected — a hiss behind a
+      synthesised voice is easy to talk yourself out of; a hiss behind a piece of music you
+      know is not. Then watch the readout marked <em>gain</em>: it is
       what the receiver added, and it sits at about <span class="q">−6 dB</span> and stays
       there, all the way from a clean signal to a hopeless one. Six decibels <em>down</em>,
       because a third of the transmitter's effort reaches the detector as message and the rest
@@ -756,6 +820,7 @@
   <span class="footer-love" data-i18n="s8.span4">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
 </footer>
 
+<script src="clip.js"></script>
 <script src="i18n.js"></script>
 <script src="post.js"></script>
 </body>
