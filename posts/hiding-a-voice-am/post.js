@@ -541,12 +541,22 @@ function Clip(rate, b64, bandHz) {
     dur: dur,
     power: pwr / n,
     top: function () { return bandHz || rate / 2; },
-    /* linear interpolation, wrapping at the end of the clip */
+    /* Catmull-Rom between the stored samples, wrapping at the end.
+
+       Straight lines between eight-kilohertz samples would be audible: the
+       corners are broken, and a broken corner is a spray of harmonics that
+       were never in the recording. Fitting a curve through four points costs
+       a few multiplies and puts them below anything the receive filters
+       downstream would pass on. */
     at: function (t) {
       var u = t / dur;
       u = (u - Math.floor(u)) * n;
-      var k = u | 0, fr = u - k, a = x[k], b = x[k + 1 === n ? 0 : k + 1];
-      return a + (b - a) * fr;
+      var k = u | 0, fr = u - k;
+      var p0 = x[(k - 1 + n) % n], p1 = x[k], p2 = x[(k + 1) % n], p3 = x[(k + 2) % n];
+      var a0 = -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
+      var a1 = p0 - 2.5 * p1 + 2 * p2 - 0.5 * p3;
+      var a2 = -0.5 * p0 + 0.5 * p2;
+      return ((a0 * fr + a1) * fr + a2) * fr + p1;
     }
   };
 }
@@ -701,15 +711,6 @@ function Butter(fs, fc, order) {
     }
     return x;
   };
-}
-
-/* Throw away three samples in four. Safe only because whatever reaches here
-   has already been low-passed to the message band, which is far below the
-   output rate's Nyquist — there is nothing left up there to fold down. */
-function decimate(x, k) {
-  var m = Math.floor(x.length / k), o = buf(m), i;
-  for (i = 0; i < m; i++) o[i] = x[i * k];
-  return o;
 }
 
 /* Three of them, for stripping the carrier ripple off a detector output.
@@ -908,13 +909,16 @@ var AUDIO = (function () {
     playing: function () { return cur ? cur.key : null; },
     subscribe: function (f) { subs.push(f); f(cur ? cur.key : null); },
 
-    /* render(fs) returns a mono Float32Array that loops seamlessly */
-    play: function (key, render) {
+    /* Unlocking has to happen inside the click, before any of the work: a
+       context created later, off the back of a timer, is not attributable to
+       a gesture and some browsers will refuse to start it. */
+    unlock: function () { return !!ctx(); },
+    rate: function () { var a = ctx(); return a ? a.sampleRate : 48000; },
+
+    /* start(key, data) — the buffer is already built by the time we get here */
+    start: function (key, data) {
       var a = ctx();
-      if (!a) return false;
-      var data;
-      try { data = render(a.sampleRate); } catch (e) { return false; }
-      if (!data || !data.length) return false;
+      if (!a || !data || !data.length) return false;
 
       /* Normalise to a common loudness, and do it by RMS rather than by peak.
 
@@ -958,6 +962,87 @@ var AUDIO = (function () {
   };
 })();
 
+/* ============================================================
+   Building the sound a slice at a time
+   ------------------------------------------------------------
+   Thirty seconds of music pushed through a whole radio at four times the
+   output rate is nearly six million samples. Doing that between one line and
+   the next locks the browser up for well over a second, and a page that stops
+   answering is worse than one that is slow.
+
+   So a figure does not hand back a buffer any more. It hands back a plan: how
+   many samples, how much settling to run first, how many to keep out of each
+   group, and a step() that produces them strictly in order. The display pulls
+   a few thousand from the same step() in one go; the listen button pulls the
+   lot in slices, giving the browser its turn between each one so the button
+   can say how far along it is.
+   ============================================================ */
+function pull(step, n, skip, os) {
+  var O = os || 1, out = buf(Math.ceil(n / O)), i, k = 0, v;
+  for (i = -skip; i < n; i++) {
+    v = step(i);
+    if (i >= 0 && (i % O) === 0) out[k++] = v;
+  }
+  return out.subarray(0, k);
+}
+/* The last few finished renders, kept because the interesting comparisons are
+   all A-then-B: amplitude against frequency, above the knee against below it.
+   Making the reader wait again to hear the thing they just heard is the one
+   delay with no excuse. */
+var RENDERED = [];
+function cacheGet(key) {
+  for (var i = 0; i < RENDERED.length; i++) if (RENDERED[i].key === key) return RENDERED[i].data;
+  return null;
+}
+function cachePut(key, data) {
+  RENDERED.unshift({ key: key, data: data });
+  if (RENDERED.length > 4) RENDERED.pop();
+}
+
+function runPlan(p, onProgress, onDone) {
+  var hit = p.key ? cacheGet(p.key) : null;
+  if (hit) { setTimeout(function () { onDone(hit); }, 0); return; }
+
+  var O = p.os || 1, out = buf(Math.ceil(p.n / O)), i = -p.skip, k = 0;
+  /* Aim at about a frame and a half of work per slice, and adjust after each
+     one. Too small and the four-millisecond floor a browser puts under
+     setTimeout dominates — three hundred slices is more than a second spent
+     waiting for nothing. Too large and the page stops answering, which is the
+     thing this exists to avoid. Measuring beats guessing, and it is the only
+     version that behaves on a slow phone as well as on this desk. */
+  var slice = 32768, TARGET = 24;
+  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function tick() {
+    var t0 = now(), end = Math.min(i + slice, p.n), v;
+    try {
+      for (; i < end; i++) {
+        v = p.step(i);
+        if (i >= 0 && (i % O) === 0) out[k++] = v;
+      }
+    } catch (e) {
+      /* Whatever went wrong, the button must not be left saying "building"
+         for the rest of the session. Hand back what there is and let the
+         caller decide; a short clip is a visible failure, a wedged control
+         is an invisible one. */
+      onDone(out.subarray(0, k));
+      return;
+    }
+    var dt = now() - t0;
+    slice = clamp(Math.round(slice * (dt > 1 ? TARGET / dt : 4)), 8192, 1 << 21);
+    if (i < p.n) {
+      onProgress((i + p.skip) / (p.n + p.skip));
+      setTimeout(tick, 0);
+    } else {
+      /* joined here rather than by the caller, so what lands in the cache is
+         the finished thing and a repeat click is genuinely free */
+      var done = seam(out.subarray(0, k), p.sim / O);
+      if (p.key) cachePut(p.key, done);
+      onDone(done);
+    }
+  }
+  setTimeout(tick, 0);
+}
+
 /* Wire one 🔊 button to one figure. `render` is called fresh every time,
    so a figure whose sliders have moved plays what it now shows. */
 function listen(btnId, hostEl, render) {
@@ -970,22 +1055,26 @@ function listen(btnId, hostEl, render) {
   var lbl = btn.querySelector('.lbl');
   var note = btn.parentElement ? btn.parentElement.querySelector('.audio-note') : null;
 
+  var busy = false;
   btn.addEventListener('click', function () {
+    if (busy) return;
     if (AUDIO.playing() === key) { AUDIO.stop(); return; }
-    /* Building eight seconds of music through a whole radio takes a few
-       hundred milliseconds, and it blocks the page while it happens. Show that
-       first and start the work on the next tick, or the button appears dead
-       and gets clicked again. */
+    if (!AUDIO.unlock()) { btn.hidden = true; return; }
+    busy = true;
     if (lbl) lbl.textContent = tr('js.audio.wait');
-    btn.disabled = true;
-    setTimeout(function () {
-      btn.disabled = false;
-      var ok = AUDIO.play(key, render);
-      if (!ok) {
+    var p;
+    try { p = render(AUDIO.rate()); }
+    catch (e) { busy = false; if (lbl) lbl.textContent = tr('js.audio.listen');
+                if (note) note.textContent = tr('js.audio.failed'); return; }
+    runPlan(p,
+      function (frac) {
+        if (lbl) lbl.textContent = tr('js.audio.wait') + ' ' + fa(Math.round(frac * 100)) + '%';
+      },
+      function (data) {
+        busy = false;
         if (lbl) lbl.textContent = tr('js.audio.listen');
-        if (note) note.textContent = tr('js.audio.failed');
-      }
-    }, 30);
+        if (!AUDIO.start(key, data) && note) note.textContent = tr('js.audio.failed');
+      });
   });
   AUDIO.subscribe(function (k) {
     var on = k === key;
@@ -998,7 +1087,7 @@ function listen(btnId, hostEl, render) {
     }).observe(hostEl);
   }
 
-  api.refresh = function () { if (AUDIO.playing() === key) AUDIO.play(key, render); };
+  api.refresh = function () { if (AUDIO.playing() === key) { AUDIO.stop(); btn.click(); } };
   api.stop    = function () { if (AUDIO.playing() === key) AUDIO.stop(); };
   return api;
 }
@@ -1006,6 +1095,8 @@ function listen(btnId, hostEl, render) {
 /* Two and a half seconds is long enough not to sound like a loop and short
    enough that regenerating it on every slider release costs nothing. */
 var AUDIO_SECONDS = 2.5;
+/* the recording gets its whole length: it is a piece of music, not a sample */
+var MUSIC_SECONDS = 30;
 /* Nudge a frequency to one whose period is a whole number of samples. Build
    the message out of harmonics of that, and the buffer can be cut at a period
    boundary — so the loop joins where the waveform already was, instead of
@@ -1132,27 +1223,27 @@ function seam(a, fs) {
     return bd < 5000 ? best : -1;
   }
 
-  /* the whole band, and then one receiver pointed at part of it */
-  function receive(n, fs, skip) {
+  /* The whole band, and one receiver pointed at part of it — built once, then
+     pulled from. The picture takes a few thousand samples in one go; the
+     listen button takes millions in slices. Same step(), same radio. */
+  function buildReceive(fs) {
     var sec = fs === DISP ? S.sec : bwFor(fs, S.ft, S.bw, 3);
     var flt = BPBank(fs, S.ft, sec, 3);
     var det = EnvDet(fs, 3 / Math.max(S.ft, 500));
     var dc = DCBlock(fs, 30), lp = Butter(fs, 3200, 6);
     var osc = ST.map(function (o) { return Osc(fs, o.fc); });
     var src = [srcOf(0), srcOf(1), srcOf(2)];
-    var o = buf(n), i, k, t, air, v;
-    for (i = -skip; i < n; i++) {
-      t = i / fs;
-      air = 0;
+    var carriers = S.carriers;
+    return function (i) {
+      var t = i / fs, air = 0, k;
       for (k = 0; k < 3; k++) {
         var c = osc[k]();
-        air += S.carriers ? (1 + MDEPTH * src[k].at(t)) * c : src[k].at(t);
+        air += carriers ? (1 + MDEPTH * src[k].at(t)) * c : src[k].at(t);
       }
-      v = lp(dc(det(flt(air))));
-      if (i >= 0) o[i] = v;
-    }
-    return o;
+      return lp(dc(det(flt(air))));
+    };
   }
+  function receive(n, fs, skip) { return pull(buildReceive(fs), n, skip, 1); }
 
   var f = Fig(cv, AR(2.05, 0.98), function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
@@ -1360,9 +1451,11 @@ function seam(a, fs) {
   var audio = listen('bandPlay', cv, function (fs) {
     /* Three stations at three speeds are never all periodic together, so
        there is no clean loop length to find — the crossfade in seam() is what
-       joins it. Long enough with music to recognise a station by ear. */
-    var sim = fs * OS, secs = S.music ? 5 : AUDIO_SECONDS;
-    return seam(decimate(receive(Math.round(secs * sim), sim, Math.round(0.04 * sim)), OS), fs);
+       joins it. */
+    var sim = fs * OS, secs = S.music ? MUSIC_SECONDS : AUDIO_SECONDS;
+    return { sim: sim, os: OS, skip: Math.round(0.04 * sim),
+             key: ['band', fs, S.music ? 'm' : 'v', S.carriers, Math.round(S.ft), Math.round(S.bw)].join('|'),
+             n: Math.round(secs * sim), step: buildReceive(sim) };
   });
 })();
 
@@ -1480,19 +1573,25 @@ function seam(a, fs) {
      is measured against, and running it through the same two audio filters is
      what keeps the comparison fair: both are delayed and rolled off by the
      same amount, so the only thing left between them is the rectifier. */
-  function detect(n, fs, skip, want) {
+  function buildDetect(fs, want) {
     var det = EnvDet(fs, 3 / FC), dc = DCBlock(fs, 25), lp = Butter(fs, 3200, 6);
-    var dcI = DCBlock(fs, 25), lpI = Butter(fs, 3200, 6);
-    var osc = Osc(fs, FC);
-    var o = buf(n), ideal = want ? buf(n) : null, i, t, env, v, u;
+    var dcI = want ? DCBlock(fs, 25) : null, lpI = want ? Butter(fs, 3200, 6) : null;
+    var osc = Osc(fs, FC), m = S.m, msg = S.msg;
+    var api = { ideal: 0, step: function (i) {
+      var t = i / fs, env = 1 + m * msg.at(t);
+      var v = lp(dc(det(env * osc())));
+      if (want) api.ideal = lpI(dcI(env));
+      return v;
+    } };
+    return api;
+  }
+  function detect(n, fs, skip, want) {
+    var b = buildDetect(fs, want), o = buf(n), id = want ? buf(n) : null, i, v;
     for (i = -skip; i < n; i++) {
-      t = i / fs;
-      env = 1 + S.m * S.msg.at(t);
-      v = lp(dc(det(env * osc())));
-      u = want ? lpI(dcI(env)) : 0;
-      if (i >= 0) { o[i] = v; if (want) ideal[i] = u; }
+      v = b.step(i);
+      if (i >= 0) { o[i] = v; if (want) id[i] = b.ideal; }
     }
-    return want ? { rx: o, ideal: ideal } : o;
+    return want ? { rx: o, ideal: id } : o;
   }
 
   var f = Fig(cv, AR(1.75, 0.95), function (f) {
@@ -1563,7 +1662,9 @@ function seam(a, fs) {
   var audio = listen('depthPlay', cv, function (fs) {
     var sim = fs * OS;
     var n = S.msg.clip ? Math.round(S.msg.dur * sim) : loopLen(sim, S.msg.tones[0].f);
-    return seam(decimate(detect(n, sim, Math.round(0.02 * sim)), OS), fs);
+    return { sim: sim, os: OS, skip: Math.round(0.02 * sim), n: n,
+             key: ['depth', fs, MSGS.map(function (o) { return o.m === S.msg; }).indexOf(true), S.m.toFixed(3)].join('|'),
+             step: buildDetect(sim, false).step };
   });
 })();
 
@@ -1845,7 +1946,7 @@ function seam(a, fs) {
      figure would still read "gone". Comparing the two runs isolates exactly
      the part the slider is responsible for, and it is what the dashed line in
      the lower lane is too. */
-  function link(n, fs, skip, cn, quiet) {
+  function buildLink(fs, cn, quiet) {
     var msg = msgNow(), BW = bwNow();
     /* an unmodulated carrier of unit height has an rms of 1/√2 — that is the
        C the carrier-to-noise ratio is named after */
@@ -1856,9 +1957,9 @@ function seam(a, fs) {
     if (quiet) { fQ = BPBank(fs, FC, BW, 3); dQ = EnvDet(fs, 3 / FC); cQ = DCBlock(fs, 25); lQ = Butter(fs, AF, 6); }
     var oscN = Osc(fs, FC), oscQ = quiet ? Osc(fs, FC) : null;
     var rng = Rng(20260809);
-    var rx = buf(n), air = buf(n), cl = quiet ? buf(n) : null;
-    var i, u, v, r, th, z = 0, have = false, nz, s;
-    for (i = -skip; i < n; i++) {
+    var api = { air: 0, clean: 0 };
+    var u, v, r, th, z = 0, have = false, nz, s;
+    api.step = function (i) {
       /* Box–Muller, one pair at a time, so the noise stream does not depend
          on how long the buffer happens to be */
       if (have) { nz = z; have = false; }
@@ -1869,8 +1970,18 @@ function seam(a, fs) {
       s = (1 + M * msg.at(i / fs)) * oscN();
       v = fN(s + g * nz);
       u = lN(cN(dN(v)));
-      if (quiet) { var q = lQ(cQ(dQ(fQ(s)))); if (i >= 0) cl[i] = q; }
-      if (i >= 0) { air[i] = v; rx[i] = u; }
+      if (quiet) api.clean = lQ(cQ(dQ(fQ(s))));
+      api.air = v;
+      return u;
+    };
+    return api;
+  }
+  function link(n, fs, skip, cn, quiet) {
+    var b = buildLink(fs, cn, quiet);
+    var rx = buf(n), air = buf(n), cl = quiet ? buf(n) : null, i, v;
+    for (i = -skip; i < n; i++) {
+      v = b.step(i);
+      if (i >= 0) { rx[i] = v; air[i] = b.air; if (quiet) cl[i] = b.clean; }
     }
     return { air: air, rx: rx, clean: cl };
   }
@@ -1931,7 +2042,9 @@ function seam(a, fs) {
   var audio = listen('staticPlay', cv, function (fs) {
     var sim = fs * OS;
     var n = S.music ? Math.round(music().dur * sim) : loopLen(sim, 120);
-    return seam(decimate(link(n, sim, Math.round(0.03 * sim), S.cn).rx, OS), fs);
+    return { sim: sim, os: OS, skip: Math.round(0.03 * sim), n: n,
+             key: ['static', fs, S.music ? 'm' : 'v', S.cn].join('|'),
+             step: buildLink(sim, S.cn, false).step };
   });
 })();
 
