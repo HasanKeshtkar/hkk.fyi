@@ -1,6 +1,6 @@
 "use strict";
 /* ============================================================
-   "Hiding a voice inside a wave" — part one, AM.
+   "Hiding a voice inside a wave" — part two, FM.
    Interactive figures. No dependencies, no network. Everything draws to
    <canvas> using the page's three CSS hues so it follows the theme, and
    everything you can hear is synthesised on the spot from the same maths
@@ -373,6 +373,13 @@ function Msg(tones) {
        less for anything with a realistic crest factor — which is the whole
        reason a broadcaster's modulation meter is not a power meter. */
     power: pwr / N / (peak * peak),
+    /* Peak of the normalised message divided by the peak of its normalised
+       integral, in hertz. Frequency modulation is specified by how far the
+       carrier is pushed, not by how far its phase turns, and for anything but
+       a single tone those two are not the same shape — this is the number
+       that converts between them, so that β keeps meaning Δf over the top of
+       the message band whatever the message is. */
+    devK: peak / ipeak,
     /* the normalised message at time t */
     at: function (t) {
       var s = 0;
@@ -843,806 +850,931 @@ function seam(a, fs) {
 }
 
 /* ============================================================
-   HERO — a voice, riding
+   What part two needs on top of part one
+   ============================================================ */
+
+/* Butterworth low-pass of even order, as `order/2` biquad sections.
+
+   Part one got away with cascading one-pole filters. Part two cannot, and the
+   reason is worth stating: after an FM discriminator the noise is not flat —
+   its power rises with the square of frequency, because the discriminator
+   differentiates and differentiation is a rising gain. A gentle filter that
+   leaks a little above the message band therefore leaks the very loudest part
+   of the noise, and it does so by about six decibels. That is a quarter of the
+   whole effect this article is about, thrown away by a filter shape.
+
+   Butterworth is flat where the message is and steep where the noise is, which
+   is precisely what is needed for a figure that claims to be measuring
+   something. */
+function Butter(fs, fc, order) {
+  var k = Math.max(Math.round(order / 2), 1), i, st = [];
+  var w0 = 2 * Math.PI * clamp(fc, 1, fs * 0.49) / fs, cw = Math.cos(w0), sw = Math.sin(w0);
+  for (i = 0; i < k; i++) {
+    var Q = 1 / (2 * Math.cos((2 * i + 1) * Math.PI / (4 * k)));
+    var al = sw / (2 * Q);
+    var a0 = 1 + al;
+    st.push({
+      b0: (1 - cw) / 2 / a0, b1: (1 - cw) / a0, b2: (1 - cw) / 2 / a0,
+      a1: (-2 * cw) / a0, a2: (1 - al) / a0,
+      x1: 0, x2: 0, y1: 0, y2: 0
+    });
+  }
+  return function (x) {
+    for (var j = 0; j < k; j++) {
+      var s = st[j];
+      var y = s.b0 * x + s.b1 * s.x1 + s.b2 * s.x2 - s.a1 * s.y1 - s.a2 * s.y2;
+      s.x2 = s.x1; s.x1 = x; s.y2 = s.y1; s.y1 = y;
+      x = y;
+    }
+    return x;
+  };
+}
+
+/* ---------------- Bessel ----------------
+   J_n(β) for n = 0…nmax, by Miller's downward recurrence.
+
+   Upward recurrence is the obvious way and it is useless: J_n gets very small
+   as n runs past β, and the rounding error does not, so after a dozen orders
+   you are amplifying noise. Downward is stable — start absurdly high with a
+   guess of 1, run the recurrence backwards, and the true solution crowds out
+   whatever you started with. The catch is that the answers come out scaled by
+   an unknown constant, which is what the identity J₀ + 2J₂ + 2J₄ + … = 1 is
+   for. */
+function besselAll(x, nmax) {
+  var out = new Float64Array(nmax + 1), i;
+  if (Math.abs(x) < 1e-9) { out[0] = 1; return out; }
+  var ax = Math.abs(x);
+  var m = 2 * Math.floor((nmax + Math.round(Math.sqrt(40 * (nmax + 1)))) / 2) + 20;
+  var tox = 2 / ax, bj = 1, bjp = 0, sum = 0, bjm, j;
+  var BIG = 1e10, SMALL = 1e-10;
+  for (j = m; j > 0; j--) {
+    bjm = j * tox * bj - bjp;
+    bjp = bj;
+    bj = bjm;                                   /* bj is now J_{j−1} */
+    if (Math.abs(bj) > BIG) {
+      bj *= SMALL; bjp *= SMALL; sum *= SMALL;
+      for (i = 0; i <= nmax; i++) out[i] *= SMALL;
+    }
+    if ((j - 1) % 2 === 0 && j > 1) sum += 2 * bj;
+    if (j - 1 <= nmax) out[j - 1] = bj;
+  }
+  sum += bj;                                    /* the J₀ term */
+  for (i = 0; i <= nmax; i++) out[i] /= sum;
+  /* odd orders of J_n(−x) flip sign; nothing here uses negative β, but a
+     silently wrong answer is worse than a cheap guard */
+  if (x < 0) for (i = 1; i <= nmax; i += 2) out[i] = -out[i];
+  return out;
+}
+
+/* ============================================================
+   The channel, in complex baseband
    ------------------------------------------------------------
-   The whole article in one picture: a fast carrier whose height is being
-   pushed around by a slow message, and the message readable along the top
-   of it as a shape rather than as a wave.
+   Part one simulated the carrier itself, because part one was about a diode
+   that can only see the carrier. Part two is about noise, and for that the
+   carrier is dead weight: every figure below would have to run at ten times
+   the sample rate to carry a wave nobody looks at.
+
+   So drop it. Write the transmitted signal as its complex envelope z(t),
+   where the real signal is Re{z(t)·e^{j2πf꜀t}}. Amplitude modulation moves
+   z along the real axis; angle modulation walks it around the unit circle.
+   Noise becomes a complex number added to z. Nothing is approximated — this
+   is the same simulation, with a term that cancels removed.
+
+   γ is the channel signal-to-noise ratio, S/(N₀W): received power over the
+   noise in one message bandwidth. It is the fair yardstick, because it does
+   not care how much bandwidth the scheme chose to spend — which is the entire
+   argument of this article, and it would be circular to measure it any other
+   way.
+   ============================================================ */
+
+/* Both schemes normalised to the same transmitted power, so the comparison is
+   between the two ideas rather than between two power bills. */
+function cxLink(n, fs, skip, cfg) {
+  var msg = cfg.msg, W = cfg.W, kind = cfg.kind;
+  var BT = cfg.BT, gamma = cfg.gamma;
+  /* Complex white noise at variance σ² per component carries a passband
+     power of σ² spread over a bandwidth of fs, so N₀ = σ²/fs. The received
+     power is ½ for both schemes, which makes γ = fs / (2σ²W). */
+  var sd = (gamma > 0 && isFinite(gamma)) ? Math.sqrt(fs / (2 * gamma * W)) : 0;
+
+  var lpI = Butter(fs, BT / 2, 8), lpQ = Butter(fs, BT / 2, 8);
+  var lpO = Butter(fs, W, 8), dc = DCBlock(fs, 20);
+  var lpIc, lpQc, lpOc, dcC;
+  if (cfg.clean) { lpIc = Butter(fs, BT / 2, 8); lpQc = Butter(fs, BT / 2, 8); lpOc = Butter(fs, W, 8); dcC = DCBlock(fs, 20); }
+
+  /* AM at m = 1, scaled so its mean power matches FM's */
+  var amG = 1 / Math.sqrt(1 + msg.power);
+  /* peak phase deviation that puts the peak frequency deviation at β·W */
+  var D = cfg.beta * W / msg.devK;
+
+  var rng = Rng(cfg.seed || 4041);
+  var out = buf(n), clean = cfg.clean ? buf(n) : null;
+  var iq = cfg.iq ? { re: buf(n), im: buf(n) } : null;
+  var i, t, zr, zi, u, r, th, nr, ni, have = false, spare = 0;
+  var pr = 0, pi = 0, prc = 0, pic = 0, first = true;
+  var vr, vi, vrc, vic, ph, phc, thc, dcv, d;
+
+  for (i = -skip; i < n; i++) {
+    t = i / fs;
+    if (kind === 'am') { zr = amG * (1 + msg.at(t)); zi = 0; }
+    else { ph = D * msg.integral(t); zr = Math.cos(ph); zi = Math.sin(ph); }
+
+    /* one Box–Muller pair feeds both quadratures */
+    if (have) { nr = spare; have = false; }
+    else {
+      u = Math.max(rng(), 1e-12); r = Math.sqrt(-2 * Math.log(u)); th = 2 * Math.PI * rng();
+      nr = r * Math.cos(th); spare = r * Math.sin(th); have = true;
+    }
+    if (have) { ni = spare; have = false; }
+    else {
+      u = Math.max(rng(), 1e-12); r = Math.sqrt(-2 * Math.log(u)); th = 2 * Math.PI * rng();
+      ni = r * Math.cos(th); spare = r * Math.sin(th); have = true;
+    }
+
+    vr = lpI(zr + sd * nr); vi = lpQ(zi + sd * ni);
+    if (cfg.clean) { vrc = lpIc(zr); vic = lpQc(zi); }
+
+    if (kind === 'am') {
+      d  = dc(lpO(Math.sqrt(vr * vr + vi * vi)));
+      if (cfg.clean) phc = dcC(lpOc(Math.sqrt(vrc * vrc + vic * vic)));
+    } else {
+      /* The discriminator: how far the phasor turned since the last sample.
+         Wrapping that difference into ±π is the whole of it — and it is also
+         where the clicks come from. Below threshold the noise occasionally
+         drags the phasor the wrong way round the origin, the wrapped
+         difference jumps by a whole turn, and the output gets a spike that no
+         amount of filtering afterwards can put back. */
+      th = Math.atan2(vi, vr);
+      d = first ? 0 : th - pr;
+      while (d >  Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      pr = th;
+      d = dc(lpO(d * fs / (2 * Math.PI)));
+      if (cfg.clean) {
+        thc = Math.atan2(vic, vrc);
+        dcv = first ? 0 : thc - prc;
+        while (dcv >  Math.PI) dcv -= 2 * Math.PI;
+        while (dcv < -Math.PI) dcv += 2 * Math.PI;
+        prc = thc;
+        phc = dcC(lpOc(dcv * fs / (2 * Math.PI)));
+      }
+      first = false;
+    }
+    if (i >= 0) {
+      out[i] = d;
+      if (cfg.clean) clean[i] = phc;
+      if (iq) { iq.re[i] = vr; iq.im[i] = vi; }
+    }
+  }
+  return { out: out, clean: clean, iq: iq };
+}
+
+/* Output signal-to-noise, measured the same way part one measured it: run the
+   receiver twice, once with the storm and once without, and call the
+   difference noise. Everything the receiver does to the signal on its own —
+   delay, roll-off, the discriminator's own scaling — happens identically in
+   both runs and cancels. */
+function outSNR(L) {
+  var n = L.out.length, i, d, e = 0, p = 0;
+  for (i = 0; i < n; i++) { d = L.out[i] - L.clean[i]; e += d * d; p += L.clean[i] * L.clean[i]; }
+  if (p < 1e-18) return -99;
+  if (e < 1e-20) return 99;
+  return clamp(10 * Math.log10(p / e), -30, 99);
+}
+/* ============================================================
+   HERO — the phasor keeps its length
+   ------------------------------------------------------------
+   Dots dropped at equal intervals of time as the phasor goes round. In
+   amplitude modulation they would march in and out along a spoke; here they
+   stay on the rim and bunch up instead. The bunching is the message.
    ============================================================ */
 (function () {
   var cv = document.getElementById('figHero');
   if (!cv) return;
-  /* time is measured in message periods here, so the numbers are ratios and
-     nothing depends on a sample rate */
-  var msg = voiceMsg(1), FC = 21, M = 0.72;
-  var S = { t0: 0 };
+  var msg = toneMsg(1), BETA = 2.6, S = { t: 0 };
 
-  var f = Fig(cv, 1.18, function (f) {
+  var f = Fig(cv, 1.05, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var P = Plot(4, 8, w - 4, h - 8, 0, 2, -1.95, 1.95);
-    var N = Math.max(Math.round(w * 5), 700), i, t, e;
-    var ys = buf(N), up = buf(N), dn = buf(N);
+    var cx = w / 2, cy = h * 0.46, R = Math.min(w, h * 0.9) / 2 - 22;
+
+    ctx.strokeStyle = fgA(0.22); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = fgA(0.12);
+    ctx.beginPath(); ctx.moveTo(cx - R - 8, cy); ctx.lineTo(cx + R + 8, cy);
+    ctx.moveTo(cx, cy - R - 8); ctx.lineTo(cx, cy + R + 8); ctx.stroke();
+
+    /* one dot per equal step of time, over the last stretch of history */
+    var N = 96, i, tt, ph, x, y, k;
     for (i = 0; i < N; i++) {
-      t = S.t0 + i / (N - 1) * 2;
-      e = 1 + M * msg.at(t);
-      ys[i] = e * Math.cos(2 * Math.PI * FC * t);
-      up[i] = e; dn[i] = -e;
+      tt = S.t - (N - 1 - i) * 0.012;
+      ph = 2 * Math.PI * 7 * tt + BETA * msg.integral(tt);
+      x = cx + R * Math.cos(ph); y = cy - R * Math.sin(ph);
+      k = i / (N - 1);
+      dot(ctx, x, y, 1.6 + 1.4 * k, sigA(0.1 + 0.8 * k * k));
     }
-    baseline(ctx, P, 0.16);
-    trace(ctx, P, ys, fgA(0.42), 1);
-    trace(ctx, P, dn, sigA(0.4), 1.4);
-    trace(ctx, P, up, sigA(1), 2.2);
+    ph = 2 * Math.PI * 7 * S.t + BETA * msg.integral(S.t);
+    ctx.strokeStyle = sigA(1); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * Math.cos(ph), cy - R * Math.sin(ph)); ctx.stroke();
+    dot(ctx, cx + R * Math.cos(ph), cy - R * Math.sin(ph), 4.5, pal().sig, rgba(pal().bg, 1));
+
+    /* the wave it makes, along the bottom */
+    var P = Plot(6, h - 44, w - 6, h - 6, 0, 1, -1.25, 1.25);
+    var M = Math.max(Math.round(w * 4), 600), ys = buf(M), j, t2;
+    for (j = 0; j < M; j++) {
+      t2 = S.t - 1.15 + j / (M - 1) * 1.15;
+      ys[j] = Math.cos(2 * Math.PI * 7 * t2 + BETA * msg.integral(t2));
+    }
+    baseline(ctx, P, 0.14);
+    trace(ctx, P, ys, sigA(0.85), 1.2);
   });
 
-  animate(cv, function (t) { S.t0 = t * 0.22; f.redraw(); });
+  animate(cv, function (t) { S.t = t * 0.34; f.redraw(); });
 })();
 
 /* ============================================================
-   FIG 1 — the crowded band
+   FIG 1 — β, and the carrier that disappears
    ------------------------------------------------------------
-   Three stations, first all shouting at once in the same few hundred hertz,
-   then each lifted onto its own carrier. The point is not that the carrier
-   version looks tidier; it is that in the tidy one there is somewhere to put
-   a filter, and you can drag it.
+   Every sideband pair's height is a Bessel function of the modulation index,
+   and the carrier's own height is J₀. J₀ has zeros. Drag β to 2.405 and the
+   thing the whole transmitter is built around is simply not there.
    ============================================================ */
 (function () {
-  var cv = document.getElementById('figBand');
+  var cv = document.getElementById('figBeta');
   if (!cv) return;
 
-  var FS = 48000, MDEPTH = 0.85;
-  /* Low fundamentals on purpose. An envelope detector needs the carrier to be
-     several times the highest note it is carrying, and these carriers have to
-     stay inside an audio sample rate so the figure can play itself. */
-  var ST = [
-    { fc: 6000,  msg: voiceMsg(120), name: 'js.band.s1' },
-    { fc: 11000, msg: voiceMsg(165), name: 'js.band.s2' },
-    { fc: 16000, msg: voiceMsg(95),  name: 'js.band.s3' }
-  ];
-  /* `bw` is the width the reader asked for; `sec` is what each of the three
-     tuned circuits has to be set to in order to deliver it */
-  var S = { carriers: true, ft: 11000, bw: 2200, sec: 2200 };
-  function resolve() { S.sec = bwFor(FS, S.ft, S.bw, 3); }
-  resolve();
-
-  var out  = document.getElementById('bandOut');
+  var FC = 1200, FM = 100, NMAX = 26;
+  var S = { beta: 2 };
+  var out = document.getElementById('betaOut');
   var cache = Cache();
+  /* the first four zeros of J₀ — the ones a deviation meter is calibrated on */
+  var NULLS = [2.4048, 5.5201, 8.6537, 11.7915];
 
-  function composite(t) {
-    var s = 0;
-    for (var i = 0; i < ST.length; i++) {
-      s += S.carriers ? amAt(ST[i].msg, ST[i].fc, MDEPTH, t) : ST[i].msg.at(t);
+  var f = Fig(cv, 2.15, function (f) {
+    var ctx = f.ctx, w = f.w, h = f.h;
+    clear(f);
+    var P = Plot(30, 40, w - 12, h - 30, 0, 2700, 0, 1.05);
+    var J = besselAll(S.beta, NMAX);
+
+    ctx.drawImage(cache('g', w, h, function (c) {
+      frame(c, P, 0.13);
+      xticks(c, P, [0, 500, 1000, 1500, 2000, 2500], function (v) { return fa(v); });
+      c.font = '500 10px ' + LBL_FONT;
+      c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = fgA(0.5);
+      drawLabel(c, tr('js.beta.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 17);
+      c.save();
+      c.translate(11, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      drawLabel(c, tr('js.beta.yaxis'), 0, 0);
+      c.restore();
+    }), 0, 0, w, h);
+
+    /* Carson's rule, drawn as the bracket it is */
+    var B = 2 * (S.beta + 1) * FM;
+    var lo = Math.max(FC - B / 2, P.xa), hi = Math.min(FC + B / 2, P.xb);
+    ctx.fillStyle = sigA(0.07);
+    ctx.fillRect(P.X(lo), P.y0, P.X(hi) - P.X(lo), P.h);
+    ctx.strokeStyle = sigA(0.4); ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(P.X(lo), P.y0); ctx.lineTo(P.X(lo), P.y1);
+    ctx.moveTo(P.X(hi), P.y0); ctx.lineTo(P.X(hi), P.y1);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = '500 10px ' + LBL_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = sigA(0.85);
+    drawLabel(ctx, tr('js.beta.carson') + '  ' + hz(Math.round(B)), (P.X(lo) + P.X(hi)) / 2, P.y0 - 6);
+
+    /* the lines */
+    var n, a, ff, big = 0;
+    ctx.save(); P.clip(ctx);
+    for (n = NMAX; n >= 0; n--) {
+      a = Math.abs(J[n]);
+      if (a < 0.004) continue;
+      if (n > 0) {
+        ff = FC + n * FM; if (ff <= P.xb) stem(ctx, P, ff, a, sigA(0.95), 2, 2.2);
+        ff = FC - n * FM; if (ff >= P.xa) stem(ctx, P, ff, a, sigA(0.95), 2, 2.2);
+        big = n;
+      }
     }
-    return s;
-  }
-  /* which station the dial is actually sitting on, or null between them */
-  function tuned() {
-    var best = null, bd = 1e9;
-    ST.forEach(function (s) {
-      var d = Math.abs(s.fc - S.ft);
-      if (d < bd) { bd = d; best = s; }
-    });
-    return bd < 1800 ? best : null;
-  }
+    /* the carrier, in ink rather than blue, so its absence reads as absence */
+    var j0 = Math.abs(J[0]);
+    ctx.setLineDash([3, 4]);
+    stem(ctx, P, FC, 1, fgA(0.2), 1.4);
+    ctx.setLineDash([]);
+    if (j0 > 0.004) stem(ctx, P, FC, j0, fgA(0.85), 3, 3.2);
+    ctx.restore();
 
-  /* run the receiver and hand back the recovered audio */
-  function receive(n, fs, skip) {
-    var flt = BPBank(fs, S.ft, S.sec, 3);
-    var det = EnvDet(fs, 3 / Math.max(S.ft, 500));
-    var dc  = DCBlock(fs, 30);
-    var lp  = LP3(fs, 1800);
-    var o = buf(n), i, v;
-    for (i = -skip; i < n; i++) {
-      v = lp(dc(det(flt(composite(i / fs)))));
-      if (i >= 0) o[i] = v;
+    if (j0 < 0.03) {
+      ctx.font = '600 11px ' + LBL_FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = fgA(0.9);
+      drawLabel(ctx, tr('js.beta.gone'), P.X(FC), P.Y(0.30));
+    }
+
+    if (!out) return;
+    var pwr = J[0] * J[0], sig = 0;
+    for (n = 1; n <= NMAX; n++) { pwr += 2 * J[n] * J[n]; if (Math.abs(J[n]) >= 0.01) sig = n; }
+    ro(out, [
+      [tr('js.beta.ro_b'),   '<b>β = ' + fix(S.beta, 3) + '</b>'],
+      [tr('js.beta.ro_dev'), '±' + hz(Math.round(S.beta * FM))],
+      [tr('js.beta.ro_j0'),  '<b>' + fix(J[0], 3) + '</b>'],
+      [tr('js.beta.ro_pairs'), fa(sig)],
+      [tr('js.beta.ro_carson'), hz(Math.round(B))],
+      [tr('js.beta.ro_sum'), fix(pwr, 4)]
+    ]);
+  });
+
+  var sl = slider('betaB', 'betaBv', function (v) { return 'β = ' + fix(v, 3); },
+    function (v) { S.beta = v; f.redraw(); }, function () { audio.refresh(); });
+
+  pills(document.getElementById('betaNulls'), NULLS.map(function (b, i) {
+    return { label: tr('js.beta.null') + ' ' + fa(i + 1), b: b };
+  }).concat([{ label: tr('js.beta.narrow'), b: 0.3 }, { label: tr('js.beta.wide'), b: 5 }]),
+    function (it) {
+      S.beta = it.b;
+      if (sl) { sl.value = String(it.b); sl.dispatchEvent(new Event('input', { bubbles: true })); }
+      f.redraw(); audio.refresh();
+    }, -1);
+
+  var audio = listen('betaPlay', cv, function (fs) {
+    var n = loopLen(fs, FM), o = buf(n), i, t;
+    for (i = 0; i < n; i++) {
+      t = i / fs;
+      o[i] = Math.cos(2 * Math.PI * FC * t + S.beta * Math.sin(2 * Math.PI * FM * t));
     }
     return o;
-  }
+  });
+})();
+
+/* ============================================================
+   FIG 2 — noise, as a phasor
+   ------------------------------------------------------------
+   The geometry the whole bargain rests on. The noise phasor's length does not
+   care how far the signal's own angle is swinging, so the further you swing
+   it, the smaller the same wobble looks by comparison.
+   ============================================================ */
+(function () {
+  var cv = document.getElementById('figPhasor');
+  if (!cv) return;
+
+  var S = { beta: 3, cn: 20, t: 0 };
+  var out = document.getElementById('phOut');
 
   var f = Fig(cv, 2.05, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.58);
-    var SP  = Plot(38, 14, w - 10, top - 18, 0, S.carriers ? 19000 : 1100, 0, 1.12);
-    var TL  = Plot(38, top + 14, w - 10, h - 20, 0, 1, -1.15, 1.15);
+    var cx = w * 0.27, cy = h / 2, R = Math.min(w * 0.24, h * 0.44);
+    var an = Math.pow(10, -S.cn / 20);                 /* noise / signal */
 
-    /* --- axes, once per size and theme --- */
-    ctx.drawImage(cache(S.carriers ? 'c' : 'b', w, h, function (c) {
-      c.font = '500 10px ' + LBL_FONT;
-      frame(c, SP, 0.14); frame(c, TL, 0.14);
-      c.strokeStyle = fgA(0.22); c.lineWidth = 1;
-      c.beginPath(); c.moveTo(TL.x0, TL.Y(0)); c.lineTo(TL.x1, TL.Y(0)); c.stroke();
-      xticks(c, SP, S.carriers ? [0, 5000, 10000, 15000] : [0, 250, 500, 750, 1000],
-             function (v) { return S.carriers ? fa(v / 1000) + 'k' : fa(v); });
-      c.save();
-      c.translate(12, (SP.y0 + SP.y1) / 2); c.rotate(-Math.PI / 2);
-      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
-      drawLabel(c, tr('js.band.axis'), 0, 0);
-      c.restore();
-    }), 0, 0, w, h);
+    /* the circle the signal never leaves */
+    ctx.strokeStyle = fgA(0.18); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = fgA(0.1);
+    ctx.beginPath(); ctx.moveTo(cx - R * 1.25, cy); ctx.lineTo(cx + R * 1.25, cy);
+    ctx.moveTo(cx, cy - R * 1.25); ctx.lineTo(cx, cy + R * 1.25); ctx.stroke();
 
-    laneName(ctx, SP, tr(S.carriers ? 'js.band.lane1c' : 'js.band.lane1b'));
-    laneName(ctx, TL, tr(S.carriers ? 'js.band.lane2c' : 'js.band.lane2b'));
+    /* the signal, wobbling by ±β */
+    var ps = S.beta * Math.sin(2 * Math.PI * 0.22 * S.t);
+    var sx = cx + R * Math.cos(ps), sy = cy - R * Math.sin(ps);
 
-    var t = tuned(), flt = null;
-
-    /* --- the filter, drawn as the shape it actually is --- */
-    if (S.carriers) {
-      flt = BPBank(FS, S.ft, S.sec, 3);
-      var N = 260, i, ff, xs = [], best = 0;
-      for (i = 0; i <= N; i++) {
-        ff = SP.xa + i / N * (SP.xb - SP.xa);
-        xs.push(flt.mag(ff));
-        if (xs[i] > best) best = xs[i];
-      }
-      ctx.save(); SP.clip(ctx);
-      ctx.beginPath();
-      ctx.moveTo(SP.X(SP.xa), SP.Y(0));
-      for (i = 0; i <= N; i++) {
-        ff = SP.xa + i / N * (SP.xb - SP.xa);
-        ctx.lineTo(SP.X(ff), SP.Y(xs[i] / (best || 1) * 1.06));
-      }
-      ctx.lineTo(SP.X(SP.xb), SP.Y(0));
-      ctx.closePath();
-      ctx.fillStyle = sigA(0.13); ctx.fill();
-      ctx.strokeStyle = sigA(0.55); ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.restore();
+    /* The swing, drawn as a spiral rather than an arc. Broadcast FM runs a
+       peak phase deviation of five radians, which is most of a turn each way,
+       and an arc that laps itself just looks like a ring — the one number the
+       figure exists to show would be the one thing you could not see. Winding
+       it outwards keeps every radian visible. */
+    var TURN = 22, r0 = R * 0.34, st, k2, aa, rr;
+    ctx.strokeStyle = sigA(0.3); ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    st = 160;
+    for (k2 = 0; k2 <= st; k2++) {
+      aa = -S.beta + 2 * S.beta * k2 / st;
+      rr = r0 + (aa + S.beta) / (2 * Math.PI) * TURN;
+      if (k2) ctx.lineTo(cx + rr * Math.cos(aa), cy - rr * Math.sin(aa));
+      else ctx.moveTo(cx + rr * Math.cos(aa), cy - rr * Math.sin(aa));
     }
+    ctx.stroke(); ctx.lineCap = 'butt';
 
-    /* --- the stations --- */
-    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.strokeStyle = sigA(0.9); ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+
+    /* the noise, a small circle of possibilities on the end of it */
+    ctx.strokeStyle = fgA(0.4); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(sx, sy, R * an, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    var pn = 2 * Math.PI * 3.1 * S.t;
+    var nx = sx + R * an * Math.cos(pn), ny = sy - R * an * Math.sin(pn);
+    ctx.strokeStyle = fgA(0.75); ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(nx, ny); ctx.stroke();
+
+    /* and the sum, which is all the receiver ever sees */
+    ctx.strokeStyle = fgA(0.85); ctx.lineWidth = 1.4; ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke();
+    ctx.setLineDash([]);
+    dot(ctx, nx, ny, 4, pal().fg, rgba(pal().bg, 1));
+    dot(ctx, sx, sy, 3.5, pal().sig, rgba(pal().bg, 1));
+
+    /* how much angle the noise stole */
+    var err = Math.atan2(ny - cy, nx - cx) * -1 - Math.atan2(sy - cy, sx - cx) * -1;
+    while (err >  Math.PI) err -= 2 * Math.PI;
+    while (err < -Math.PI) err += 2 * Math.PI;
+
+    /* The same two quantities as two bars, against a fixed scale — not against
+       each other. Normalising them to the larger of the two would show the
+       right ratio and the wrong story: the noise bar would appear to shrink
+       when you widen the swing, and the noise is precisely the thing that is
+       not changing. */
+    var BX = w * 0.63, BW = w * 0.28, bh = 16, FULL = 8;
+    var y0 = h * 0.30, y1 = h * 0.30 + bh + 40;
     ctx.font = '500 10px ' + LBL_FONT;
-    ST.forEach(function (s) {
-      var on = S.carriers && t === s;
-      var col = on ? sigA(1) : fgA(S.carriers ? 0.42 : 0.55);
-      if (S.carriers) {
-        stem(ctx, SP, s.fc, 1, col, on ? 2.4 : 1.8, on ? 2.6 : 0);
-        s.msg.lines().forEach(function (L) {
-          var a = MDEPTH * L.a / 2;
-          stem(ctx, SP, s.fc - L.f, a, col, on ? 1.8 : 1.3);
-          stem(ctx, SP, s.fc + L.f, a, col, on ? 1.8 : 1.3);
-        });
-        ctx.fillStyle = on ? sigA(1) : fgA(0.5);
-        drawLabel(ctx, tr(s.name), SP.X(s.fc), SP.Y(1) - 7);
-      } else {
-        /* Three stations, three sets of lines, all in the same few hundred
-           hertz. Different weights so you can see there are three of them —
-           not different positions, because that is exactly the problem. */
-        var a3 = [0.62, 0.42, 0.26][ST.indexOf(s)];
-        s.msg.lines().forEach(function (L) {
-          stem(ctx, SP, L.f, L.a * 0.9, fgA(a3), 2.2);
-        });
-      }
-    });
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = fgA(0.6);
+    drawLabel(ctx, tr('js.ph.bar1'), BX, y0 - 6);
+    ctx.fillStyle = sigA(0.85);
+    ctx.fillRect(BX, y0, Math.max(BW * clamp(S.beta / FULL, 0, 1), 1.5), bh);
+    ctx.fillStyle = fgA(0.6);
+    drawLabel(ctx, tr('js.ph.bar2'), BX, y1 - 6);
+    ctx.fillStyle = fgA(0.55);
+    ctx.fillRect(BX, y1, Math.max(BW * clamp((an / Math.SQRT2) / FULL, 0, 1), 1.5), bh);
+    /* the track they run in, so a very short bar still reads as a short bar */
+    ctx.strokeStyle = fgA(0.16); ctx.lineWidth = 1;
+    ctx.strokeRect(BX + 0.5, y0 + 0.5, BW - 1, bh - 1);
+    ctx.strokeRect(BX + 0.5, y1 + 0.5, BW - 1, bh - 1);
+    ctx.textBaseline = 'middle'; ctx.fillStyle = fgA(0.75);
+    ctx.font = '500 11px ' + LBL_FONT;
+    ctx.textAlign = 'left';
+    drawLabel(ctx, fix(S.beta, 2) + ' rad', BX + BW + 9, y0 + bh / 2);
+    drawLabel(ctx, fix(an / Math.SQRT2, 3) + ' rad', BX + BW + 9, y1 + bh / 2);
 
-    /* --- the dial --- */
-    if (S.carriers) {
-      var dx = SP.X(S.ft);
-      ctx.strokeStyle = sigA(0.9); ctx.lineWidth = 1.4;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath(); ctx.moveTo(dx, SP.y0); ctx.lineTo(dx, SP.y1); ctx.stroke();
-      ctx.setLineDash([]);
-      dot(ctx, dx, SP.y1, 4.5, pal().sig, rgba(pal().bg, 1));
+    if (an > 0.45) {
+      ctx.font = '600 10.5px ' + LBL_FONT;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.9);
+      drawLabel(ctx, tr('js.ph.click'), BX, y1 + bh + 22, w - BX - 10);
     }
 
-    /* --- what comes out of the speaker --- */
-    var M = 1024, rec, i2, p;
-    if (S.carriers) {
-      rec = receive(M, FS, 3000);
-      /* Fixed scale, deliberately not auto-ranged. Tune between two stations
-         and the trace should go quiet; normalising it would fill the lane
-         with amplified nothing and hide the one thing worth seeing. */
-      for (i2 = 0; i2 < M; i2++) rec[i2] *= 1.15;
-    } else {
-      /* no carriers: there is nothing to tune, and the detector has nothing
-         to detect — what you get is the three of them added together */
-      rec = buf(M);
-      for (i2 = 0; i2 < M; i2++) rec[i2] = composite(i2 / FS);
-      p = pk(rec);
-      for (i2 = 0; i2 < M; i2++) rec[i2] /= p;
-    }
-
-    if (S.carriers && t) {
-      var ref = buf(M), lag, i3;
-      for (i2 = 0; i2 < M; i2++) ref[i2] = t.msg.at(i2 / FS);
-      /* slide the sent message along to meet the receiver's own delay */
-      lag = bestLag(rec, ref, 260);
-      for (i3 = 0; i3 < M; i3++) ref[i3] = t.msg.at((i3 - lag) / FS);
-      ctx.save(); TL.clip(ctx);
-      ctx.setLineDash([5, 4]);
-      trace(ctx, TL, ref, fgA(0.42), 1.4);
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-    ctx.save(); TL.clip(ctx);
-    trace(ctx, TL, rec, sigA(1), 1.7);
-    ctx.restore();
-
-    /* --- readout --- */
     if (!out) return;
-    if (!S.carriers) {
-      ro(out, [
-        [tr('js.band.ro_state'), '<b>' + tr('js.band.ro_mush') + '</b>'],
-        [tr('js.band.ro_span'),  fa('0 – 825') + ' Hz'],
-        [tr('js.band.ro_pick'),  tr('js.band.ro_no')]
-      ]);
-      return;
-    }
-    /* how much of the loudest neighbour is getting through */
-    var wanted = t ? flt.mag(t.fc) : 0, worst = 0;
-    ST.forEach(function (s) { if (s !== t) worst = Math.max(worst, flt.mag(s.fc)); });
-    var rej = (wanted > 1e-9 && worst > 1e-12) ? 20 * Math.log10(wanted / worst) : null;
+    var ratio = 20 * Math.log10(S.beta / Math.max(an / Math.SQRT2, 1e-6));
+    /* The drawn circle is where the noise sits on average, but the noise is
+       Rayleigh — it is longer than that a good fraction of the time, and it
+       only has to be longer than the signal once to cost a click. For a
+       complex Gaussian of that rms, the chance of overshooting the carrier is
+       exp(−1/a²), which is nothing at all until it is suddenly everything. */
+    var pEnc = Math.exp(-1 / Math.max(an * an, 1e-9)) * 100;
     ro(out, [
-      [tr('js.band.ro_dial'), '<b>' + hz(Math.round(S.ft / 10) * 10) + '</b>'],
-      [tr('js.band.ro_bw'),   hz(Math.round(flt.bw3()))],
-      [tr('js.band.ro_state'), t ? '<b>' + tr(t.name) + '</b>' : tr('js.band.ro_between')],
-      [tr('js.band.ro_rej'),  t ? (rej === null ? '∞' : db(rej, 0)) : '—']
+      [tr('js.ph.ro_swing'), '<b>' + fix(S.beta, 2) + ' rad</b>'],
+      [tr('js.ph.ro_noise'), fix(an / Math.SQRT2, 4) + ' rad'],
+      [tr('js.ph.ro_ratio'), '<b>' + db(ratio, 0) + '</b>'],
+      [tr('js.ph.ro_enc'),   pEnc < 0.01 ? tr('js.ph.never') : '<b>' + fix(pEnc, 1) + ' %</b>']
     ]);
   });
 
-  /* --- controls --- */
-  pills(document.getElementById('bandMode'), [
-    { label: tr('js.band.mode_b'), c: false },
-    { label: tr('js.band.mode_c'), c: true }
-  ], function (it) { S.carriers = it.c; f.redraw(); audio.refresh(); }, 1);
+  slider('phBeta', 'phBetav', function (v) { return fix(v, 2) + ' rad'; },
+    function (v) { S.beta = v; f.redraw(); });
+  slider('phCN', 'phCNv', function (v) { return db(v, 0); },
+    function (v) { S.cn = v; f.redraw(); });
 
-  slider('bandBW', 'bandBWv', function (v) { return hz(v); },
-    function (v) { S.bw = v; resolve(); f.redraw(); }, function () { audio.refresh(); });
-
-  draggable(cv, function (p) {
-    if (!S.carriers) return;
-    var SP = Plot(38, 14, f.w - 10, 1, 0, 19000, 0, 1);
-    S.ft = clamp(SP.ix(p.x), 3000, 19000);
-    resolve(); f.redraw();
-  });
-  cv.style.cursor = 'ew-resize';
-  /* the dial has to be reachable without a mouse too */
-  cv.tabIndex = 0;
-  cv.addEventListener('keydown', function (e) {
-    var d = e.key === 'ArrowLeft' ? -250 : (e.key === 'ArrowRight' ? 250 : 0);
-    if (!d || !S.carriers) return;
-    S.ft = clamp(S.ft + d, 3000, 19000); resolve(); f.redraw(); audio.refresh(); e.preventDefault();
-  });
-
-  var audio = listen('bandPlay', cv, function (fs) {
-    return seam(receive(Math.round(AUDIO_SECONDS * fs), fs, Math.round(0.05 * fs)), fs);
-  });
+  animate(cv, function (t) { S.t = t; f.redraw(); });
 })();
 
 /* ============================================================
-   FIG 2 — three knobs, one message
+   FIG 3 — quiet, bought
    ------------------------------------------------------------
-   The same message driving all three modulators at once, so the family
-   resemblance is visible: AM changes the height, PM changes where the wave
-   is in its cycle, FM changes how fast it is going. Switch the message to a
-   square and FM turns into two whistles — which is FSK, and which is every
-   modem there has ever been.
+   The same message, the same transmitter power, the same noise, into two
+   receivers. Part one's figure 6 is the top lane, and it has not got any
+   better; what has changed is the lane underneath it.
    ============================================================ */
+var LINK = { FS: 48000, W: 500, msg: voiceMsg(90) };
+LINK.BT = function (beta) { return 2 * (beta + 1) * LINK.W; };
+
 (function () {
-  var cv = document.getElementById('figKnobs');
+  var cv = document.getElementById('figQuiet');
   if (!cv) return;
 
-  /* time in message periods; the carrier is a ratio, not a frequency */
-  var FC = 26, SPAN = 2;
-  var MSGS = [
-    { k: 'js.knobs.m_tone', m: toneMsg(1) },
-    { k: 'js.knobs.m_sq',   m: squareMsg(1, 21) },
-    { k: 'js.knobs.m_tri',  m: triMsg(1, 13) },
-    { k: 'js.knobs.m_voice', m: voiceMsg(1) }
-  ];
-  var S = { msg: MSGS[0].m, depth: 0.6 };
+  var S = { gamma: 26, beta: 5 };
+  var out = document.getElementById('quietOut');
   var cache = Cache();
 
-  var LANES = [
-    { k: 'js.knobs.l_msg', s: 1.6, f: function (msg, d, t) { return msg.at(t); }, slow: true },
-    { k: 'js.knobs.l_am',  s: 1,   f: function (msg, d, t) { return amAt(msg, FC, d, t); } },
-    { k: 'js.knobs.l_fm',  s: 1.6, f: function (msg, d, t) { return fmAt(msg, FC, d * 7, t); } },
-    { k: 'js.knobs.l_pm',  s: 1.6, f: function (msg, d, t) { return pmAt(msg, FC, d * 7, t); } }
-  ];
-
-  var f = Fig(cv, 1.55, function (f) {
-    var ctx = f.ctx, w = f.w, h = f.h;
-    clear(f);
-    var pad = 8, gap = 8, n = LANES.length;
-    var lh = (h - pad * 2 - gap * (n - 1)) / n;
-    var N = Math.max(Math.round(w * 5), 900);
-
-    ctx.drawImage(cache('g', w, h, function (c) {
-      for (var i = 0; i < n; i++) {
-        var P = Plot(6, pad + i * (lh + gap), w - 6, pad + i * (lh + gap) + lh, 0, SPAN, -2.1, 2.1);
-        frame(c, P, 0.12);
-      }
-    }), 0, 0, w, h);
-
-    LANES.forEach(function (L, i) {
-      var P = Plot(6, pad + i * (lh + gap), w - 6, pad + i * (lh + gap) + lh, 0, SPAN, -2.1, 2.1);
-      var ys = buf(N), j;
-      for (j = 0; j < N; j++) ys[j] = L.s * L.f(S.msg, S.depth, j / (N - 1) * SPAN);
-      baseline(ctx, P, 0.15);
-      ctx.save(); P.clip(ctx);
-      if (L.slow) {
-        trace(ctx, P, ys, sigA(1), 2.1);
-      } else {
-        /* the message, ghosted behind each carrier, so it is obvious that all
-           three lanes are being driven by the same thing */
-        var g = buf(N);
-        for (j = 0; j < N; j++) g[j] = S.msg.at(j / (N - 1) * SPAN) * 1.55;
-        trace(ctx, P, g, fgA(0.16), 1.2);
-        trace(ctx, P, ys, sigA(0.95), 1.35);
-      }
-      ctx.restore();
-      laneName(ctx, P, tr(L.k), fgA(0.6));
+  function run(kind, n, fs, skip) {
+    return cxLink(n, fs, skip, {
+      kind: kind, msg: LINK.msg, W: LINK.W, beta: S.beta,
+      BT: kind === 'am' ? 2 * LINK.W : LINK.BT(S.beta),
+      gamma: Math.pow(10, S.gamma / 10), clean: true, seed: 4041
     });
-  });
-
-  pills(document.getElementById('knobsMsg'), MSGS.map(function (o) {
-    return { label: tr(o.k), m: o.m };
-  }), function (it) { S.msg = it.m; f.redraw(); }, 0);
-
-  slider('knobsDepth', 'knobsDepthv', function (v) {
-    return tr('js.knobs.d_am') + ' ' + fix(v, 2) + ' · ' + tr('js.knobs.d_ang') + ' ' + fix(v * 7, 1) + ' rad';
-  }, function (v) { S.depth = v; f.redraw(); });
-})();
-
-/* ============================================================
-   FIG 3 — depth, and breaking it
-   ------------------------------------------------------------
-   Push m past 1 and the envelope tries to go negative. It cannot: the
-   detector is a diode, and a diode has no opinion about sign. What comes out
-   is the fold, and the fold is not the message.
-   ============================================================ */
-(function () {
-  var cv = document.getElementById('figDepth');
-  if (!cv) return;
-
-  var FS = 48000, FC = 6000;
-  var MSGS = [
-    { k: 'js.depth.m_tone',  m: toneMsg(150) },
-    { k: 'js.depth.m_voice', m: voiceMsg(120) }
-  ];
-  var S = { m: 0.7, msg: MSGS[0].m };
-  var out = document.getElementById('depthOut');
-  var cache = Cache();
-
-  /* The receiver, exactly as section four describes it: rectify, hold, leak.
-
-     Alongside it runs a second copy fed the envelope directly, skipping the
-     diode — the answer a detector would give if it could see signs. That is
-     the dashed line in the lower lane and the yardstick the distortion figure
-     is measured against, and running it through the same two audio filters is
-     what keeps the comparison fair: both are delayed and rolled off by the
-     same amount, so the only thing left between them is the rectifier. */
-  function detect(n, fs, skip, want) {
-    var det = EnvDet(fs, 3 / FC), dc = DCBlock(fs, 25), lp = LP3(fs, 1700);
-    var dcI = DCBlock(fs, 25), lpI = LP3(fs, 1700);
-    var o = buf(n), ideal = want ? buf(n) : null, i, t, env, v, u;
-    for (i = -skip; i < n; i++) {
-      t = i / fs;
-      env = 1 + S.m * S.msg.at(t);
-      v = lp(dc(det(env * Math.cos(2 * Math.PI * FC * t))));
-      u = want ? lpI(dcI(env)) : 0;
-      if (i >= 0) { o[i] = v; if (want) ideal[i] = u; }
-    }
-    return want ? { rx: o, ideal: ideal } : o;
   }
 
   var f = Fig(cv, 1.75, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var top = Math.round(h * 0.56);
-    var TX = Plot(8, 10, w - 8, top - 8, 0, 1, -2.7, 2.7);
-    var RX = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.35, 1.35);
+    var top = Math.round(h * 0.5);
+    var A = Plot(8, 10, w - 8, top - 8, 0, 1, -1.35, 1.35);
+    var B = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.35, 1.35);
 
-    ctx.drawImage(cache('g', w, h, function (c) {
-      frame(c, TX, 0.13); frame(c, RX, 0.13);
-    }), 0, 0, w, h);
+    ctx.drawImage(cache('g', w, h, function (c) { frame(c, A, 0.13); frame(c, B, 0.13); }), 0, 0, w, h);
 
-    /* --- transmitted --- */
-    var N = Math.max(Math.round(w * 6), 1200), i, t, e;
-    var SPAN = 3 / S.msg.tones[0].f;          /* three cycles of the slowest tone */
-    var ys = buf(N), up = buf(N), dn = buf(N);
-    var crosses = false;
-    for (i = 0; i < N; i++) {
-      t = i / (N - 1) * SPAN;
-      e = 1 + S.m * S.msg.at(t);
-      if (e < -0.002) crosses = true;   /* an exact graze at m = 1 is not a fold */
-      ys[i] = e * Math.cos(2 * Math.PI * FC * t);
-      up[i] = e; dn[i] = -e;
-    }
-    ctx.save(); TX.clip(ctx);
-    trace(ctx, TX, ys, fgA(0.4), 1);
-    trace(ctx, TX, dn, crosses ? fgA(0.35) : sigA(0.4), 1.3);
-    trace(ctx, TX, up, crosses ? fgA(0.75) : sigA(1), 2);
-    if (crosses) {
-      /* what the diode will actually follow, once the envelope has folded */
-      var fold = buf(N);
-      for (i = 0; i < N; i++) fold[i] = Math.abs(up[i]);
-      trace(ctx, TX, fold, sigA(1), 2);
-    }
-    ctx.restore();
-    laneName(ctx, TX, tr('js.depth.l_tx'), fgA(0.6));
+    var N = Math.round(LINK.FS * 3 / 90), i;
+    var am = run('am', N, LINK.FS, 6000), fm = run('fm', N, LINK.FS, 6000);
 
-    /* --- received --- */
-    var M = Math.round(SPAN * FS);
-    var D = detect(M, FS, 2000, true);
-    var rec = D.rx, ref = D.ideal;
-    ctx.save(); RX.clip(ctx);
-    ctx.setLineDash([5, 4]);
-    trace(ctx, RX, ref, fgA(0.45), 1.4);
-    ctx.setLineDash([]);
-    trace(ctx, RX, rec, sigA(1), 1.8);
-    ctx.restore();
-    laneName(ctx, RX, tr('js.depth.l_rx'), fgA(0.6));
-
-    if (!out) return;
-    var d = fitErr(rec, ref).ratio * 100;
-    ro(out, [
-      [tr('js.depth.ro_m'),    '<b>' + fix(S.m, 2) + '</b>' + (S.m > 1 ? ' · ' + fa(Math.round(S.m * 100)) + '%' : '')],
-      [tr('js.depth.ro_zero'), crosses ? '<b>' + tr('js.yes') + '</b>' : tr('js.no')],
-      [tr('js.depth.ro_dist'), '<b>' + fix(d, 1) + ' %</b>'],
-      [tr('js.depth.ro_state'), tr(crosses ? 'js.depth.ro_broken' : (S.m > 0.95 ? 'js.depth.ro_edge' : 'js.depth.ro_ok'))]
-    ]);
-  });
-
-  pills(document.getElementById('depthMsg'), MSGS.map(function (o) {
-    return { label: tr(o.k), m: o.m };
-  }), function (it) { S.msg = it.m; f.redraw(); audio.refresh(); }, 0);
-
-  slider('depthM', 'depthMv', function (v) { return 'm = ' + fix(v, 2); },
-    function (v) { S.m = v; f.redraw(); }, function () { audio.refresh(); });
-
-  var audio = listen('depthPlay', cv, function (fs) {
-    return seam(detect(loopLen(fs, S.msg.tones[0].f), fs, Math.round(0.03 * fs)), fs);
-  });
-})();
-
-/* ============================================================
-   FIG 4 — where the power goes
-   ------------------------------------------------------------
-   The bill for a receiver made of a diode and a coil. The carrier is a
-   constant: it says nothing, it changes with nothing, and at full modulation
-   it is still eating two thirds of the transmitter.
-   ============================================================ */
-(function () {
-  var cv = document.getElementById('figPower');
-  if (!cv) return;
-
-  var MSGS = [
-    { k: 'js.pw.m_tone',  m: toneMsg(150) },
-    { k: 'js.pw.m_voice', m: voiceMsg(120) },
-    { k: 'js.pw.m_sq',    m: squareMsg(150, 21) }
-  ];
-  var S = { m: 1, msg: MSGS[0].m };
-  var out = document.getElementById('powerOut');
-  var cache = Cache();
-
-  /* the fraction of the transmitted power that is doing any work */
-  function eff(m, msg) { var s = m * m * msg.power; return s / (1 + s); }
-
-  var f = Fig(cv, 2.3, function (f) {
-    var ctx = f.ctx, w = f.w, h = f.h;
-    clear(f);
-    var barTop = 16, barH = 40;
-    var BAR = Plot(10, barTop, w - 10, barTop + barH, 0, 1, 0, 1);
-    var CV  = Plot(44, barTop + barH + 34, w - 12, h - 36, 0, 1.5, 0, 1);
-
-    ctx.drawImage(cache('g', w, h, function (c) {
-      frame(c, CV, 0.13);
-      c.font = '500 10px ' + LBL_FONT;
-      xticks(c, CV, [0, 0.5, 1, 1.5], function (v) { return fa(v.toFixed(1)); });
-      /* the two thirds line, so the number in the prose has somewhere to land */
-      c.strokeStyle = fgA(0.25); c.lineWidth = 1; c.setLineDash([3, 3]);
-      c.beginPath(); c.moveTo(CV.x0, CV.Y(1 / 3)); c.lineTo(CV.x1, CV.Y(1 / 3)); c.stroke();
-      c.setLineDash([]);
-      c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
-      drawLabel(c, fa('1/3'), CV.x0 - 6, CV.Y(1 / 3));
-      drawLabel(c, fa('0'),   CV.x0 - 6, CV.Y(0));
-      drawLabel(c, fa('1'),   CV.x0 - 6, CV.Y(1));
-      c.textAlign = 'center'; c.textBaseline = 'top';
-      drawLabel(c, tr('js.pw.xaxis'), (CV.x0 + CV.x1) / 2, CV.y1 + 18);
-    }), 0, 0, w, h);
-
-    /* --- the split, as one bar --- */
-    var e = eff(S.m, S.msg), xc = BAR.X(1 - e);
-    ctx.fillStyle = fgA(0.18);
-    ctx.fillRect(BAR.x0, BAR.y0, xc - BAR.x0, barH);
-    ctx.fillStyle = sigA(0.85);
-    ctx.fillRect(xc, BAR.y0, BAR.x1 - xc, barH);
-    ctx.strokeStyle = fgA(0.3); ctx.lineWidth = 1;
-    ctx.strokeRect(BAR.x0 + 0.5, BAR.y0 + 0.5, BAR.w - 1, barH - 1);
-
-    ctx.font = '500 11px ' + LBL_FONT;
-    ctx.textBaseline = 'middle';
-    var my = BAR.y0 + barH / 2;
-    if (xc - BAR.x0 > 90) {
-      ctx.textAlign = 'left'; ctx.fillStyle = fgA(0.8);
-      drawLabel(ctx, tr('js.pw.carrier') + '  ' + fa(Math.round((1 - e) * 100)) + '%', BAR.x0 + 9, my);
-    }
-    if (BAR.x1 - xc > 90) {
-      ctx.textAlign = 'right'; ctx.fillStyle = rgba(pal().bg, 1);
-      drawLabel(ctx, fa(Math.round(e * 100)) + '%  ' + tr('js.pw.sidebands'), BAR.x1 - 9, my);
-    }
-
-    /* --- efficiency against depth --- */
-    var N = 200, ys = buf(N + 1), i;
-    for (i = 0; i <= N; i++) ys[i] = eff(i / N * 1.5, S.msg);
-    ctx.save(); CV.clip(ctx);
-    trace(ctx, CV, ys, sigA(0.9), 2);
-    /* beyond m = 1 the curve keeps rising and the signal stops being
-       recoverable, so the useful part of it stops there */
-    ctx.fillStyle = fgA(0.07);
-    ctx.fillRect(CV.X(1), CV.y0, CV.x1 - CV.X(1), CV.h);
-    ctx.strokeStyle = fgA(0.3); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(CV.X(1), CV.y0); ctx.lineTo(CV.X(1), CV.y1); ctx.stroke();
-    ctx.setLineDash([]);
-    dot(ctx, CV.X(S.m), CV.Y(e), 5, pal().sig, rgba(pal().bg, 1));
-    ctx.restore();
-    ctx.font = '500 10px ' + LBL_FONT;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.45);
-    drawLabel(ctx, tr('js.pw.overmod'), CV.X(1) + 6, CV.y0 + 5);
-
-    if (!out) return;
-    ro(out, [
-      [tr('js.pw.ro_m'),    '<b>' + fix(S.m, 2) + '</b>'],
-      [tr('js.pw.ro_mean'), fix(S.msg.power, 3)],
-      [tr('js.pw.ro_car'),  fa(Math.round((1 - e) * 100)) + ' %'],
-      [tr('js.pw.ro_side'), '<b>' + fa(Math.round(e * 100)) + ' %</b>'],
-      [tr('js.pw.ro_ssb'),  fa('100') + ' %']
-    ]);
-  });
-
-  pills(document.getElementById('powerMsg'), MSGS.map(function (o) {
-    return { label: tr(o.k), m: o.m };
-  }), function (it) { S.msg = it.m; f.redraw(); }, 0);
-
-  slider('powerM', 'powerMv', function (v) { return 'm = ' + fix(v, 2); },
-    function (v) { S.m = v; f.redraw(); });
-})();
-
-/* ============================================================
-   FIG 5 — two sidebands, and a spike that says nothing
-   ------------------------------------------------------------
-   Take the carrier away and the envelope stops being the message. Take one
-   sideband away as well and, for a single tone, the envelope stops existing:
-   what is left is a plain sine wave at the wrong frequency. Everything the
-   receiver needs to put it right has to come from inside the receiver.
-   ============================================================ */
-(function () {
-  var cv = document.getElementById('figSide');
-  if (!cv) return;
-
-  /* m = 1, so the sidebands are as tall as amplitude modulation ever lets
-     them be and the gap where the carrier used to stand is unmissable */
-  var FC = 10000, M = 1;
-  var MODES = [
-    { k: 'js.side.am',  v: 'am'  },
-    { k: 'js.side.dsb', v: 'dsb' },
-    { k: 'js.side.usb', v: 'usb' },
-    { k: 'js.side.lsb', v: 'lsb' }
-  ];
-  /* Every preset is scaled so that its highest note still lands inside the
-     window at the top of the pitch slider. A sideband drawn off the edge of
-     the plot is a sideband the reader is entitled to think is not there. */
-  var KINDS = [
-    { k: 'js.side.k_one', f: function (f0) { return toneMsg(f0); } },
-    { k: 'js.side.k_two', f: function (f0) { return twoToneMsg(f0, f0 * 1.6); } },
-    { k: 'js.side.k_voice', f: function (f0) { return voiceMsg(f0 * 0.28); } }
-  ];
-  var S = { mode: 'am', kind: KINDS[0], f0: 1200, msg: null };
-  function rebuild() { S.msg = S.kind.f(S.f0); }
-  rebuild();
-
-  var out = document.getElementById('sideOut');
-  var cache = Cache();
-
-  var f = Fig(cv, 1.95, function (f) {
-    var ctx = f.ctx, w = f.w, h = f.h;
-    clear(f);
-    var top = Math.round(h * 0.56);
-    var SP = Plot(30, 14, w - 12, top - 20, FC - 4200, FC + 4200, 0, 1.14);
-    var TL = Plot(30, top + 12, w - 12, h - 16, 0, 1, -2.1, 2.1);
-
-    ctx.drawImage(cache('g', w, h, function (c) {
-      frame(c, SP, 0.13); frame(c, TL, 0.13);
-      c.strokeStyle = fgA(0.2); c.lineWidth = 1;
-      c.beginPath(); c.moveTo(TL.x0, TL.Y(0)); c.lineTo(TL.x1, TL.Y(0)); c.stroke();
-      xticks(c, SP, [FC - 4000, FC - 2000, FC, FC + 2000, FC + 4000], function (v) {
-        var d = v - FC;
-        return d === 0 ? tr('js.side.fc') : (d > 0 ? '+' : '−') + fa(Math.abs(d) / 1000) + 'k';
-      });
-      /* the carrier's own position, marked whether or not anything is there —
-         the empty slot is the point of the DSB-SC case */
-      c.strokeStyle = fgA(0.18); c.setLineDash([2, 4]); c.lineWidth = 1;
-      c.beginPath(); c.moveTo(SP.X(FC), SP.y0); c.lineTo(SP.X(FC), SP.y1); c.stroke();
-      c.setLineDash([]);
-    }), 0, 0, w, h);
-
-    laneName(ctx, SP, tr('js.side.l_spec'), fgA(0.6));
-    laneName(ctx, TL, tr('js.side.l_time'), fgA(0.6));
-
-    /* --- spectrum --- */
-    var lines = bbLines(S.msg, FC, M, S.mode);
-    ctx.save(); SP.clip(ctx);
-    if (S.mode !== 'am') {
-      /* the ghost of the carrier: where it stood, and how big it was next to
-         everything else. Without it the suppressed-carrier modes look like a
-         quieter picture rather than the same picture with the expensive part
-         taken out. */
-      ctx.setLineDash([3, 4]);
-      stem(ctx, SP, FC, 1, fgA(0.28), 2);
+    /* Each is drawn against its own quiet run, scaled the same way, so the
+       two lanes are directly comparable however differently the two
+       demodulators happen to be geared. */
+    function lane(P, L, key) {
+      var p = Math.max(pk(L.clean), 1e-9), j, a = buf(N), b = buf(N);
+      for (j = 0; j < N; j++) { a[j] = L.clean[j] / p; b[j] = L.out[j] / p; }
+      ctx.save(); P.clip(ctx);
+      ctx.setLineDash([5, 4]);
+      trace(ctx, P, a, fgA(0.45), 1.4);
       ctx.setLineDash([]);
+      trace(ctx, P, b, sigA(1), 1.6);
+      ctx.restore();
+      laneName(ctx, P, tr(key), fgA(0.6));
     }
-    lines.forEach(function (L) {
-      stem(ctx, SP, L.f, L.a, L.carrier ? fgA(0.75) : sigA(1), L.carrier ? 2.4 : 2, L.carrier ? 3 : 2.4);
-    });
-    ctx.restore();
-    if (S.mode !== 'am') {
-      ctx.font = '500 10px ' + LBL_FONT;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = fgA(0.5);
-      drawLabel(ctx, tr('js.side.nocarrier'), SP.X(FC), SP.Y(1) + 6);
-    }
-
-    /* --- time, with the shape a diode would follow --- */
-    var N = Math.max(Math.round(w * 6), 1400), i, t, c, SPAN = 3 / S.f0;
-    var ys = buf(N), up = buf(N), dn = buf(N);
-    for (i = 0; i < N; i++) {
-      t = i / (N - 1) * SPAN;
-      c = bb(S.msg, M, S.mode, t);
-      ys[i] = bbWave(c, FC, t);
-      up[i] = bbEnv(c); dn[i] = -up[i];
-    }
-    ctx.save(); TL.clip(ctx);
-    trace(ctx, TL, ys, fgA(0.42), 1);
-    trace(ctx, TL, dn, sigA(0.4), 1.3);
-    trace(ctx, TL, up, sigA(1), 2);
-    ctx.restore();
+    lane(A, am, 'js.quiet.l_am');
+    lane(B, fm, 'js.quiet.l_fm');
 
     if (!out) return;
-    var span = S.msg.top();
+    var sa = outSNR(am), sf = outSNR(fm);
     ro(out, [
-      [tr('js.side.ro_lines'), '<b>' + fa(lines.length) + '</b>'],
-      [tr('js.side.ro_bw'),    '<b>' + hz(S.mode === 'usb' || S.mode === 'lsb' ? span : 2 * span) + '</b>'],
-      [tr('js.side.ro_car'),   tr(S.mode === 'am' ? 'js.yes' : 'js.no')],
-      [tr('js.side.ro_env'),   tr(S.mode === 'am' ? 'js.side.env_yes'
-                                  : (S.mode === 'dsb' ? 'js.side.env_rect' : 'js.side.env_no'))],
-      [tr('js.side.ro_rx'),    tr(S.mode === 'am' ? 'js.side.rx_diode' : 'js.side.rx_lo')]
+      [tr('js.quiet.ro_g'),  '<b>' + db(S.gamma, 0) + '</b>'],
+      [tr('js.quiet.ro_bw'), fa(Math.round(LINK.BT(S.beta) / (2 * LINK.W))) + '×'],
+      [tr('js.quiet.ro_am'), db(sa, 0)],
+      [tr('js.quiet.ro_fm'), '<b>' + db(sf, 0) + '</b>'],
+      [tr('js.quiet.ro_win'), (sf > sa ? '+' : '') + db(sf - sa, 0)]
     ]);
   });
 
-  pills(document.getElementById('sideMode'), MODES.map(function (o) {
+  slider('quietG', 'quietGv', function (v) { return db(v, 0); },
+    function (v) { S.gamma = v; f.redraw(); },
+    function () { aAm.refresh(); aFm.refresh(); });
+
+  pills(document.getElementById('quietBeta'), [1, 3, 5, 8].map(function (b) {
+    return { label: 'β = ' + fa(b), b: b };
+  }), function (it) { S.beta = it.b; f.redraw(); aAm.refresh(); aFm.refresh(); }, 2);
+
+  var aAm = listen('quietPlayAm', cv, function (fs) {
+    return seam(run('am', loopLen(fs, 90), fs, Math.round(0.06 * fs)).out, fs);
+  });
+  var aFm = listen('quietPlayFm', cv, function (fs) {
+    return seam(run('fm', loopLen(fs, 90), fs, Math.round(0.06 * fs)).out, fs);
+  });
+})();
+
+/* ============================================================
+   FIG 4 — the cliff
+   ------------------------------------------------------------
+   Not a formula plotted: twenty-six runs of the same receiver at twenty-six
+   noise levels, measured. The knee is where it lands on its own.
+   ============================================================ */
+(function () {
+  var cv = document.getElementById('figCliff');
+  if (!cv) return;
+
+  var S = { beta: 5, gamma: 22 };
+  var out = document.getElementById('cliffOut');
+  var cache = Cache();
+  var GS = [], i;
+  for (i = 0; i <= 25; i++) GS.push(2 + i * 1.72);        /* γ from 2 to 45 dB */
+  var CURVES = {};                                        /* keyed on kind|β */
+
+  function curve(kind, beta) {
+    var key = kind + '|' + beta;
+    if (CURVES[key]) return CURVES[key];
+    var ys = GS.map(function (g) {
+      return outSNR(cxLink(12288, LINK.FS, 4000, {
+        kind: kind, msg: LINK.msg, W: LINK.W, beta: beta,
+        BT: kind === 'am' ? 2 * LINK.W : LINK.BT(beta),
+        gamma: Math.pow(10, g / 10), clean: true, seed: 4041
+      }));
+    });
+    CURVES[key] = ys;
+    return ys;
+  }
+  function at(ys, g) {
+    var k = clamp((g - GS[0]) / (GS[1] - GS[0]), 0, GS.length - 1.001);
+    var i0 = Math.floor(k);
+    return lerp(ys[i0], ys[i0 + 1], k - i0);
+  }
+
+  var f = Fig(cv, 1.6, function (f) {
+    var ctx = f.ctx, w = f.w, h = f.h;
+    clear(f);
+    var P = Plot(44, 14, w - 14, h - 34, 0, 46, -5, 70);
+
+    ctx.drawImage(cache('g', w, h, function (c) {
+      frame(c, P, 0.13);
+      c.strokeStyle = fgA(0.08); c.lineWidth = 1;
+      [0, 10, 20, 30, 40, 50, 60, 70].forEach(function (v) {
+        c.beginPath(); c.moveTo(P.x0, P.Y(v)); c.lineTo(P.x1, P.Y(v)); c.stroke();
+      });
+      c.font = '500 10px ' + LBL_FONT;
+      c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = fgA(0.5);
+      [0, 20, 40, 60].forEach(function (v) { drawLabel(c, fa(v), P.x0 - 6, P.Y(v)); });
+      xticks(c, P, [0, 10, 20, 30, 40], function (v) { return fa(v); });
+      c.textAlign = 'center'; c.textBaseline = 'top';
+      drawLabel(c, tr('js.cliff.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18);
+      c.save(); c.translate(12, (P.y0 + P.y1) / 2); c.rotate(-Math.PI / 2);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      drawLabel(c, tr('js.cliff.yaxis'), 0, 0);
+      c.restore();
+    }), 0, 0, w, h);
+
+    function draw(ys, color, lw, dash) {
+      ctx.save(); P.clip(ctx);
+      if (dash) ctx.setLineDash(dash);
+      ctx.beginPath();
+      GS.forEach(function (g, k) {
+        var x = P.X(g), y = P.Y(ys[k]);
+        if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    var amY = curve('am', 1), fmY = curve('fm', S.beta);
+    draw(amY, fgA(0.6), 1.8, [5, 4]);
+    draw(fmY, sigA(1), 2.2);
+
+    ctx.font = '500 10.5px ' + LBL_FONT;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = fgA(0.65);
+    drawLabel(ctx, tr('js.cliff.am'), P.X(41), P.Y(at(amY, 41)) + 12);
+    ctx.fillStyle = sigA(1);
+    drawLabel(ctx, 'FM β = ' + fa(S.beta), P.X(30), P.Y(at(fmY, 30)) - 12);
+
+    var ga = at(amY, S.gamma), gf = at(fmY, S.gamma);
+    ctx.strokeStyle = fgA(0.35); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(P.X(S.gamma), P.y0); ctx.lineTo(P.X(S.gamma), P.y1); ctx.stroke();
+    ctx.setLineDash([]);
+    dot(ctx, P.X(S.gamma), P.Y(ga), 4.5, pal().fg, rgba(pal().bg, 1));
+    dot(ctx, P.X(S.gamma), P.Y(gf), 5.5, pal().sig, rgba(pal().bg, 1));
+
+    if (!out) return;
+    /* where the knee is: the last point going down at which FM is still
+       within 3 dB of the straight line it follows when it is behaving */
+    var kn = GS[0], k;
+    for (k = GS.length - 1; k > 0; k--) {
+      if (fmY[k] - fmY[k - 1] > 1.6 * (GS[k] - GS[k - 1])) { kn = GS[k]; break; }
+    }
+    ro(out, [
+      [tr('js.cliff.ro_g'),   '<b>' + db(S.gamma, 0) + '</b>'],
+      [tr('js.cliff.ro_am'),  db(ga, 0)],
+      [tr('js.cliff.ro_fm'),  '<b>' + db(gf, 0) + '</b>'],
+      [tr('js.cliff.ro_win'), (gf > ga ? '+' : '') + db(gf - ga, 0)],
+      [tr('js.cliff.ro_bw'),  fa(Math.round(LINK.BT(S.beta) / (2 * LINK.W))) + '×'],
+      [tr('js.cliff.ro_knee'), db(kn, 0)],
+      [tr('js.cliff.ro_st'),  tr(S.gamma >= kn ? 'js.cliff.above' : 'js.cliff.below')]
+    ]);
+  });
+
+  pills(document.getElementById('cliffBeta'), [1, 3, 5, 8].map(function (b) {
+    return { label: 'β = ' + fa(b), b: b };
+  }), function (it) { S.beta = it.b; f.redraw(); audio.refresh(); }, 2);
+
+  slider('cliffG', 'cliffGv', function (v) { return db(v, 0); },
+    function (v) { S.gamma = v; f.redraw(); }, function () { audio.refresh(); });
+
+  draggable(cv, function (p) {
+    var P = Plot(44, 14, f.w - 14, 1, 0, 46, 0, 1);
+    S.gamma = Math.round(clamp(P.ix(p.x), 2, 45));
+    var el = document.getElementById('cliffG');
+    if (el) { el.value = String(S.gamma); el.dispatchEvent(new Event('input', { bubbles: true })); }
+    f.redraw();
+  });
+  cv.style.cursor = 'ew-resize';
+
+  var audio = listen('cliffPlay', cv, function (fs) {
+    return seam(cxLink(loopLen(fs, 90), fs, Math.round(0.06 * fs), {
+      kind: 'fm', msg: LINK.msg, W: LINK.W, beta: S.beta, BT: LINK.BT(S.beta),
+      gamma: Math.pow(10, S.gamma / 10), seed: 4041
+    }).out, fs);
+  });
+})();
+
+/* ============================================================
+   FIG 5 — the multiplex
+   ------------------------------------------------------------
+   Stereo, added in 1961 to a service with millions of mono receivers already
+   in the field, none of which were allowed to notice. Everything above
+   15 kHz is the part the old sets cannot hear.
+   ============================================================ */
+(function () {
+  var cv = document.getElementById('figMpx');
+  if (!cv) return;
+
+  var S = { l: 0.9, r: 0.35, mono: false };
+  var out = document.getElementById('mpxOut');
+  var cache = Cache();
+  var FL = 400, FR = 700;                 /* left is a low note, right a high one */
+
+  function comp(t) {
+    var L = S.l * Math.sin(2 * Math.PI * FL * t), R = S.r * Math.sin(2 * Math.PI * FR * t);
+    return 0.5 * (L + R)
+         + 0.09 * Math.sin(2 * Math.PI * 19000 * t)
+         + 0.5 * (L - R) * Math.sin(2 * Math.PI * 38000 * t);
+  }
+
+  var f = Fig(cv, 2.15, function (f) {
+    var ctx = f.ctx, w = f.w, h = f.h;
+    clear(f);
+    var top = Math.round(h * 0.55);
+    /* a clear strip above the frame, so the annotation for the old receiver's
+       hearing range has somewhere to live that is not on top of a band label */
+    var P = Plot(16, 46, w - 12, top - 22, 0, 62000, 0, 1.1);
+    var T = Plot(16, top + 12, w - 12, h - 16, 0, 1, -1.15, 1.15);
+
+    ctx.drawImage(cache('g', w, h, function (c) {
+      frame(c, P, 0.13); frame(c, T, 0.13);
+      c.strokeStyle = fgA(0.2); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(T.x0, T.Y(0)); c.lineTo(T.x1, T.Y(0)); c.stroke();
+      xticks(c, P, [0, 15000, 19000, 23000, 38000, 53000, 57000], function (v) { return fa(v / 1000); });
+      c.font = '500 10px ' + LBL_FONT;
+      c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = fgA(0.5);
+      drawLabel(c, tr('js.mpx.xaxis'), (P.x0 + P.x1) / 2, P.y1 + 18);
+      /* where a 1961 receiver stopped listening */
+      c.strokeStyle = fgA(0.3); c.setLineDash([4, 3]); c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(P.X(15000), P.y0); c.lineTo(P.X(15000), P.y1); c.stroke();
+      c.setLineDash([]);
+    }), 0, 0, w, h);
+
+    var sum = 0.5 * (S.l + S.r), dif = 0.5 * Math.abs(S.l - S.r);
+    function band(a, b, hgt, col, label) {
+      var x0 = P.X(a), x1 = P.X(b), y = P.Y(Math.max(hgt, 0.012));
+      ctx.fillStyle = col;
+      ctx.fillRect(x0, y, Math.max(x1 - x0, 2), P.Y(0) - y);
+      if (!label) return;
+      ctx.font = '500 9.5px ' + LBL_FONT;
+      ctx.textAlign = 'center';
+      /* A tall block has no room above it, so the label goes inside in the
+         page colour. A short one has nowhere inside, so it goes above. */
+      if (P.Y(0) - y > 30 && x1 - x0 > 60) {
+        ctx.textBaseline = 'top'; ctx.fillStyle = rgba(pal().bg, 0.95);
+        drawLabel(ctx, label, (x0 + x1) / 2, y + 6, x1 - x0 - 10);
+      } else {
+        ctx.textBaseline = 'bottom'; ctx.fillStyle = fgA(0.62);
+        drawLabel(ctx, label, (x0 + x1) / 2, y - 5);
+      }
+    }
+    var live = S.mono ? fgA(0.2) : sigA(0.75);
+    band(30, 15000, sum, sigA(0.75), tr('js.mpx.sum'));
+    band(18800, 19200, 0.09, S.mono ? fgA(0.25) : sigA(0.9), tr('js.mpx.pilot'));
+    band(23000, 38000, dif, live, null);
+    band(38000, 53000, dif, live, tr('js.mpx.dif'));
+    band(56700, 57300, 0.05, S.mono ? fgA(0.2) : fgA(0.5), tr('js.mpx.rds'));
+    if (S.mono) {
+      ctx.font = '600 10.5px ' + LBL_FONT;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = fgA(0.85);
+      drawLabel(ctx, tr('js.mpx.deaf'), P.X(24000), P.Y(0.62), P.x1 - P.X(24000) - 8);
+    }
+    /* the old receiver's hearing, bracketed above the frame */
+    var bx0 = P.X(0), bx1 = P.X(15000), by = P.y0 - 12;
+    ctx.strokeStyle = fgA(0.32); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx0 + 0.5, by + 5); ctx.lineTo(bx0 + 0.5, by);
+    ctx.lineTo(bx1 - 0.5, by); ctx.lineTo(bx1 - 0.5, by + 5);
+    ctx.stroke();
+    ctx.font = '500 9.5px ' + LBL_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = fgA(0.5);
+    drawLabel(ctx, tr('js.mpx.oldset'), (bx0 + bx1) / 2, by - 4, bx1 - bx0 - 8);
+
+    /* the composite, in time */
+    var N = Math.max(Math.round(w * 6), 1400), ys = buf(N), j, SPAN = 2 / FL;
+    for (j = 0; j < N; j++) ys[j] = comp(j / (N - 1) * SPAN);
+    ctx.save(); T.clip(ctx);
+    if (S.mono) {
+      var mono = buf(N);
+      for (j = 0; j < N; j++) {
+        var t = j / (N - 1) * SPAN;
+        mono[j] = 0.5 * (S.l * Math.sin(2 * Math.PI * FL * t) + S.r * Math.sin(2 * Math.PI * FR * t));
+      }
+      trace(ctx, T, ys, fgA(0.22), 1);
+      trace(ctx, T, mono, sigA(1), 1.9);
+    } else {
+      trace(ctx, T, ys, sigA(0.9), 1.3);
+    }
+    ctx.restore();
+    laneName(ctx, T, tr(S.mono ? 'js.mpx.l_mono' : 'js.mpx.l_comp'), fgA(0.6));
+
+    if (!out) return;
+    ro(out, [
+      [tr('js.mpx.ro_l'),   fix(S.l, 2)],
+      [tr('js.mpx.ro_r'),   fix(S.r, 2)],
+      [tr('js.mpx.ro_sum'), '<b>' + fix(sum, 2) + '</b>'],
+      [tr('js.mpx.ro_dif'), fix(dif, 2)],
+      [tr('js.mpx.ro_hear'), tr(S.mono ? 'js.mpx.h_mono' : 'js.mpx.h_st')]
+    ]);
+  });
+
+  slider('mpxL', 'mpxLv', function (v) { return fix(v, 2); }, function (v) { S.l = v; f.redraw(); });
+  slider('mpxR', 'mpxRv', function (v) { return fix(v, 2); }, function (v) { S.r = v; f.redraw(); });
+  check('mpxMono', function (v) { S.mono = v; f.redraw(); });
+})();
+
+/* ============================================================
+   FIG 6 — everything, in one plane
+   ------------------------------------------------------------
+   Plot the complex envelope and every scheme in this two-part article is a
+   different way of moving one point around. That is not a metaphor; it is
+   how a modern radio is actually built.
+   ============================================================ */
+(function () {
+  var cv = document.getElementById('figIQ');
+  if (!cv) return;
+
+  var msg = toneMsg(1);
+  var MODES = [
+    { k: 'js.iq.am',  v: 'am',  note: 'js.iq.n_am' },
+    { k: 'js.iq.pm',  v: 'pm',  note: 'js.iq.n_pm' },
+    { k: 'js.iq.fm',  v: 'fm',  note: 'js.iq.n_fm' },
+    { k: 'js.iq.ssb', v: 'ssb', note: 'js.iq.n_ssb' },
+    { k: 'js.iq.qam', v: 'qam', note: 'js.iq.n_qam' }
+  ];
+  var S = { mode: 'am', t: 0 };
+  var out = document.getElementById('iqOut');
+  /* a repeatable little hop sequence, so the constellation is the same
+     picture on every redraw */
+  var HOP = [], rh = Rng(19830523), i;
+  for (i = 0; i < 64; i++) HOP.push([(Math.floor(rh() * 4) * 2 - 3) / 3, (Math.floor(rh() * 4) * 2 - 3) / 3]);
+
+  function z(mode, t) {
+    if (mode === 'am')  { var e = 0.55 + 0.42 * msg.at(t); return [e, 0]; }
+    if (mode === 'pm')  { var p = 2.2 * msg.at(t); return [0.9 * Math.cos(p), 0.9 * Math.sin(p)]; }
+    if (mode === 'fm')  { var q = 2.6 * msg.integral(t); return [0.9 * Math.cos(q), 0.9 * Math.sin(q)]; }
+    if (mode === 'ssb') { var a = 2 * Math.PI * t; return [0.72 * Math.cos(a), 0.72 * Math.sin(a)]; }
+    /* 16-QAM: hold each point for a symbol, then jump */
+    var k = Math.floor(t * 6), f2 = clamp((t * 6 - k) * 3.2, 0, 1);
+    var A = HOP[((k % HOP.length) + HOP.length) % HOP.length];
+    var B = HOP[(((k + 1) % HOP.length) + HOP.length) % HOP.length];
+    return [lerp(A[0], B[0], f2) * 0.85, lerp(A[1], B[1], f2) * 0.85];
+  }
+
+  var f = Fig(cv, 1.85, function (f) {
+    var ctx = f.ctx, w = f.w, h = f.h;
+    clear(f);
+    var R = Math.min(w * 0.30, h * 0.42);
+    var cx = R + 26, cy = h / 2;
+    var P = Plot(cx + R + 34, 16, w - 12, h - 16, 0, 1, -1.15, 1.15);
+
+    /* the plane */
+    ctx.strokeStyle = fgA(0.13); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - R * 1.22, cy); ctx.lineTo(cx + R * 1.22, cy);
+    ctx.moveTo(cx, cy - R * 1.22); ctx.lineTo(cx, cy + R * 1.22); ctx.stroke();
+    ctx.font = '500 10px ' + LBL_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = fgA(0.45);
+    drawLabel(ctx, 'I', cx + R * 1.22 - 4, cy + 4);
+    ctx.textBaseline = 'bottom';
+    drawLabel(ctx, 'Q', cx + 9, cy - R * 1.22 + 12);
+
+    if (S.mode === 'qam') {
+      var gx, gy;
+      for (gx = -3; gx <= 3; gx += 2) for (gy = -3; gy <= 3; gy += 2) {
+        dot(ctx, cx + gx / 3 * 0.85 * R, cy - gy / 3 * 0.85 * R, 2.4, fgA(0.28));
+      }
+    }
+
+    /* where the point has been */
+    var N = 150, k, tt, p, x, y;
+    ctx.beginPath();
+    for (k = 0; k < N; k++) {
+      tt = S.t - (N - 1 - k) * 0.008;
+      p = z(S.mode, tt);
+      x = cx + p[0] * R; y = cy - p[1] * R;
+      if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = sigA(0.35); ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    p = z(S.mode, S.t);
+    ctx.strokeStyle = sigA(0.7); ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + p[0] * R, cy - p[1] * R); ctx.stroke();
+    dot(ctx, cx + p[0] * R, cy - p[1] * R, 5, pal().sig, rgba(pal().bg, 1));
+
+    /* and the wave it comes out as */
+    var M = Math.max(Math.round(P.w * 5), 500), ys = buf(M), j, t2, q2;
+    for (j = 0; j < M; j++) {
+      t2 = S.t - 1.1 + j / (M - 1) * 1.1;
+      q2 = z(S.mode, t2);
+      ys[j] = q2[0] * Math.cos(2 * Math.PI * 15 * t2) - q2[1] * Math.sin(2 * Math.PI * 15 * t2);
+    }
+    frame(ctx, P, 0.12);
+    baseline(ctx, P, 0.14);
+    ctx.save(); P.clip(ctx);
+    trace(ctx, P, ys, sigA(0.9), 1.2);
+    ctx.restore();
+    laneName(ctx, P, tr('js.iq.wave'), fgA(0.55));
+
+    if (!out) return;
+    var m = MODES.filter(function (o) { return o.v === S.mode; })[0];
+    ro(out, [
+      [tr('js.iq.ro_path'), '<b>' + tr(m.note) + '</b>'],
+      [tr('js.iq.ro_amp'),  tr(S.mode === 'am' || S.mode === 'qam' ? 'js.yes' : 'js.no')],
+      [tr('js.iq.ro_ang'),  tr(S.mode === 'am' ? 'js.no' : 'js.yes')]
+    ]);
+  });
+
+  pills(document.getElementById('iqMode'), MODES.map(function (o) {
     return { label: tr(o.k), v: o.v };
   }), function (it) { S.mode = it.v; f.redraw(); }, 0);
 
-  pills(document.getElementById('sideKind'), KINDS.map(function (o) {
-    return { label: tr(o.k), o: o };
-  }), function (it) { S.kind = it.o; rebuild(); f.redraw(); }, 0);
-
-  slider('sideFm', 'sideFmv', function (v) { return hz(v); },
-    function (v) { S.f0 = v; rebuild(); f.redraw(); });
+  animate(cv, function (t) { S.t = t * 0.5; f.redraw(); });
 })();
-
-/* ============================================================
-   FIG 6 — static
-   ------------------------------------------------------------
-   The case against AM, in one slider. Nature writes in amplitude, AM's
-   message *is* amplitude, and the detector has no way of telling which of the
-   two it is looking at — so it passes both on faithfully.
-   ============================================================ */
-(function () {
-  var cv = document.getElementById('figStatic');
-  if (!cv) return;
-
-  var FS = 48000, FC = 6000, BW = 2600, M = 0.8;
-  var msg = voiceMsg(120);
-  var S = { cn: 26 };
-  var out = document.getElementById('staticOut');
-  var cache = Cache();
-
-  /* How loud is white noise once the receiver's own filter has had it? Push
-     unit-variance noise through a copy of the front end and measure. Doing it
-     rather than deriving it means the number is right whatever the filter is,
-     and the decibels on the slider are decibels a meter would agree with. */
-  var NR = {};
-  function noiseRef(fs) {
-    if (NR[fs]) return NR[fs];
-    var flt = BPBank(fs, FC, BW, 3), rng = Rng(7), n = 16384, tmp = buf(n), i;
-    gaussFill(tmp, rng, 1);
-    for (i = 0; i < n; i++) tmp[i] = flt(tmp[i]);
-    NR[fs] = Math.max(rms(tmp.subarray(n >> 2)), 1e-9);
-    return NR[fs];
-  }
-
-  /* The whole radio: transmitter, sky, receiver — run twice side by side, once
-     with the storm and once without.
-
-     The quiet copy is what makes the measurement mean anything. A receiver's
-     filters delay and colour everything they pass, storm or no storm, and
-     scoring the noisy output against the raw message would charge all of that
-     to the noise: at a carrier forty decibels clear of the interference the
-     figure would still read "gone". Comparing the two runs isolates exactly
-     the part the slider is responsible for, and it is what the dashed line in
-     the lower lane is too. */
-  function link(n, fs, skip, cn, quiet) {
-    /* an unmodulated carrier of unit height has an rms of 1/√2 — that is the
-       C the carrier-to-noise ratio is named after */
-    var g = (Math.SQRT1_2 / Math.pow(10, cn / 20)) / noiseRef(fs);
-    var fN = BPBank(fs, FC, BW, 3), dN = EnvDet(fs, 3 / FC), cN = DCBlock(fs, 25), lN = LP3(fs, 1500);
-    var fQ, dQ, cQ, lQ;
-    if (quiet) { fQ = BPBank(fs, FC, BW, 3); dQ = EnvDet(fs, 3 / FC); cQ = DCBlock(fs, 25); lQ = LP3(fs, 1500); }
-    var rng = Rng(20260809);
-    var rx = buf(n), air = buf(n), cl = quiet ? buf(n) : null;
-    var i, u, v, r, th, z = 0, have = false, nz, s;
-    for (i = -skip; i < n; i++) {
-      /* Box–Muller, one pair at a time, so the noise stream does not depend
-         on how long the buffer happens to be */
-      if (have) { nz = z; have = false; }
-      else {
-        u = Math.max(rng(), 1e-12); r = Math.sqrt(-2 * Math.log(u)); th = 2 * Math.PI * rng();
-        nz = r * Math.cos(th); z = r * Math.sin(th); have = true;
-      }
-      s = amAt(msg, FC, M, i / fs);
-      v = fN(s + g * nz);
-      u = lN(cN(dN(v)));
-      if (quiet) { var q = lQ(cQ(dQ(fQ(s)))); if (i >= 0) cl[i] = q; }
-      if (i >= 0) { air[i] = v; rx[i] = u; }
-    }
-    return { air: air, rx: rx, clean: cl };
-  }
-
-  var f = Fig(cv, 1.8, function (f) {
-    var ctx = f.ctx, w = f.w, h = f.h;
-    clear(f);
-    var top = Math.round(h * 0.5);
-    var TX = Plot(8, 10, w - 8, top - 8, 0, 1, -2.4, 2.4);
-    var RX = Plot(8, top + 10, w - 8, h - 10, 0, 1, -1.3, 1.3);
-
-    ctx.drawImage(cache('g', w, h, function (c) {
-      frame(c, TX, 0.13); frame(c, RX, 0.13);
-    }), 0, 0, w, h);
-
-    var SPAN = 3 / 120, N = Math.round(SPAN * FS), i;
-    var L = link(N, FS, 2400, S.cn, true);
-    var ref = L.clean;
-
-    ctx.save(); TX.clip(ctx);
-    trace(ctx, TX, L.air, fgA(0.5), 1);
-    ctx.restore();
-    laneName(ctx, TX, tr('js.static.l_air'), fgA(0.6));
-
-    ctx.save(); RX.clip(ctx);
-    ctx.setLineDash([5, 4]);
-    trace(ctx, RX, ref, fgA(0.45), 1.4);
-    ctx.setLineDash([]);
-    trace(ctx, RX, L.rx, sigA(1), 1.6);
-    ctx.restore();
-    laneName(ctx, RX, tr('js.static.l_rx'), fgA(0.6));
-
-    if (!out) return;
-    /* the message that got through, against the noise that came with it */
-    var e = 0, p = 0, d;
-    for (i = 0; i < N; i++) { d = L.rx[i] - ref[i]; e += d * d; p += ref[i] * ref[i]; }
-    var snr = (e < 1e-14 || p < 1e-16) ? 99 : clamp(10 * Math.log10(p / e), -20, 99);
-    var verdict = snr > 26 ? 'js.static.v_clean'
-                : snr > 15 ? 'js.static.v_hiss'
-                : snr > 5  ? 'js.static.v_rough'
-                :            'js.static.v_gone';
-    ro(out, [
-      [tr('js.static.ro_cn'),  '<b>' + db(S.cn, 0) + '</b>'],
-      [tr('js.static.ro_snr'), '<b>' + db(Math.min(snr, 99), 0) + '</b>'],
-      [tr('js.static.ro_gain'), fix(snr - S.cn, 1) + ' dB'],
-      [tr('js.static.ro_v'),   tr(verdict)]
-    ]);
-  });
-
-  slider('staticCN', 'staticCNv', function (v) { return db(v, 0); },
-    function (v) { S.cn = v; f.redraw(); }, function () { audio.refresh(); });
-
-  var audio = listen('staticPlay', cv, function (fs) {
-    return seam(link(loopLen(fs, 120), fs, Math.round(0.04 * fs), S.cn).rx, fs);
-  });
-})();
-
 /* ============================================================
    Share row
    ============================================================ */
