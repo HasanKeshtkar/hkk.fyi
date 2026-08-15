@@ -157,6 +157,143 @@ function verdict(el, kind, text) {
   el.innerHTML = text;
 }
 
+/* ============================================================
+   Sound
+   ------------------------------------------------------------
+   Three of these figures are about things the ear reads faster than
+   the eye: an envelope folded through zero, a detector that cannot
+   keep up, two stations inside one filter. Web Audio, no files, and
+   nothing makes a sound until it is asked to — one figure at a time,
+   and never while it is off screen.
+
+   Every generator returns one loop holding a whole number of cycles,
+   so the seam is silent, and every loop has its mean removed: the
+   audio side of a receiver is AC-coupled, and a buffer with a DC
+   offset in it starts and ends with a click.
+   ============================================================ */
+var AUDIO = (function () {
+  var ac = null, cur = null, owner = null, onEnd = null, pend = null, last = 0;
+  var LEVEL = 0.16, FADE = 0.05;
+
+  function context() {
+    if (!ac) {
+      var C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      ac = new C();
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function attach(data) {
+    var buf = ac.createBuffer(1, data.length, ac.sampleRate);
+    if (buf.copyToChannel) buf.copyToChannel(data, 0);
+    else buf.getChannelData(0).set(data);
+    var src = ac.createBufferSource(), g = ac.createGain();
+    src.buffer = buf; src.loop = true;
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(LEVEL, ac.currentTime + FADE);
+    src.connect(g); g.connect(ac.destination); src.start();
+    return { src: src, gain: g };
+  }
+  function release(n) {
+    if (!n) return;
+    var t = ac.currentTime;
+    n.gain.gain.cancelScheduledValues(t);
+    n.gain.gain.setValueAtTime(Math.max(n.gain.gain.value, 0.0001), t);
+    n.gain.gain.exponentialRampToValueAtTime(0.0001, t + FADE);
+    try { n.src.stop(t + FADE * 1.6); } catch (e) {}
+  }
+
+  var api = {
+    supported: function () { return !!(window.AudioContext || window.webkitAudioContext); },
+    playing: function (id) { return owner === id; },
+
+    /* one loop of a periodic signal, holding an exact whole number of cycles */
+    periodic: function (sr, freq, seconds, fn) {
+      var cycles = Math.max(1, Math.round(freq * seconds));
+      var len = Math.max(2, Math.round(sr * cycles / freq));
+      var out = new Float32Array(len), i;
+      for (i = 0; i < len; i++) out[i] = fn(cycles * i / len);
+      return out;
+    },
+    centre: function (buf, scale) {
+      var i, m = 0, k = scale === undefined ? 1 : scale;
+      for (i = 0; i < buf.length; i++) m += buf[i];
+      m /= buf.length;
+      for (i = 0; i < buf.length; i++) buf[i] = (buf[i] - m) * k;
+      return buf;
+    },
+
+    start: function (id, build, whenStopped) {
+      api.stop();
+      var c = context();
+      if (!c) return false;
+      cur = attach(build(c.sampleRate));
+      owner = id; onEnd = whenStopped || null; last = Date.now();
+      return true;
+    },
+    /* a control moved while the sound was running. Rebuilding a buffer costs
+       under a millisecond, but a drag fires far more often than anyone can
+       hear, so the crossfades are thinned to about eight a second. */
+    retune: function (id, build) {
+      if (owner !== id || !ac) return;
+      clearTimeout(pend);
+      var go = function () {
+        if (owner !== id || !ac) return;
+        last = Date.now();
+        var old = cur;
+        cur = attach(build(ac.sampleRate));
+        release(old);
+      };
+      var since = Date.now() - last;
+      if (since > 120) go(); else pend = setTimeout(go, 120 - since);
+    },
+    stop: function () {
+      clearTimeout(pend);
+      if (!owner) return;
+      release(cur); cur = null;
+      var f = onEnd; owner = null; onEnd = null;
+      if (f) f();
+    }
+  };
+  return api;
+})();
+
+/* wire a Listen button to a generator, and hand back a handle the figure uses
+   to follow its own controls */
+function listenBtn(btnId, build) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return { retune: function () {} };
+  if (!AUDIO.supported()) { btn.hidden = true; return { retune: function () {} }; }
+
+  /* the generator hangs off the button so a test can render a loop and measure
+     it, instead of anyone having to judge these by ear */
+  btn._build = build;
+
+  function paint(on) {
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.textContent = on ? '■ STOP' : '▶ LISTEN';
+  }
+  btn.addEventListener('click', function () {
+    if (AUDIO.playing(btnId)) { AUDIO.stop(); return; }
+    if (AUDIO.start(btnId, build, function () { paint(false); })) paint(true);
+  });
+  paint(false);
+
+  /* reading somewhere else should not leave a tone playing behind you */
+  var fig = btn.closest('figure') || btn;
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function (e) {
+      if (!e[0].isIntersecting && AUDIO.playing(btnId)) AUDIO.stop();
+    }, { threshold: 0.05 }).observe(fig);
+  }
+  return { retune: function () { AUDIO.retune(btnId, build); } };
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) AUDIO.stop();
+});
+
 /* ---------------- plotting helpers ----------------
    A `panel` is one strip of the canvas: x/w give the horizontal extent,
    mid is the zero line, amp is how far ±1 reaches from it. */
@@ -577,7 +714,18 @@ var SHAPES = {
   ], function (it) { S.m = it.m; sl.value = Math.round(it.m * 100); apply(); }, null);
 
   sl.addEventListener('input', function () { S.m = +sl.value / 100; clearPills(host); apply(); });
-  function apply() { lbl.textContent = fix(S.m, 2); fig.redraw(); }
+  function apply() { lbl.textContent = fix(S.m, 2); fig.redraw(); sound.retune(); }
+
+  /* What an envelope detector would hand the loudspeaker: |1 + m·x(t)| with the
+     constant part blocked. At m = 0 that is silence — a transmitter at full
+     power saying nothing — and past m = 1 the fold adds the harmonics you can
+     see in the lower plot, which is the buzz. */
+  var sound = listenBtn('idxListen', function (sr) {
+    var m = S.m;
+    return AUDIO.centre(AUDIO.periodic(sr, 220, 0.4, function (ph) {
+      return Math.abs(1 + m * Math.sin(2 * Math.PI * ph));
+    }), 0.55);
+  });
 
   var fig = Fig(cv, function (w) { return w / (w < 520 ? 330 : 290); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
@@ -950,11 +1098,16 @@ var SHAPES = {
       ['efficiency η', '<b>' + fix(100 * eff, 1) + ' %</b>']
     ]);
 
+    /* Both numbers are read off the same arithmetic as the bar, and both are
+       rounded down: "over 92 %" has to stay true after rounding, and the
+       carrier's share at m = 0.95 is 69 %, not the three quarters this used
+       to claim. */
+    var carrierShare = 100 / (1 + m * m / 2);
     verdict(note, m > 0.95 ? 'good' : '',
       m < 0.05 ? 'Nothing but carrier. Full power out of the antenna, zero information in it.' :
-      m < 0.5  ? 'Quiet modulation: over ' + fix(100 * (1 - eff), 0) + ' % of the power is doing nothing at all.' :
-      m < 0.95 ? 'Typical broadcast territory. Still more than three quarters of the power in the carrier.' :
-                 'Full modulation — the best standard AM can do. One third useful, two thirds heat and carrier.');
+      m < 0.5  ? 'Quiet modulation: over <b>' + Math.floor(100 * (1 - eff)) + ' %</b> of the power is doing nothing at all.' :
+      m < 0.95 ? 'Typical broadcast territory — still <b>' + Math.round(carrierShare) + ' %</b> of the power in the carrier.' :
+                 'Full modulation — the best standard AM can do. One third useful, two thirds carrier.');
   });
 
   apply();
@@ -999,13 +1152,44 @@ var SHAPES = {
     if (v >= 1e-6) return nf(v * 1e6, 3) + ' µs';
     return nf(v * 1e9, 3) + ' ns';
   }
-  function apply() { lbl.textContent = fmtS(S.rc); fig.redraw(); }
+  function apply() { lbl.textContent = fmtS(S.rc); fig.redraw(); sound.retune(); }
+
+  /* The same detector, moved down into the audible range: the message becomes a
+     200 Hz tone and the carrier keeps the figure's own ratio of 80, so RC × fc
+     and RC × fm are exactly the ones on screen. Simulated at eight times the
+     sample rate and averaged down, or the peak detector would miss the peaks
+     here for the same reason it did on screen. */
+  var sound = listenBtn('detListen', function (sr) {
+    var OS = 8, fmA = 200, fcA = fmA * (FC / FM);
+    var rcA = S.rc * (FC / fcA);
+    var srx = sr * OS, dt = 1 / srx;
+    var len = Math.round(srx * 40 / fmA);            // 40 message cycles, exactly
+    var decay = Math.exp(-dt / rcA);
+    var out = new Float32Array(Math.floor(len / OS));
+    var vc = 1 - M, acc = 0, k = 0, i, t, u;
+    for (i = -Math.round(srx * 4 / fmA); i < 0; i++) {   // settle first
+      t = i * dt;
+      u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
+      vc = u > vc ? u : vc * decay;
+    }
+    for (i = 0; i < len; i++) {
+      t = i * dt;
+      u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
+      vc = u > vc ? u : vc * decay;
+      acc += vc;
+      if ((i + 1) % OS === 0) { out[k++] = acc / OS; acc = 0; }
+    }
+    return AUDIO.centre(out, 0.75);
+  });
 
   var fig = Fig(cv, function (w) { return w / (w < 520 ? 265 : 225); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
     clear(f);
     var x0 = 16, x1 = w - 16, sw = x1 - x0;
-    var TWIN = 2 / FM;                              // two cycles of the message
+    /* One message cycle on a phone instead of two: 160 carrier cycles in 320
+       pixels is a grey slab, and everything this figure is about — the ripple,
+       the corner the capacitor cannot follow — happens inside one cycle. */
+    var TWIN = (w < 620 ? 1 : 2) / FM;
     /* The simulation resolution is set by the carrier, not by the canvas: a
        peak detector that samples eight times per carrier cycle simply misses
        the peaks, and the answer it gives is wrong by however much it missed
@@ -1018,12 +1202,13 @@ var SHAPES = {
 
     /* the simulation. One message cycle is run first and thrown away, so the
        plot starts from a settled capacitor instead of an arbitrary one. */
+    var decay = Math.exp(-dt / S.rc);               // constant within a redraw
     var vc = 1 - M, det = new Float64Array(N + 1), inp = new Float64Array(N + 1), t, u, env;
     for (i = -Math.round(N / 2); i < 0; i++) {
       t = i * dt;
       env = 1 + M * Math.sin(2 * Math.PI * FM * t - Math.PI / 2);
       u = env * Math.cos(2 * Math.PI * FC * t);
-      vc = u > vc ? u : vc * Math.exp(-dt / S.rc);
+      vc = u > vc ? u : vc * decay;
     }
     for (i = 0; i <= N; i++) {
       t = i * dt;
@@ -1031,14 +1216,14 @@ var SHAPES = {
       u = env * Math.cos(2 * Math.PI * FC * t);
       inp[i] = u;
       if (u > vc) vc = u;                            // diode conducts: follow the input
-      else vc = vc * Math.exp(-dt / S.rc);           // diode off: leak through R
+      else vc = vc * decay;                          // diode off: leak through R
       det[i] = vc;
     }
     var SC = 1 / (1 + M);
 
     zeroLine(ctx, p, 0.25);
     /* what arrives */
-    denseCurve(ctx, p, function (uu) { return inp[Math.round(uu * N)] * SC; }, fgA(0.2), 1, N);
+    denseCurve(ctx, p, function (uu) { return inp[Math.round(uu * N)] * SC; }, fgA(w < 620 ? 0.09 : 0.2), 1, N);
     /* what the capacitor does */
     /* the two ends of the window: ripple below, diagonal clipping above.
        The upper bound is the standard one, RC ≤ √(1 − m²) / (m·2π·fm). */
@@ -1055,11 +1240,17 @@ var SHAPES = {
       }, fgA(0.75), 1.3, [5, 4], 400);
     }
 
-    panelLabel(ctx, p, 'VOLTAGE ON THE CAPACITOR', bad ? badCol() : sigA(0.85));
-    mono(ctx, 9); ctx.fillStyle = fgA(0.45);
-    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText('faint line: the AM signal arriving   ·   dashed: the original message',
-                 x1, p.mid - p.amp - 4);
+    var nar6 = w < 620;
+    panelLabel(ctx, p, nar6 ? 'ON THE CAPACITOR' : 'VOLTAGE ON THE CAPACITOR',
+               bad ? badCol() : sigA(0.85));
+    /* the legend only fits beside the label on a wide canvas; on a phone the
+       figure caption underneath already says which line is which */
+    if (!nar6) {
+      mono(ctx, 9); ctx.fillStyle = fgA(0.45);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText('faint line: the AM signal arriving   ·   dashed: the original message',
+                   x1, p.mid - p.amp - 4);
+    }
 
     /* The two failure modes measured separately, because they pull in opposite
        directions: ripple falls as RC grows, clipping only begins once RC is
@@ -1179,12 +1370,15 @@ var SHAPES = {
   var cv = document.getElementById('figDial');
   if (!cv) return;
   var F0 = 950, F1 = 1050;                          // kHz shown
+  /* hz is the pitch each station transmits; the plotted frequency is derived
+     from it, so the shape on screen is the shape in the speaker */
   var STATIONS = [
-    { f: 965,  b: 5, name: 'ALPHA', shape: 'sine',  fm: 1.0 },
-    { f: 995,  b: 5, name: 'BRAVO', shape: 'two',   fm: 0.8 },
-    { f: 1022, b: 5, name: 'CHARLIE', shape: 'tri', fm: 1.4 },
-    { f: 1032, b: 5, name: 'DELTA', shape: 'pulse', fm: 0.6 }
+    { f: 965,  b: 5, name: 'ALPHA',   shape: 'sine',  hz: 330 },
+    { f: 995,  b: 5, name: 'BRAVO',   shape: 'two',   hz: 220 },
+    { f: 1022, b: 5, name: 'CHARLIE', shape: 'tri',   hz: 262 },
+    { f: 1032, b: 5, name: 'DELTA',   shape: 'pulse', hz: 392 }
   ];
+  STATIONS.forEach(function (st) { st.fm = st.hz / 275; });
   var S = { f: 995, bw: 10 };
 
   var slF = document.getElementById('dialF'), lbF = document.getElementById('dialFv');
@@ -1204,6 +1398,7 @@ var SHAPES = {
     lbF.textContent = nf(S.f, 5) + ' kHz';
     lbB.textContent = S.bw + ' kHz';
     fig.redraw();
+    sound.retune();
   }
 
   /* how much of a station falls inside the filter window */
@@ -1216,6 +1411,40 @@ var SHAPES = {
     var carrierIn = Math.abs(st.f - S.f) <= S.bw / 2 ? 1 : 0.15;
     return frac * carrierIn;
   }
+
+  /* Every station the filter lets through, at the level it lets through, plus
+     hiss for the part of the window carrying nothing. Each pitch gets a whole
+     number of cycles in the loop so the seam is silent; hiss cannot be
+     periodic, so its two ends are crossfaded into each other instead. */
+  var sound = listenBtn('dialListen', function (sr) {
+    var len = Math.round(sr), out = new Float32Array(len), i, tot = 0;
+    STATIONS.forEach(function (st) {
+      var wgt = weight(st);
+      if (wgt <= 0.02) return;
+      tot += wgt;
+      var cyc = Math.max(1, Math.round(st.hz * len / sr));
+      var fn = SHAPES[st.shape];
+      for (i = 0; i < len; i++) out[i] += wgt * fn(cyc * i / len);
+    });
+    var quiet = Math.max(0, 1 - tot);
+    if (quiet > 0.02) {
+      /* Hiss cannot be periodic, so the loop point has to be built rather than
+         found: generate a little more than one loop, then fade the head into
+         what came after the tail. The wrap then lands mid-stream instead of on
+         a step, and there is no tick once a second. */
+      var fade = 2000, nz = new Float32Array(len + fade), lp = 0, a;
+      for (i = 0; i < len + fade; i++) {
+        lp = lp * 0.72 + (Math.random() * 2 - 1) * 0.28;
+        nz[i] = lp;
+      }
+      for (i = 0; i < fade; i++) {
+        a = i / fade;
+        nz[i] = nz[i] * a + nz[len + i] * (1 - a);
+      }
+      for (i = 0; i < len; i++) out[i] += nz[i] * quiet * 0.5;
+    }
+    return AUDIO.centre(out, 0.75 / Math.max(tot, 1));
+  });
 
   var fig = Fig(cv, function (w) { return w / (w < 520 ? 335 : 285); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;

@@ -371,6 +371,9 @@
     than the message — an AM station at 1 MHz carrying a 1 kHz tone runs a ratio of 1000 : 1. Drawn
     honestly, that is a solid block of ink. Every figure here uses a ratio of a few tens instead,
     which keeps the shape visible. The mathematics is identical.
+    <br><br>
+    <b>Three of the figures further down make sound</b> — the modulation index, the detector, and
+    the tuning dial. Nothing plays until you press Listen, and only one plays at a time.
   </div>
 
   <!-- ============ 4 ============ -->
@@ -416,6 +419,10 @@
           <input class="slider" type="range" id="idxM" aria-label="Modulation index" min="0" max="180" step="1" value="60">
         </div>
         <div class="chip-row" id="idxPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="idxListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">what the receiver would play</span>
+        </div>
         <p class="verdict" id="idxNote"></p>
       </div>
       <dl class="ro" id="idxOut"></dl>
@@ -426,6 +433,8 @@
       shapes match. Push past m = 1 and watch the lower plot grow <b>sharp notches</b> that
       were never in the message — that is over-modulation, and it is the most common way an AM
       transmitter is set up wrong. Note also what happens at m = 0: a perfect, useless carrier.
+      <b>Press Listen</b> and drag the slider: the lower plot is played as sound, so m = 0 is
+      silence, the middle is a clean tone, and everything past m = 1 turns to buzz.
     </figcaption>
   </figure>
 
@@ -659,6 +668,10 @@
           <input class="slider" type="range" id="detRC" aria-label="Detector time constant" min="0" max="1000" step="1" value="500">
         </div>
         <div class="chip-row" id="detPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="detListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">the same circuit, at audible frequencies</span>
+        </div>
         <div class="check-row">
           <label><input type="checkbox" id="detIdeal" checked> compare with the original message</label>
         </div>
@@ -673,7 +686,10 @@
       is tracking the carrier instead of the envelope. Drag it to the far right for
       <b>diagonal clipping</b> — straight sloping cuts where the output could not fall fast
       enough. The window in between is wide, which is exactly why this circuit has never needed to
-      be clever.
+      be clever. <b>Listen</b> plays the same detector with everything scaled into hearing range,
+      keeping RC × f<sub>c</sub> and RC × f<sub>m</sub> exactly as they are on screen: past the
+      upper limit the tone turns harsh, and at the fast end it thins out and picks up a whine at
+      the ripple frequency that most laptop speakers cannot reproduce.
     </figcaption>
   </figure>
 
@@ -720,6 +736,10 @@
           <input class="slider" type="range" id="dialBW" aria-label="Filter bandwidth" min="4" max="60" step="1" value="10">
         </div>
         <div class="chip-row" id="dialPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="dialListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then turn the dial while it plays</span>
+        </div>
         <p class="verdict" id="dialNote"></p>
       </div>
       <dl class="ro" id="dialOut"></dl>
@@ -730,7 +750,9 @@
       of the detector. Land on a station and the message is clean. Stop between two and you get
       almost nothing. Now widen the filter past <b>20 kHz</b> and drive it up the band: the window
       starts swallowing two stations at once and the recovered audio becomes both of them, mixed —
-      the interference that channel spacing exists to prevent.
+      the interference that channel spacing exists to prevent. Each station sends a different note
+      with a different waveform, so <b>press Listen and turn the dial</b>: you hear one station,
+      then hiss between them, and where the filter is too wide, two notes at once.
     </figcaption>
   </figure>
 

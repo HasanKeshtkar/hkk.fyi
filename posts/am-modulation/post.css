@@ -239,6 +239,20 @@ input[type=range].slider::-moz-range-thumb{
 .pill:hover{ border-color:var(--sig); color:var(--sig); }
 .pill.on{ background:var(--sig); border-color:var(--sig); color:var(--paper); }
 
+/* the Listen toggle: a pill, but never mistakable for one of the preset pills
+   beside it — it is the only control on the page that does something you hear */
+.pill.audio{
+  border-color:var(--sig); color:var(--sig);
+  font-weight:600; letter-spacing:.08em;
+}
+.pill.audio:hover{ background:color-mix(in srgb, var(--sig) 12%, transparent); }
+.pill.audio.on{ background:var(--sig); color:var(--paper); }
+.audio-hint{
+  font-family:var(--font-mono); font-size:.68rem; letter-spacing:.03em;
+  align-self:center; opacity:.6;
+}
+@media (max-width:400px){ .audio-hint{ display:none; } }
+
 .check-row{ display:flex; gap:1rem; flex-wrap:wrap; margin:.2rem 0 .9rem; }
 .check-row label{
   font-family:var(--font-mono); font-size:.74rem; letter-spacing:.04em;
