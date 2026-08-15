@@ -261,10 +261,11 @@ var AUDIO = (function () {
 
 /* wire a Listen button to a generator, and hand back a handle the figure uses
    to follow its own controls */
-function listenBtn(btnId, build) {
+function listenBtn(btnId, build, label) {
   var btn = document.getElementById(btnId);
   if (!btn) return { retune: function () {} };
   if (!AUDIO.supported()) { btn.hidden = true; return { retune: function () {} }; }
+  var word = label || 'LISTEN';
 
   /* the generator hangs off the button so a test can render a loop and measure
      it, instead of anyone having to judge these by ear */
@@ -273,7 +274,7 @@ function listenBtn(btnId, build) {
   function paint(on) {
     btn.classList.toggle('on', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.textContent = on ? '■ STOP' : '▶ LISTEN';
+    btn.textContent = on ? '■ STOP' : '▶ ' + word;
   }
   btn.addEventListener('click', function () {
     if (AUDIO.playing(btnId)) { AUDIO.stop(); return; }
@@ -1158,15 +1159,27 @@ var SHAPES = {
      200 Hz tone and the carrier keeps the figure's own ratio of 80, so RC × fc
      and RC × fm are exactly the ones on screen. Simulated at eight times the
      sample rate and averaged down, or the peak detector would miss the peaks
-     here for the same reason it did on screen. */
+     here for the same reason it did on screen.
+
+     It plays as a comparison rather than a single tone, and that is not
+     decoration. The honest ratio of 80 puts the ripple at 16 kHz, which most
+     speakers cannot reproduce and many ears cannot hear, so a wrong RC does not
+     announce itself as an obvious noise: what it really costs you is level and,
+     at the slow end, shape. Judging either from one sound in isolation is hard.
+     Against a reference played a moment earlier it is immediate — so each loop
+     is the message as it was sent, a breath of silence, then what the detector
+     made of it, both at the same gain. */
   var sound = listenBtn('detListen', function (sr) {
     var OS = 8, fmA = 200, fcA = fmA * (FC / FM);
     var rcA = S.rc * (FC / fcA);
     var srx = sr * OS, dt = 1 / srx;
-    var len = Math.round(srx * 40 / fmA);            // 40 message cycles, exactly
+    var cycles = 90;                                 // whole message cycles per half
+    var len = Math.round(srx * cycles / fmA);
+    var seg = Math.round(len / OS);
     var decay = Math.exp(-dt / rcA);
-    var out = new Float32Array(Math.floor(len / OS));
+    var det = new Float32Array(seg), ref = new Float32Array(seg);
     var vc = 1 - M, acc = 0, k = 0, i, t, u;
+
     for (i = -Math.round(srx * 4 / fmA); i < 0; i++) {   // settle first
       t = i * dt;
       u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
@@ -1177,10 +1190,28 @@ var SHAPES = {
       u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
       vc = u > vc ? u : vc * decay;
       acc += vc;
-      if ((i + 1) % OS === 0) { out[k++] = acc / OS; acc = 0; }
+      if ((i + 1) % OS === 0) { det[k++] = acc / OS; acc = 0; }
     }
-    return AUDIO.centre(out, 0.75);
-  });
+    for (i = 0; i < seg; i++) {
+      ref[i] = 1 + M * Math.sin(2 * Math.PI * fmA * i / sr - Math.PI / 2);
+    }
+    /* one shared gain, so the level difference between them survives — it is
+       most of what there is to hear */
+    AUDIO.centre(ref, 0.75);
+    AUDIO.centre(det, 0.75);
+
+    var gap = Math.round(sr * 0.09), edge = Math.round(sr * 0.006);
+    var out = new Float32Array(2 * (seg + gap));
+    var put = function (src, at) {
+      for (var j = 0; j < seg; j++) {
+        var g = Math.min(1, Math.min(j, seg - 1 - j) / edge);   // no click at the joins
+        out[at + j] = src[j] * g;
+      }
+    };
+    put(ref, 0);
+    put(det, seg + gap);
+    return out;
+  }, 'COMPARE');
 
   var fig = Fig(cv, function (w) { return w / (w < 520 ? 265 : 225); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
