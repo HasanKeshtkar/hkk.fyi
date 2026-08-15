@@ -1126,9 +1126,21 @@ var SHAPES = {
 (function () {
   var cv = document.getElementById('figDet');
   if (!cv) return;
-  var FC = 400e3, FM = 5e3, M = 0.5;
+  /* A carrier forty times the message rather than eighty. Both are compressed
+     from a real broadcast, and this one buys two things: half as many cycles to
+     draw across a phone, and — since the audible version keeps this same ratio —
+     a ripple that lands at 8 kHz instead of 16, where a speaker can reproduce it
+     and an ear can find it. Below 20 µs the fast end is now something you hear,
+     not just something the readout claims.
+
+     A shallower depth goes with it. The upper limit on RC is √(1 − m²)/(m·2π·fm),
+     so a smaller m pushes it out: at 0.4 the usable window runs 20 µs to 73 µs,
+     which is wide enough to find by dragging. At 0.5 with this carrier it would
+     have been 20 to 55, and the figure would be teaching how narrow its own
+     assumptions are rather than how the circuit behaves. */
+  var FC = 200e3, FM = 5e3, M = 0.4;
   var RCMIN = 0.5e-6, RCMAX = 600e-6;
-  var S = { rc: 25e-6, ideal: true };
+  var S = { rc: 40e-6, ideal: true };
 
   var sl = document.getElementById('detRC'), lbl = document.getElementById('detRCv');
   var chk = document.getElementById('detIdeal');
@@ -1139,8 +1151,8 @@ var SHAPES = {
   function tFromRC(v) { return 1000 * Math.log(v / RCMIN) / Math.log(RCMAX / RCMIN); }
 
   pills(host, [
-    { label: 'TOO FAST', rc: 1.5e-6 },
-    { label: 'JUST RIGHT', rc: 25e-6 },
+    { label: 'TOO FAST', rc: 2e-6 },
+    { label: 'JUST RIGHT', rc: 40e-6 },
     { label: 'TOO SLOW', rc: 300e-6 }
   ], function (it) { S.rc = it.rc; sl.value = Math.round(tFromRC(it.rc)); apply(); }, 1);
 
@@ -1161,25 +1173,17 @@ var SHAPES = {
      sample rate and averaged down, or the peak detector would miss the peaks
      here for the same reason it did on screen.
 
-     It plays as a comparison rather than a single tone, and that is not
-     decoration. The honest ratio of 80 puts the ripple at 16 kHz, which most
-     speakers cannot reproduce and many ears cannot hear, so a wrong RC does not
-     announce itself as an obvious noise: what it really costs you is level and,
-     at the slow end, shape. Judging either from one sound in isolation is hard.
-     Against a reference played a moment earlier it is immediate — so each loop
-     is the message as it was sent, a breath of silence, then what the detector
-     made of it, both at the same gain. */
+     Drag the slider while it plays: the fast end buzzes, because the ripple is
+     now inside the range a speaker reproduces; the middle is a clean tone; the
+     slow end goes quiet and harsh. */
   var sound = listenBtn('detListen', function (sr) {
     var OS = 8, fmA = 200, fcA = fmA * (FC / FM);
     var rcA = S.rc * (FC / fcA);
     var srx = sr * OS, dt = 1 / srx;
-    var cycles = 90;                                 // whole message cycles per half
-    var len = Math.round(srx * cycles / fmA);
-    var seg = Math.round(len / OS);
+    var len = Math.round(srx * 40 / fmA);            // 40 message cycles, exactly
     var decay = Math.exp(-dt / rcA);
-    var det = new Float32Array(seg), ref = new Float32Array(seg);
+    var out = new Float32Array(Math.floor(len / OS));
     var vc = 1 - M, acc = 0, k = 0, i, t, u;
-
     for (i = -Math.round(srx * 4 / fmA); i < 0; i++) {   // settle first
       t = i * dt;
       u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
@@ -1190,28 +1194,10 @@ var SHAPES = {
       u = (1 + M * Math.sin(2 * Math.PI * fmA * t - Math.PI / 2)) * Math.cos(2 * Math.PI * fcA * t);
       vc = u > vc ? u : vc * decay;
       acc += vc;
-      if ((i + 1) % OS === 0) { det[k++] = acc / OS; acc = 0; }
+      if ((i + 1) % OS === 0) { out[k++] = acc / OS; acc = 0; }
     }
-    for (i = 0; i < seg; i++) {
-      ref[i] = 1 + M * Math.sin(2 * Math.PI * fmA * i / sr - Math.PI / 2);
-    }
-    /* one shared gain, so the level difference between them survives — it is
-       most of what there is to hear */
-    AUDIO.centre(ref, 0.75);
-    AUDIO.centre(det, 0.75);
-
-    var gap = Math.round(sr * 0.09), edge = Math.round(sr * 0.006);
-    var out = new Float32Array(2 * (seg + gap));
-    var put = function (src, at) {
-      for (var j = 0; j < seg; j++) {
-        var g = Math.min(1, Math.min(j, seg - 1 - j) / edge);   // no click at the joins
-        out[at + j] = src[j] * g;
-      }
-    };
-    put(ref, 0);
-    put(det, seg + gap);
-    return out;
-  }, 'COMPARE');
+    return AUDIO.centre(out, 0.75);
+  });
 
   var fig = Fig(cv, function (w) { return w / (w < 520 ? 265 : 225); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
@@ -1305,8 +1291,8 @@ var SHAPES = {
     over = 100 * (over / (N + 1)) / (2 * M);
 
     ro(out, [
-      ['carrier f<sub>c</sub>', '400 kHz'],
-      ['message f<sub>m</sub>', '5 kHz'],
+      ['carrier f<sub>c</sub>', fmtHz(FC)],
+      ['message f<sub>m</sub>', fmtHz(FM)],
       ['RC', '<b>' + fmtS(S.rc) + '</b>'],
       ['RC × f<sub>c</sub>', '<b>' + nf(S.rc * FC, 3) + '</b> (want ≫ 1)'],
       ['RC × f<sub>m</sub>', '<b>' + nf(S.rc * FM, 3) + '</b> (want ≪ 1)'],

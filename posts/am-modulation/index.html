@@ -370,7 +370,8 @@
     <b>A note on the drawings.</b> In a real broadcast the carrier is thousands of times faster
     than the message — an AM station at 1 MHz carrying a 1 kHz tone runs a ratio of 1000 : 1. Drawn
     honestly, that is a solid block of ink. Every figure here uses a ratio of a few tens instead,
-    which keeps the shape visible. The mathematics is identical.
+    which keeps the shape visible — and keeps the detector's ripple, in the one figure you can
+    listen to, at a frequency a speaker can actually reproduce. The mathematics is identical.
     <br><br>
     <b>Three of the figures further down make sound</b> — the modulation index, the detector, and
     the tuning dial. Nothing plays until you ask for it, and only one plays at a time.
@@ -669,8 +670,8 @@
         </div>
         <div class="chip-row" id="detPresets"></div>
         <div class="chip-row">
-          <button class="pill audio" type="button" id="detListen" aria-pressed="false">▶ COMPARE</button>
-          <span class="audio-hint">message sent, then message recovered</span>
+          <button class="pill audio" type="button" id="detListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then drag RC while it plays</span>
         </div>
         <div class="check-row">
           <label><input type="checkbox" id="detIdeal" checked> compare with the original message</label>
@@ -686,13 +687,11 @@
       is tracking the carrier instead of the envelope. Drag it to the far right for
       <b>diagonal clipping</b> — straight sloping cuts where the output could not fall fast
       enough. The window in between is wide, which is exactly why this circuit has never needed to
-      be clever. <b>Compare</b> plays the same detector with everything scaled into hearing range,
-      keeping RC × f<sub>c</sub> and RC × f<sub>m</sub> exactly as they are on screen. Each loop
-      is <b>the tone as it was sent, a short silence, then the tone the detector recovered</b>, at
-      the same gain — because with a carrier eighty times the message, a wrong RC does not make an
-      obvious noise, it quietly costs you level and shape, and that is far easier to hear against a
-      reference from a second ago than on its own. In the window the two halves match. Too slow and
-      the second half turns harsh; too fast and it drops to less than half the level.
+      be clever. <b>Listen</b> plays the same detector with everything scaled into hearing range,
+      keeping RC × f<sub>c</sub> and RC × f<sub>m</sub> exactly as they are on screen — so the
+      ripple you can see becomes a ripple you can hear. <b>Drag RC while it plays:</b> the fast end
+      buzzes, because the output is chasing the carrier; the middle is a clean tone, and the
+      loudest of the three; the slow end goes quiet and harsh.
     </figcaption>
   </figure>
 
