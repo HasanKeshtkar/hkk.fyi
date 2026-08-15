@@ -174,7 +174,10 @@ figure.fig figcaption b{ opacity:1; }
 .canvas-wrap{ position:relative; width:100%; }
 figure.fig canvas{
   display:block; width:100%; height:100%;
-  touch-action:none;
+  /* pan-y, not none: nothing in this post is dragged on the canvas itself, and
+     `none` meant a finger that landed on a figure could not scroll the page —
+     with seven full-width figures, most of the article was unscrollable. */
+  touch-action:pan-y;
   border-radius:4px;
 }
 
@@ -311,3 +314,50 @@ html.ink .verdict.bad{ border-left-color:#E8705A; }
 /* ---------- footnotes ---------- */
 .refs{ font-size:.9rem; opacity:.8; }
 .refs li{ margin:.3rem 0; }
+
+/* ============================================================
+   Phones
+   ------------------------------------------------------------
+   Two separate problems, and they want different answers:
+   width (the figures need every pixel of it) and touch (the
+   controls need to be big enough to hit).
+   ============================================================ */
+
+/* ---- width: claw back the padding the figures were losing ---- */
+@media (max-width:640px){
+  figure.fig{
+    margin:1.6rem 0 2rem;
+    padding:.85rem .7rem 1rem;
+    border-radius:5px;
+  }
+  .fig-head{ margin-bottom:.6rem; }
+  .fig-head .fig-t{ font-size:.68rem; }        /* the title wraps rather than clips */
+  figure.fig figcaption{ font-size:.88rem; line-height:1.6; }
+  .fig-split{ gap:.9rem; }
+  .ro{ font-size:.78rem; }
+  .tldr, .toc, .cta{ padding:1rem 1.1rem; }
+  .eq{ padding:.8rem .6rem; font-size:.92rem; }
+  .post h2{ font-size:1.35rem; gap:.5rem; }
+  .pull{ font-size:1.05rem; padding-left:1rem; }
+}
+
+/* ---- touch: anything you tap gets a 44 px-tall target ---- */
+@media (pointer:coarse){
+  .pill, .share-btn{
+    min-height:38px; padding:.5rem .75rem; font-size:.74rem;
+  }
+  .chip-row{ gap:.5rem; }
+  .check-row label{ min-height:38px; }
+  .check-row input{ width:20px; height:20px; }
+  details.decode > summary{ padding:.85rem .9rem; }
+  /* a 16 px thumb is a small target for a fingertip, and the track it rides
+     is thin enough to be hard to find at all */
+  input[type=range].slider{ height:38px; }
+  input[type=range].slider::-webkit-slider-runnable-track{ height:5px; }
+  input[type=range].slider::-moz-range-track{ height:5px; }
+  input[type=range].slider::-webkit-slider-thumb{
+    width:24px; height:24px; margin-top:-9.5px;
+  }
+  input[type=range].slider::-moz-range-thumb{ width:24px; height:24px; }
+  .ctl{ margin-bottom:1.1rem; }
+}

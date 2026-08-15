@@ -190,6 +190,35 @@ function fillCurve(ctx, p, fn, style, steps) {
   ctx.closePath();
   ctx.fillStyle = style; ctx.fill();
 }
+/* A carrier has more cycles than the panel has pixels — on a phone, many more.
+   Joining evenly spaced samples with straight lines then draws a line that
+   misses most of the peaks, and what you see is a moiré pattern rather than
+   the signal. So sample every column and paint it from the smallest value in
+   that column to the largest, the way an oscilloscope renders a fast trace:
+   correct at any width, and it degrades into an honest solid band instead of
+   into a lie. Column ranges share their end points, so the trace stays joined
+   where the wave is slow. */
+function denseCurve(ctx, p, fn, style, lw, samples) {
+  var cols = Math.max(2, Math.round(p.w));
+  var per = Math.max(2, Math.ceil((samples || cols * 10) / cols));
+  var cw = p.w / cols, wpx = lw || 1.3;
+  var i, k, v, lo, hi, x, yh, yl, hh;
+  ctx.fillStyle = style;
+  for (i = 0; i < cols; i++) {
+    lo = Infinity; hi = -Infinity;
+    for (k = 0; k <= per; k++) {
+      v = fn((i + k / per) / cols);
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    x = p.x + i * cw;
+    yh = p.mid - hi * p.amp;
+    yl = p.mid - lo * p.amp;
+    hh = yl - yh;
+    if (hh < wpx) { yh -= (wpx - hh) / 2; hh = wpx; }
+    ctx.fillRect(x, yh, Math.max(cw, wpx), hh);
+  }
+}
 function mono(ctx, size, weight) {
   ctx.font = (weight || 500) + ' ' + size + 'px ' + LBL_FONT;
 }
@@ -241,17 +270,18 @@ var SHAPES = {
     var m = 0.85, cyc = 2.2, ratio = 18;
 
     zeroLine(ctx, p, 0.22);
-    var env = function (u) { return 1 + m * Math.sin(2 * Math.PI * (cyc * u + t)); };
-    var sig = function (u) { return env(u) / (1 + m) * Math.cos(2 * Math.PI * ratio * cyc * u); };
+    /* t is an offset along the window, so envelope and carrier travel together
+       the way a real wave does — not the envelope sliding over a pinned carrier */
+    var env = function (u) { return 1 + m * Math.sin(2 * Math.PI * cyc * (u + t)); };
+    var sig = function (u) { return env(u) / (1 + m) * Math.cos(2 * Math.PI * ratio * cyc * (u + t)); };
 
-    fillCurve(ctx, p, function (u) { return sig(u); }, sigA(0.10));
-    curve(ctx, p, sig, pal().sig, 1.6, null, 1400);
+    denseCurve(ctx, p, sig, sigA(0.9), 1.3, 6000);
     [1, -1].forEach(function (s) {
       curve(ctx, p, function (u) { return s * env(u) / (1 + m); }, fgA(0.5), 1.3, [4, 4], 500);
     });
   });
 
-  if (!REDUCED) animate(cv, function (sec) { t = -sec * 0.22; fig.redraw(); }).start();
+  if (!REDUCED) animate(cv, function (sec) { t = -sec * 0.14; fig.redraw(); }).start();
 })();
 
 /* ============================================================
@@ -303,7 +333,7 @@ var SHAPES = {
 
   function apply() { lbl.textContent = fmtHz(S.f); fig.redraw(); }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 250 : 205); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 235 : 205); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
     clear(f);
     var x0 = 34, x1 = w - 22, span = x1 - x0;
@@ -354,7 +384,8 @@ var SHAPES = {
       ctx.fillText(r.t, rx, top);
     });
 
-    /* the marker */
+    /* the marker. Off-scale means the ruler ends before the answer does — the
+       length itself is still known exactly, so it is printed without hedging. */
     var mx = X(L), off = L > LMAX;
     ctx.lineWidth = 2.2; ctx.strokeStyle = pal().sig;
     ctx.beginPath(); ctx.moveTo(mx, axisY + 1); ctx.lineTo(mx, 62); ctx.stroke();
@@ -365,7 +396,7 @@ var SHAPES = {
     /* the tag sits beside the marker line, never across it: to the left once
        the marker has travelled past the middle of the ruler */
     mono(ctx, 11, 700);
-    var txt = (off ? '≥ ' : '') + fmtM(L);
+    var txt = fmtM(L);
     var sub = 'AT ' + fmtHz(S.f).toUpperCase();
     var lw = ctx.measureText(txt).width;
     mono(ctx, 9.5);
@@ -398,8 +429,8 @@ var SHAPES = {
 
     note.className = 'verdict' + (L > 1000 ? ' bad' : (L < 5 ? ' good' : ''));
     note.innerHTML =
-      L > 20000 ? 'Twenty-five kilometres of antenna, for one voice tone. This is the problem, in one number.' :
-      L > 1000  ? 'Taller than any structure ever built. Not an engineering challenge — an impossibility.' :
+      L > 9000  ? fmtM(L) + ' of antenna, for one tone. This is the problem, in one number.' :
+      L > 1000  ? fmtM(L) + ' — taller than any structure ever built. Not a hard problem, an impossible one.' :
       L > 60    ? 'A real broadcast mast. Expensive, but these exist: this is the AM band.' :
       L > 5     ? 'A large but ordinary antenna — a mast on a roof.' :
       L > 0.3   ? 'A normal rod antenna, the kind on a car or a router.' :
@@ -445,7 +476,7 @@ var SHAPES = {
     fig.redraw();
   }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 290 : 350); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 330 : 350); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
     var x0 = 12, x1 = w - 12, sw = x1 - x0;
@@ -460,8 +491,11 @@ var SHAPES = {
     var pC = panel(x0, sw, top + hMsg + gap + hCar / 2, hCar / 2);
     var pA = panel(x0, sw, top + hMsg + gap + hCar + gap + hAM / 2, hAM / 2);
 
-    var mFn = function (u) { return msg(S.fm * WIN * u + S.t * S.fm); };
-    var cFn = function (u) { return Math.cos(2 * Math.PI * (S.fc * WIN * u + S.t * S.fc)); };
+    /* S.t is an offset in milliseconds, the same unit as WIN, so message and
+       carrier slide together — one wave travelling, not two independent ones */
+    var nar = w < 620;
+    var mFn = function (u) { return msg(S.fm * (WIN * u + S.t)); };
+    var cFn = function (u) { return Math.cos(2 * Math.PI * S.fc * (WIN * u + S.t)); };
 
     /* 1 — the message */
     zeroLine(ctx, pM, 0.25);
@@ -470,15 +504,14 @@ var SHAPES = {
 
     /* 2 — the bare carrier */
     zeroLine(ctx, pC, 0.25);
-    curve(ctx, pC, cFn, fgA(0.55), 1.2, null, 1800);
-    var nar = w < 620;
+    denseCurve(ctx, pC, cFn, fgA(0.6), 1.2, 6000);
     panelLabel(ctx, pC, nar ? 'THE CARRIER  cos(2π fc·t)'
                             : 'THE CARRIER  cos(2π fc·t)  — always the same height');
 
     /* 3 — the two of them multiplied */
     var envFn = function (u) { return (1 + M * mFn(u)) / (1 + M); };
     zeroLine(ctx, pA, 0.25);
-    curve(ctx, pA, function (u) { return envFn(u) * cFn(u); }, pal().sig, 1.5, null, 2400);
+    denseCurve(ctx, pA, function (u) { return envFn(u) * cFn(u); }, sigA(0.95), 1.4, 8000);
     if (S.env) {
       [1, -1].forEach(function (s) {
         curve(ctx, pA, function (u) { return s * envFn(u); }, fgA(0.6), 1.4, [5, 4], 600);
@@ -494,12 +527,13 @@ var SHAPES = {
     mono(ctx, 9);
     ctx.fillStyle = fgA(0.45); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     var yr = pA.mid + pA.amp + 8;
-    for (var k = 0; k <= 4; k++) {
-      var xk = x0 + sw * k / 4;
+    var steps = nar ? 2 : 4;
+    for (var k = 0; k <= steps; k++) {
+      var xk = x0 + sw * k / steps;
       ctx.strokeStyle = fgA(0.25); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(xk, yr); ctx.lineTo(xk, yr + 4); ctx.stroke();
       alignAt(ctx, xk, x0, x1);
-      ctx.fillText(nf(k * 0.25, 2) + ' ms', xk, yr + 6);
+      ctx.fillText(nf(k / steps, 2) + ' ms', xk, yr + 6);
     }
 
     ro(out, [
@@ -516,7 +550,7 @@ var SHAPES = {
   if (REDUCED) { S.run = false; play.textContent = '▶ Play'; play.classList.remove('on'); }
   animate(cv, function (sec) {
     if (!S.run) return;
-    S.t = -sec * 0.00035;                          // seconds of signal time, slowed right down
+    S.t = -sec * 0.14;                             // milliseconds of signal per second
     fig.redraw();
   }).start();
 })();
@@ -545,14 +579,15 @@ var SHAPES = {
   sl.addEventListener('input', function () { S.m = +sl.value / 100; clearPills(host); apply(); });
   function apply() { lbl.textContent = fix(S.m, 2); fig.redraw(); }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 300 : 290); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 330 : 290); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
-    var x0 = 46, x1 = w - 62, sw = x1 - x0;
+    var narrow3 = w < 620;
+    var x0 = narrow3 ? 26 : 46, x1 = w - (narrow3 ? 44 : 62), sw = x1 - x0;
     var cyc = 2, ratio = 22, m = S.m;
-    var top = 18, gap = 30, foot = 22;
+    var top = 18, gap = 24, foot = 32;   // foot: room for the envelope to dip below zero
     var free = h - top - gap - foot;
-    var hTop = free * 0.6, hBot = free * 0.4;
+    var hTop = free * 0.58, hBot = free * 0.42;
     var pT = panel(x0, sw, top + hTop / 2, hTop / 2);
     /* the recovered signal is never negative, so its zero line sits on the
        floor of its band and the whole band is used for 0…1 */
@@ -566,8 +601,8 @@ var SHAPES = {
 
     /* ---- upper: the transmitted wave ---- */
     zeroLine(ctx, pT, 0.25);
-    curve(ctx, pT, function (u) { return env(u) * Math.cos(2 * Math.PI * ratio * cyc * u) * SC; },
-          pal().sig, 1.4, null, 2400);
+    denseCurve(ctx, pT, function (u) { return env(u) * Math.cos(2 * Math.PI * ratio * cyc * u) * SC; },
+               sigA(0.95), 1.3, 8000);
     [1, -1].forEach(function (s) {
       curve(ctx, pT, function (u) { return s * Math.abs(env(u)) * SC; }, fgA(0.55), 1.3, [5, 4], 700);
     });
@@ -586,8 +621,8 @@ var SHAPES = {
 
     /* ---- lower: what comes back out ---- */
     zeroLine(ctx, pB, 0.25);
-    var want = function (u) { return (1 + Math.min(m, 1) * xm(u)) / 2.2; };
-    var got  = function (u) { return Math.abs(env(u)) / 2.2; };
+    var want = function (u) { return env(u) / 2.2; };          // 1 + m·x, sign and all
+    var got  = function (u) { return Math.abs(env(u)) / 2.2; }; // what height alone can report
     fillCurve(ctx, pB, got, m > 1 ? rgba(badCol(), 0.10) : sigA(0.08));
     curve(ctx, pB, want, fgA(0.5), 1.4, [5, 4], 600);
     curve(ctx, pB, got, m > 1 ? badCol() : pal().sig, 2, null, 900);
@@ -599,8 +634,10 @@ var SHAPES = {
     ctx.fillText('1', x0 - 6, pB.mid - pB.amp / 2.2);
 
     if (m > 1.001) {
-      mono(ctx, 9.5); ctx.fillStyle = badCol(); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-      ctx.fillText('folded — this shape is not the message', x1, pB.mid + 6);
+      mono(ctx, 9.5); ctx.fillStyle = badCol();
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText(w < 620 ? 'folded' : 'the dashed line went negative — the solid one folded it back up',
+                   x1, pB.mid - pB.amp - 4);
     }
 
     var meas = (vmax - vmin) / (vmax + vmin);
@@ -657,7 +694,7 @@ var SHAPES = {
     fig.redraw();
   }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 320 : 300); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 350 : 300); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
     clear(f);
     var x0 = 30, x1 = w - 16, sw = x1 - x0;
@@ -700,21 +737,29 @@ var SHAPES = {
     /* ---------- transmitted spectrum ---------- */
     axis(baseTop, narrow() ? 'TRANSMITTED — AROUND 1000 kHz'
                         : 'TRANSMITTED — AROUND THE CARRIER AT 1000 kHz');
-    if (S.kind === 'tone') {
-      spike(Xt(FC - B), HC * m / 2, sigA(0.85), 3);
-      spike(Xt(FC + B), HC * m / 2, sigA(0.85), 3);
-    } else {
-      tri(Xt(FC), Xt(FC + B), HC * m / 2, sigA(0.5), baseTop);
-      tri(Xt(FC), Xt(FC - B), HC * m / 2, sigA(0.5), baseTop);
+    var hasSb = m > 0.02;                           // at m = 0 there is nothing beside the carrier
+    if (hasSb) {
+      if (S.kind === 'tone') {
+        spike(Xt(FC - B), HC * m / 2, sigA(0.85), 3);
+        spike(Xt(FC + B), HC * m / 2, sigA(0.85), 3);
+      } else {
+        tri(Xt(FC), Xt(FC + B), HC * m / 2, sigA(0.5), baseTop);
+        tri(Xt(FC), Xt(FC - B), HC * m / 2, sigA(0.5), baseTop);
+      }
     }
     spike(Xt(FC), HC, fgA(0.8), 3.4);
 
     mono(ctx, 9.5); ctx.textBaseline = 'bottom';
     ctx.fillStyle = fgA(0.7); ctx.textAlign = 'center';
     ctx.fillText('carrier', Xt(FC), baseTop - HC - 7);
-    ctx.fillStyle = sigA(0.85);
-    ctx.textAlign = 'right'; ctx.fillText('LSB', Xt(FC - B) - 4, baseTop - HC * m / 2 - 7);
-    ctx.textAlign = 'left';  ctx.fillText('USB', Xt(FC + B) + 4, baseTop - HC * m / 2 - 7);
+    if (hasSb) {
+      ctx.fillStyle = sigA(0.85);
+      ctx.textAlign = 'right'; ctx.fillText('LSB', Xt(FC - B) - 4, baseTop - HC * m / 2 - 7);
+      ctx.textAlign = 'left';  ctx.fillText('USB', Xt(FC + B) + 4, baseTop - HC * m / 2 - 7);
+    } else {
+      ctx.fillStyle = badCol(); ctx.textAlign = 'center';
+      ctx.fillText('no sidebands — nothing is being said', Xt(FC), baseTop - HC * 0.45);
+    }
 
     /* frequency ticks */
     mono(ctx, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -729,13 +774,13 @@ var SHAPES = {
 
     /* the bandwidth bracket */
     var ya = baseTop + 24;
-    ctx.lineWidth = 1.3; ctx.strokeStyle = sigA(0.75);
+    ctx.lineWidth = 1.3; ctx.strokeStyle = sigA(hasSb ? 0.75 : 0.3);
     ctx.beginPath();
     ctx.moveTo(Xt(FC - B), ya - 4); ctx.lineTo(Xt(FC - B), ya);
     ctx.lineTo(Xt(FC + B), ya); ctx.lineTo(Xt(FC + B), ya - 4);
     ctx.stroke();
     plate(ctx, (Xt(FC - B) + Xt(FC + B)) / 2, ya + 9,
-          'BW = 2 × ' + nf(B, 3) + ' = ' + nf(2 * B, 3) + ' kHz', sigA(0.9));
+          'BW = 2 × ' + nf(B, 3) + ' = ' + nf(2 * B, 3) + ' kHz', sigA(hasSb ? 0.9 : 0.45));
 
     /* ---------- the message, where it started ---------- */
     ctx.lineWidth = 1.5; ctx.strokeStyle = fgA(0.5);
@@ -766,7 +811,7 @@ var SHAPES = {
 
     /* one line, instead of a pair of arrows that had to cross the bandwidth
        bracket and the axis labels to get where they were going */
-    if (!narrow()) {
+    if (!narrow() && hasSb) {                      // nothing was copied when m = 0
       mono(ctx, 9.5); ctx.fillStyle = sigA(0.8);
       ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
       ctx.fillText('↑ the same shape, copied to both sides of the carrier',
@@ -807,7 +852,7 @@ var SHAPES = {
     fig.redraw();
   }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 300 : 265); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 320 : 265); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h;
     clear(f);
     var x0 = 14, x1 = w - 14, sw = x1 - x0;
@@ -819,6 +864,7 @@ var SHAPES = {
     var barY = 34, barH = 30, full = Pc * 1.5;     // full scale = the most AM can total
     var wC = sw * Pc / full, wS = sw * Psb / full;
 
+    var nar = w < 620;
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('TOTAL TRANSMITTED POWER', x0, barY - 7);
 
@@ -833,22 +879,29 @@ var SHAPES = {
     ctx.setLineDash([2, 3]); ctx.lineWidth = 1; ctx.strokeStyle = fgA(0.28);
     ctx.strokeRect(x0, barY, sw, barH);
     ctx.restore();
-    mono(ctx, 9); ctx.fillStyle = fgA(0.4);
-    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText('full scale: the most AM can total, at m = 1', x0 + sw, barY - 7);
+    if (!nar) {                                    // no room for a second caption on a phone
+      mono(ctx, 9); ctx.fillStyle = fgA(0.4);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText('full scale: the most AM can total, at m = 1', x0 + sw, barY - 7);
+    }
 
     mono(ctx, 10);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-    if (wC > 90) {
-      ctx.fillStyle = fgA(0.8);
-      ctx.fillText('CARRIER — NO INFORMATION', x0 + wC / 2, barY + barH / 2);
-    }
+    ctx.fillStyle = fgA(0.8);
+    if (wC > 200)      ctx.fillText('CARRIER — NO INFORMATION', x0 + wC / 2, barY + barH / 2);
+    else if (wC > 70)  ctx.fillText('CARRIER', x0 + wC / 2, barY + barH / 2);
     mono(ctx, 9.5); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = fgA(0.55);
     ctx.fillText(nf(Pc, 3) + ' kW', x0 + 2, barY + barH + 6);
     if (Psb > 0.02) {
       ctx.fillStyle = sigA(0.9);
-      ctx.fillText('sidebands ' + nf(2 * Psb, 3) + ' kW — the message', x0 + wC + 2, barY + barH + 6);
+      if (nar) {                                   // right-aligned: the segment is too short to start under
+        ctx.textAlign = 'right';
+        ctx.fillText('sidebands ' + nf(2 * Psb, 3) + ' kW', x0 + sw, barY + barH + 6);
+        ctx.textAlign = 'left';
+      } else {
+        ctx.fillText('sidebands ' + nf(2 * Psb, 3) + ' kW — the message', x0 + wC + 2, barY + barH + 6);
+      }
     }
 
     /* ---------- the efficiency curve ---------- */
@@ -865,7 +918,7 @@ var SHAPES = {
     ctx.beginPath(); ctx.moveTo(cx0, EY(1 / 3)); ctx.lineTo(cx1, EY(1 / 3)); ctx.stroke();
     ctx.restore();
     mono(ctx, 9); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText('33.3 % — the ceiling, at m = 1', cx1, EY(1 / 3) - 4);
+    ctx.fillText(nar ? '33.3 % — the ceiling' : '33.3 % — the ceiling, at m = 1', cx1, EY(1 / 3) - 4);
 
     ctx.beginPath();
     for (var i = 0; i <= 100; i++) {
@@ -885,7 +938,8 @@ var SHAPES = {
     ctx.fillText('m = 1', cx1, cy0 + cyH + 5);
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.5);
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('EFFICIENCY η — THE SHARE OF POWER THAT CARRIES THE MESSAGE', cx0, cy0 - 6);
+    ctx.fillText(nar ? 'EFFICIENCY η' : 'EFFICIENCY η — THE SHARE OF POWER THAT CARRIES THE MESSAGE',
+                 cx0, cy0 - 6);
 
     ro(out, [
       ['carrier P<sub>c</sub>', nf(Pc, 3) + ' kW'],
@@ -947,12 +1001,18 @@ var SHAPES = {
   }
   function apply() { lbl.textContent = fmtS(S.rc); fig.redraw(); }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 240 : 225); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 265 : 225); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
     clear(f);
     var x0 = 16, x1 = w - 16, sw = x1 - x0;
     var TWIN = 2 / FM;                              // two cycles of the message
-    var N = Math.max(1200, Math.round(sw * 4));
+    /* The simulation resolution is set by the carrier, not by the canvas: a
+       peak detector that samples eight times per carrier cycle simply misses
+       the peaks, and the answer it gives is wrong by however much it missed
+       them. 64 samples per cycle pins each peak to within 0.1 %, and costs
+       ten thousand multiplications — nothing. */
+    var NC = Math.round(FC * TWIN);                 // carrier cycles in the window
+    var N = NC * 64;
     var dt = TWIN / N;
     var p = panel(x0, sw, h * 0.54 + 6, h * 0.42 - 6);
 
@@ -978,21 +1038,22 @@ var SHAPES = {
 
     zeroLine(ctx, p, 0.25);
     /* what arrives */
-    curve(ctx, p, function (uu) { return inp[Math.round(uu * N)] * SC; }, fgA(0.22), 1, null, N);
-    /* what the message was */
-    if (S.ideal) {
-      curve(ctx, p, function (uu) {
-        return (1 + M * Math.sin(2 * Math.PI * FM * uu * TWIN - Math.PI / 2)) * SC;
-      }, fgA(0.5), 1.4, [5, 4], 400);
-    }
+    denseCurve(ctx, p, function (uu) { return inp[Math.round(uu * N)] * SC; }, fgA(0.2), 1, N);
     /* what the capacitor does */
     /* the two ends of the window: ripple below, diagonal clipping above.
        The upper bound is the standard one, RC ≤ √(1 − m²) / (m·2π·fm). */
     var RCMAXOK = Math.sqrt(1 - M * M) / (M * 2 * Math.PI * FM);
     var RCMINOK = 4 / FC;
     var bad = S.rc > RCMAXOK || S.rc < RCMINOK;
-    curve(ctx, p, function (uu) { return det[Math.round(uu * N)] * SC; },
-          bad ? badCol() : pal().sig, 2, null, N);
+    denseCurve(ctx, p, function (uu) { return det[Math.round(uu * N)] * SC; },
+               bad ? badCol() : pal().sig, 1.8, N);
+    /* the shape it was supposed to trace, drawn last so it stays readable
+       against the output rather than under it */
+    if (S.ideal) {
+      curve(ctx, p, function (uu) {
+        return (1 + M * Math.sin(2 * Math.PI * FM * uu * TWIN - Math.PI / 2)) * SC;
+      }, fgA(0.75), 1.3, [5, 4], 400);
+    }
 
     panelLabel(ctx, p, 'VOLTAGE ON THE CAPACITOR', bad ? badCol() : sigA(0.85));
     mono(ctx, 9); ctx.fillStyle = fgA(0.45);
@@ -1000,14 +1061,26 @@ var SHAPES = {
     ctx.fillText('faint line: the AM signal arriving   ·   dashed: the original message',
                  x1, p.mid - p.amp - 4);
 
-    /* how far the output strayed from the envelope it should have traced */
-    var err = 0, ref = 0, e2;
-    for (i = 0; i <= N; i++) {
-      env = 1 + M * Math.sin(2 * Math.PI * FM * i * dt - Math.PI / 2);
-      e2 = det[i] - env;
-      err += e2 * e2; ref += (env - 1) * (env - 1);
+    /* The two failure modes measured separately, because they pull in opposite
+       directions: ripple falls as RC grows, clipping only begins once RC is
+       too large. One combined number would have its minimum inside the
+       "too slow" region, which is true and useless. */
+    var rip = 0, cyc = 0, over = 0, k, lo2, hi2, v2, envI;
+    for (i = 0; i + 64 <= N; i += 64) {              // one carrier period at a time
+      lo2 = Infinity; hi2 = -Infinity;
+      for (k = 0; k <= 64; k++) {
+        v2 = det[i + k];
+        if (v2 < lo2) lo2 = v2;
+        if (v2 > hi2) hi2 = v2;
+      }
+      rip += hi2 - lo2; cyc++;
     }
-    var rel = Math.sqrt(err / ref) * 100;
+    rip = cyc ? 100 * (rip / cyc) / (2 * M) : 0;     // as a share of the message swing
+    for (i = 0; i <= N; i++) {
+      envI = 1 + M * Math.sin(2 * Math.PI * FM * i * dt - Math.PI / 2);
+      if (det[i] > envI) over += det[i] - envI;
+    }
+    over = 100 * (over / (N + 1)) / (2 * M);
 
     ro(out, [
       ['carrier f<sub>c</sub>', '400 kHz'],
@@ -1016,7 +1089,8 @@ var SHAPES = {
       ['RC × f<sub>c</sub>', '<b>' + nf(S.rc * FC, 3) + '</b> (want ≫ 1)'],
       ['RC × f<sub>m</sub>', '<b>' + nf(S.rc * FM, 3) + '</b> (want ≪ 1)'],
       ['upper limit', fmtS(RCMAXOK)],
-      ['error vs message', fix(Math.min(rel, 999), 1) + ' %']
+      ['ripple', fix(Math.min(rip, 999), 1) + ' %'],
+      ['cannot follow', fix(Math.min(over, 999), 1) + ' %']
     ]);
 
     verdict(note, bad ? 'bad' : 'good',
@@ -1143,7 +1217,7 @@ var SHAPES = {
     return frac * carrierIn;
   }
 
-  var fig = Fig(cv, function (w) { return w / (w < 520 ? 310 : 285); }, function (f) {
+  var fig = Fig(cv, function (w) { return w / (w < 520 ? 335 : 285); }, function (f) {
     var ctx = f.ctx, w = f.w, h = f.h, i;
     clear(f);
     var x0 = 16, x1 = w - 16, sw = x1 - x0;
