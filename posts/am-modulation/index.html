@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AM Modulation — how a message rides on a radio wave · hkk.fyi</title>
+<meta name="description" content="Amplitude modulation, explained in plain English with seven figures you can drag: why sound cannot be sent as sound, how the carrier takes the shape of the message, sidebands, modulation index, power, and the diode that gets the message back.">
+<meta property="og:title" content="AM Modulation">
+<meta property="og:description" content="Why sound cannot be sent as sound — and how amplitude modulation fixes it. Seven live figures, no background needed.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://hkk.fyi/posts/am-modulation/">
+<meta property="og:site_name" content="hkk.fyi">
+<meta property="article:author" content="Hassan Keshtkar">
+<meta property="og:image" content="https://hkk.fyi/assets/og-am.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AM Modulation — a carrier wave shaped by a message, beside the article title.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hkk.fyi/assets/og-am.png">
+<link rel="canonical" href="https://hkk.fyi/posts/am-modulation/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23F4EFE4'/><path d='M4 32c4-14 8 14 12 0s8 14 12 0 8 14 12 0 8 14 12 0' fill='none' stroke='%231C1B1A' stroke-width='3'/><path d='M4 32c4-22 8 22 12 0' fill='none' stroke='%232B59C3' stroke-width='3'/></svg>">
+<script>
+/* settle the theme before the first paint, so the page never flashes */
+(function(){try{
+  var r=document.documentElement;
+  var t=localStorage.getItem('hkk-theme');
+  if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';
+  if(t==='ink')r.classList.add('ink');
+}catch(e){}})();
+</script>
+<link rel="stylesheet" href="../../assets/fonts.css">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="post.css">
+<style>
+  /* reading progress hairline under the topbar */
+  #prog{
+    position:fixed; top:0; left:0; height:2px; width:100%;
+    background:var(--sig); transform:scaleX(0); transform-origin:0 50%;
+    z-index:60; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="prog" aria-hidden="true"></div>
+<a class="skip" href="#start">Skip to content</a>
+
+<header class="topbar">
+  <a class="brand" href="../../" aria-label="hkk.fyi — home">
+    <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" fill="none" stroke="var(--sig)" stroke-width="5"/>
+      <circle cx="43" cy="32" r="17" fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="51" cy="32" r="9"  fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <path d="M4 32h56" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="27" cy="19" r="5" fill="var(--sig)"/>
+    </svg>
+    <span class="brand-name">hkk<span class="dim">.fyi</span></span>
+  </a>
+  <nav class="nav" aria-label="Sections">
+    <a href="../../#lab">Lab</a>
+    <a href="../../#writing">Writing</a>
+    <a href="../../#cv">CV</a>
+    <a href="../../#contact">Contact</a>
+  </nav>
+  <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch between light and dark" title="Toggle light / dark">
+    <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  </button>
+</header>
+
+<main>
+<article class="post" id="start">
+
+  <!-- ============ HERO ============ -->
+  <header class="post-hero">
+    <span class="mono-label post-kicker">ESSAY · SIGNALS &amp; COMMUNICATION · ~14 MIN · 7 LIVE FIGURES</span>
+    <h1>AM Modulation</h1>
+    <div class="post-lede">
+      <p class="post-sub">
+        A microphone gives you a signal that swings a few thousand times a second. A radio wave
+        that can cross a city swings a few million times a second. Modulation is how you get the
+        first one to travel on the second one.
+        <br><br>
+        This article is about the simplest method, <b>amplitude modulation</b>. It is the right
+        place to start, because every other method is a variation on the same idea: take a
+        steady high-frequency wave, and let the message change something about it.
+        <br><br>
+        You only need to know what a sine wave is. <b>Every figure below is live</b> — drag it,
+        break it, watch what happens.
+      </p>
+      <figure class="lede-chart">
+        <canvas id="figHero"></canvas>
+        <figcaption class="mono-label">A MESSAGE, RIDING</figcaption>
+      </figure>
+    </div>
+    <p class="mono-label byline">
+      <span>HASSAN KESHTKAR</span><span class="dot">·</span><span>TEHRAN</span>
+      <span class="dot">·</span><span>2026</span>
+      <span class="dot">·</span><a class="backlink" href="../../">← back to hkk.fyi</a>
+    </p>
+
+    <!-- Plain links, so sharing still works with JS off; post.js only adds the
+         copy button and the phone's native share sheet on top. -->
+    <div class="share" role="group" aria-label="Share this article">
+      <span class="mono-label share-label">SHARE</span>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://x.com/intent/tweet?text=AM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20on%20a%20radio%20wave&url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fam-modulation%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 3h3.2l-7 8 8.2 10.9h-6.4l-5-6.6-5.8 6.6H1.5l7.5-8.6L1.2 3h6.6l4.5 6zm-1.1 17h1.8L7.7 4.8H5.8z"/></svg>
+        X
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://t.me/share/url?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fam-modulation%2F&text=AM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20on%20a%20radio%20wave">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.1 13.1 1.6 11.7c-1-.3-1-1 .2-1.5l19-7.3c.8-.3 1.5.2 1.1 1.4z"/></svg>
+        Telegram
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Fam-modulation%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.76-2.05 4.02 0 4.76 2.64 4.76 6.08V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
+        LinkedIn
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fhkk.fyi%2Fposts%2Fam-modulation%2F&t=AM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20on%20a%20radio%20wave">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M2 2h20v20H2zm9.1 11.4L7.2 6.5h2.2l2.7 5 2.7-5h2.1l-3.9 6.9v4.1h-1.9z"/></svg>
+        Hacker News
+      </a>
+      <button class="share-btn" type="button" id="shareCopy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1 1M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1-1"/></svg>
+        <span id="shareCopyLabel">Copy link</span>
+      </button>
+      <button class="share-btn" type="button" id="shareNative" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 3v13M8 6.5 12 3l4 3.5M5 13v6.5h14V13"/></svg>
+        <span>Share…</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ TL;DR ============ -->
+  <aside class="tldr card">
+    <span class="mono-label">THE WHOLE ARTICLE IN 30 SECONDS</span>
+    <ul>
+      <li>Sound cannot be sent as sound. At speech frequencies a good antenna would be
+        <b>tens of kilometres</b> long, and every station on Earth would sit in the same band,
+        on top of each other.</li>
+      <li>So we start from a fast, steady sine wave — the <b>carrier</b> — and let the message
+        control its height: <b>s(t) = A<sub>c</sub>[1 + m·x(t)]·cos(2πf<sub>c</sub>t)</b>.</li>
+      <li>The shape of the message then appears as the <b>envelope</b> of the transmitted wave.
+        That is the whole trick.</li>
+      <li>Keep the modulation index <b>m ≤ 1</b>. Above 1 the envelope folds over and the
+        message cannot be recovered cleanly.</li>
+      <li>In frequency, the message moves up and sits next to the carrier as two mirrored
+        <b>sidebands</b>. AM uses <b>twice</b> the bandwidth of the message.</li>
+      <li>The carrier itself carries no information, yet takes at least two thirds of the
+        power. AM pays that price to make the receiver a <b>diode, a resistor and a
+        capacitor</b>.</li>
+    </ul>
+    <p class="tldr-foot">Still here? Good — the rest is the reasoning, plus seven things you can drag.</p>
+  </aside>
+
+  <nav class="toc card" aria-label="Contents">
+    <span class="mono-label">CONTENTS</span>
+    <ol>
+      <li><a href="#s1">Why sound cannot be sent as sound</a></li>
+      <li><a href="#s2">The carrier, which carries nothing</a></li>
+      <li><a href="#s3">What amplitude modulation does</a></li>
+      <li><a href="#s4">The modulation index, and how to break it</a></li>
+      <li><a href="#s5">The same signal, seen in frequency</a></li>
+      <li><a href="#s6">Where the power goes</a></li>
+      <li><a href="#s7">Getting the message back</a></li>
+      <li><a href="#s8">Many stations, one sky</a></li>
+      <li><a href="#s9">What to remember</a></li>
+    </ol>
+  </nav>
+
+  <hr class="rule">
+
+  <!-- ============ 1 ============ -->
+  <h2 id="s1"><span class="secnum">01</span> Why sound cannot be sent as sound</h2>
+
+  <p>
+    Start with what we actually have. A microphone turns sound into a voltage. Speech lives
+    between about <b>300 Hz and 3.4 kHz</b>; music reaches up to about <b>15 kHz</b>. That
+    voltage is the <em>message</em>, and a signal that sits at its natural frequencies like this
+    is called a <strong>baseband</strong> signal.
+  </p>
+  <p>
+    The obvious plan is to connect that voltage straight to an antenna and let it radiate. The
+    plan fails twice, for two completely different reasons.
+  </p>
+
+  <h3>Problem one: the antenna would not fit anywhere</h3>
+  <p>
+    An antenna only radiates well when its length is a decent fraction of the wavelength of the
+    signal it is fed. The usual target is a quarter of a wavelength. And wavelength comes
+    straight from frequency:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">wavelength</span>
+    λ = <span class="frac"><span class="num">c</span><span class="den">f</span></span>
+    <span class="small">c ≈ 3 × 10<sup>8</sup> m/s — the speed of light</span>
+  </div>
+
+  <p>
+    Low frequency means long wavelength. A 3 kHz voice tone has a wavelength of
+    <b>100 kilometres</b>, so a quarter-wave antenna for it is <b>25 kilometres</b> tall. That is
+    not an engineering challenge, it is a joke. Move the same signal up to 1 MHz and the antenna
+    becomes 75 m — a normal radio mast. Move it to 2.4 GHz and it is 3 cm — a track on a circuit
+    board.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 1</span><span class="fig-t">HOW TALL IS THE ANTENNA?</span></div>
+    <div class="canvas-wrap"><canvas id="figAnt"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">FREQUENCY</span><span class="ctl-val" id="antFv">3 kHz</span></div>
+          <input class="slider" type="range" id="antF" aria-label="Signal frequency" min="0" max="1000" step="1" value="0">
+        </div>
+        <div class="chip-row" id="antPresets"></div>
+        <p class="verdict" id="antNote"></p>
+      </div>
+      <dl class="ro" id="antOut"></dl>
+    </div>
+    <figcaption>
+      The scale is logarithmic, so each mark is ten times the one before it. Drag the slider from
+      the voice tone at the far left up to Wi-Fi at the far right and watch the required antenna
+      shrink from <b>a mountain range to a paperclip</b>. Nothing about the physics changed — only
+      the frequency. This single plot is the first half of the reason modulation exists.
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>Can I just build a smaller antenna and accept the loss?</summary>
+    <div class="decode-body">
+      <p>
+        You can, and phones do it every day, but it is not free. An antenna much shorter than a
+        quarter wavelength has a very small <em>radiation resistance</em> — the part of it that
+        turns power into radio waves. The rest of the power turns into heat in the copper and in
+        the matching network.
+      </p>
+      <p>
+        A short antenna also becomes very sensitive to frequency: it works over a narrow band and
+        needs a careful matching circuit to work at all. You can shrink an antenna by a factor of
+        ten with clever design. You cannot shrink it by a factor of ten thousand, which is what
+        sending audio directly would ask of you.
+      </p>
+    </div>
+  </details>
+
+  <h3>Problem two: everybody would be shouting in the same room</h3>
+  <p>
+    Suppose the antenna problem vanished. There is still a second wall. Every microphone in the
+    world produces the same range of frequencies — roughly 20 Hz to 20 kHz. If two stations both
+    transmit their audio directly, the two signals arrive on top of each other and add up.
+  </p>
+  <p>
+    A filter can only separate signals that are in <em>different</em> places in frequency. Here
+    they are in the same place, so there is nothing to filter on. One transmitter per city, for
+    everyone, forever.
+  </p>
+  <p>
+    Both problems have the same answer. <strong>Move the message up to a high frequency, and give
+    every transmitter a different one.</strong> That is what modulation is for.
+  </p>
+
+  <!-- ============ 2 ============ -->
+  <h2 id="s2"><span class="secnum">02</span> The carrier, which carries nothing</h2>
+
+  <p>
+    The high-frequency wave we move the message onto is called the <strong>carrier</strong>. It
+    is a plain sine wave:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">the carrier</span>
+    c(t) = A<sub>c</sub> · cos(2π f<sub>c</sub> t)
+  </div>
+
+  <p>
+    On its own it contains no information at all. Its height never changes, its frequency never
+    changes, its timing never changes. If you look at it on a spectrum analyser you see a single
+    spike and nothing else. Listening to an unmodulated carrier tells you exactly one thing: the
+    transmitter is switched on.
+  </p>
+  <p>
+    That is the point. A sine wave has exactly three properties you can change, and a receiver
+    can detect a change in any of them:
+  </p>
+
+  <table class="tbl">
+    <thead>
+      <tr><th>Change this</th><th>You get</th><th>What the receiver watches</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Amplitude</td><td>AM</td><td>how tall the wave is</td></tr>
+      <tr><td>Frequency</td><td>FM</td><td>how fast it wiggles</td></tr>
+      <tr><td>Phase</td><td>PM</td><td>whether it arrives early or late</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>Modulation</strong> is the act of making one of those properties follow the message.
+    <strong>Demodulation</strong> is the act of reading it back at the far end. This article
+    follows the first row.
+  </p>
+
+  <div class="pull">
+    A carrier carries no information. That is precisely why we can write information onto it.
+  </div>
+
+  <!-- ============ 3 ============ -->
+  <h2 id="s3"><span class="secnum">03</span> What amplitude modulation does</h2>
+
+  <p>
+    Call the message x(t), and scale it so it never leaves the range −1 to +1. Amplitude
+    modulation replaces the constant height A<sub>c</sub> with a height that moves:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">standard AM</span>
+    s(t) = A<sub>c</sub> [ 1 + m · x(t) ] · cos(2π f<sub>c</sub> t)
+    <span class="small">m is the modulation index — how deeply the message pushes the height</span>
+  </div>
+
+  <p>
+    Read it in two parts. The right-hand factor is the carrier, untouched: it still swings at
+    f<sub>c</sub>, and it always will. The left-hand bracket is the new amplitude, and it goes up
+    and down with the message.
+  </p>
+  <p>
+    Draw a smooth line through the peaks of the result and you get the <strong>envelope</strong>.
+    The envelope is A<sub>c</sub>[1 + m·x(t)] — the message itself, scaled and lifted up so that
+    it never goes negative. <b>The message is not inside the wiggles. It is in the shape they
+    trace.</b>
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 2</span><span class="fig-t">THE CARRIER TAKES THE SHAPE OF THE MESSAGE</span></div>
+    <div class="canvas-wrap"><canvas id="figAM"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="chip-row" id="amShape"></div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MESSAGE FREQUENCY</span><span class="ctl-val" id="amFmv">1 kHz</span></div>
+          <input class="slider" type="range" id="amFm" aria-label="Message frequency" min="1" max="4" step="0.05" value="1">
+        </div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">CARRIER FREQUENCY</span><span class="ctl-val" id="amFcv">40 kHz</span></div>
+          <input class="slider" type="range" id="amFc" aria-label="Carrier frequency" min="16" max="90" step="1" value="40">
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="amEnv" checked> draw the envelope</label>
+        </div>
+        <button class="pill on" type="button" id="amPlay">❙❙ Pause</button>
+      </div>
+      <dl class="ro" id="amOut"></dl>
+    </div>
+    <figcaption>
+      Three views of the same instant. <b>Top</b> is the message on its own. <b>Middle</b> is the
+      bare carrier — always the same height. <b>Bottom</b> is the transmitted signal, and the
+      dashed line through its peaks is the top of the message, redrawn. Raise the carrier
+      frequency and the wiggles get denser while the shape stays exactly where it was: the
+      envelope does not care how fast the carrier runs. Switch the message to
+      <b>two tones</b> or <b>pulse</b> and the envelope copies that too.
+    </figcaption>
+  </figure>
+
+  <div class="note card">
+    <b>A note on the drawings.</b> In a real broadcast the carrier is thousands of times faster
+    than the message — an AM station at 1 MHz carrying a 1 kHz tone runs a ratio of 1000 : 1. Drawn
+    honestly, that is a solid block of ink. Every figure here uses a ratio of a few tens instead,
+    which keeps the shape visible — and keeps the detector's ripple, in the one figure you can
+    listen to, at a frequency a speaker can actually reproduce. The mathematics is identical.
+    <br><br>
+    <b>Three of the figures further down make sound</b> — the modulation index, the detector, and
+    the tuning dial. Nothing plays until you ask for it, and only one plays at a time.
+  </div>
+
+  <!-- ============ 4 ============ -->
+  <h2 id="s4"><span class="secnum">04</span> The modulation index, and how to break it</h2>
+
+  <p>
+    The index m sets how deep the swing is. With a single tone the envelope runs between
+    A<sub>c</sub>(1 − m) at its lowest and A<sub>c</sub>(1 + m) at its highest, so you can measure
+    m off a screen without knowing anything else about the transmitter:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">modulation index, measured</span>
+    m =
+    <span class="frac">
+      <span class="num">V<sub>max</sub> − V<sub>min</sub></span>
+      <span class="den">V<sub>max</sub> + V<sub>min</sub></span>
+    </span>
+  </div>
+
+  <p>
+    Three cases matter, and only three:
+  </p>
+  <ul>
+    <li><b>m &lt; 1</b> — the envelope stays above zero. Everything works. m = 0.5 means the
+      height swings between half and one-and-a-half times the carrier.</li>
+    <li><b>m = 1</b> — full modulation. The envelope just touches zero at its lowest point. This
+      is as loud as standard AM is allowed to go, and it is where the message gets the largest
+      share of the power.</li>
+    <li><b>m &gt; 1</b> — <b>over-modulation.</b> The bracket [1 + m·x(t)] goes negative. The
+      envelope cannot follow it there, so it folds back up and stops being a copy of the message.
+      The receiver hears harsh distortion, and the transmitted signal spreads far outside its
+      channel and interferes with the neighbours.</li>
+  </ul>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 3</span><span class="fig-t">TURN IT UP UNTIL IT BREAKS</span></div>
+    <div class="canvas-wrap"><canvas id="figIdx"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MODULATION INDEX m</span><span class="ctl-val" id="idxMv">0.60</span></div>
+          <input class="slider" type="range" id="idxM" aria-label="Modulation index" min="0" max="180" step="1" value="60">
+        </div>
+        <div class="chip-row" id="idxPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="idxListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">what the receiver would play</span>
+        </div>
+        <p class="verdict" id="idxNote"></p>
+      </div>
+      <dl class="ro" id="idxOut"></dl>
+    </div>
+    <figcaption>
+      The upper plot is the transmitted signal with V<sub>max</sub> and V<sub>min</sub> marked; the
+      lower plot is what a simple receiver recovers by following the envelope. Below m = 1 the two
+      shapes match. Push past m = 1 and watch the lower plot grow <b>sharp notches</b> that
+      were never in the message — that is over-modulation, and it is the most common way an AM
+      transmitter is set up wrong. Note also what happens at m = 0: a perfect, useless carrier.
+      <b>Press Listen</b> and drag the slider: the lower plot is played as sound, so m = 0 is
+      silence, the middle is a clean tone, and everything past m = 1 turns to buzz.
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>Why does a negative envelope come back as a phase flip?</summary>
+    <div class="decode-body">
+      <p>
+        When [1 + m·x(t)] goes negative, the wave is still there — it is the carrier multiplied by
+        a negative number, which is the same as the carrier turned upside down, or shifted in time
+        by half a cycle. Mathematically nothing is lost: a receiver that also knows the carrier's
+        phase can undo the sign and rebuild the message perfectly.
+      </p>
+      <p>
+        But an envelope detector does not know the phase. It only measures how tall the wave is,
+        and height has no sign. So it reports |1 + m·x(t)| and the negative part is folded back up.
+        Over-modulation is not a problem with the signal. It is a problem with the cheap
+        receiver — which is the receiver everybody uses.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ 5 ============ -->
+  <h2 id="s5"><span class="secnum">05</span> The same signal, seen in frequency</h2>
+
+  <p>
+    So far everything has been a picture of voltage against time. The other view — voltage against
+    frequency — is where AM shows what it really did. Take the single-tone case,
+    x(t) = cos(2π f<sub>m</sub> t), and multiply the brackets out:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">standard AM, term by term</span>
+    s(t) = A<sub>c</sub> cos(2πf<sub>c</sub>t)
+    + <span class="frac"><span class="num">mA<sub>c</sub></span><span class="den">2</span></span>
+    cos[2π(f<sub>c</sub> − f<sub>m</sub>)t]
+    + <span class="frac"><span class="num">mA<sub>c</sub></span><span class="den">2</span></span>
+    cos[2π(f<sub>c</sub> + f<sub>m</sub>)t]
+    <span class="small">using cos A · cos B = ½ cos(A − B) + ½ cos(A + B)</span>
+  </div>
+
+  <p>
+    Three pure tones, and not one of them is at f<sub>m</sub>. The message frequency itself has
+    disappeared from the transmitted signal. What is left is the carrier, plus one copy of the
+    message sitting just <em>below</em> it and one sitting just <em>above</em> it. Those two copies
+    are the <strong>sidebands</strong>: the lower sideband (LSB) and the upper sideband (USB).
+  </p>
+  <p>
+    A real message is not one tone but a whole band, from near zero up to some highest frequency
+    B. Each tone in it produces its own pair, so the result is two mirrored copies of the message
+    spectrum, one on each side of the carrier. The signal now occupies
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">transmission bandwidth</span>
+    BW = 2B
+    <span class="small">twice the highest frequency in the message</span>
+  </div>
+
+  <p>
+    This is why an AM broadcast channel is 10 kHz wide while the audio inside it stops at about
+    5 kHz. You pay for the second copy whether you want it or not.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 4</span><span class="fig-t">THE MESSAGE MOVES UP, AND DOUBLES</span></div>
+    <div class="canvas-wrap"><canvas id="figSpec"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="chip-row" id="specKind"></div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label" id="specFmLbl">MESSAGE FREQUENCY</span><span class="ctl-val" id="specFmv">3 kHz</span></div>
+          <input class="slider" type="range" id="specFm" aria-label="Message frequency" min="1" max="15" step="0.5" value="3">
+        </div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MODULATION INDEX m</span><span class="ctl-val" id="specMv">0.70</span></div>
+          <input class="slider" type="range" id="specM" aria-label="Modulation index" min="0" max="100" step="1" value="70">
+        </div>
+      </div>
+      <dl class="ro" id="specOut"></dl>
+    </div>
+    <figcaption>
+      Below is the message where it starts, near zero. Above is the transmitted signal, sitting
+      around a 1 MHz carrier. Drag the message frequency and the two sidebands walk away from the
+      carrier together, always the same distance out on each side, and the bandwidth readout
+      follows at exactly twice. Drag m down to zero and the sidebands vanish while the carrier
+      stands there unchanged — <b>all of the information is in the sidebands, and none of it is in
+      the carrier</b>. Switch to <b>speech band</b> to see what a real message looks like: two
+      mirrored triangles.
+    </figcaption>
+  </figure>
+
+  <div class="pull">
+    Modulation does not change the message. It changes where in the spectrum the message lives.
+  </div>
+
+  <details class="decode">
+    <summary>Why is the lower sideband mirrored?</summary>
+    <div class="decode-body">
+      <p>
+        The lower sideband sits at f<sub>c</sub> − f<sub>m</sub>. A <em>higher</em> message tone
+        gives a <em>lower</em> frequency there, so as the message spectrum climbs, the lower
+        sideband walks downward. It is the same information read backwards along the frequency
+        axis.
+      </p>
+      <p>
+        Both sidebands carry the complete message. That is exactly the redundancy that
+        single-sideband transmission (SSB) throws away: filter one of them off, and you send the
+        same information in half the bandwidth — at the cost of a much more demanding receiver.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ 6 ============ -->
+  <h2 id="s6"><span class="secnum">06</span> Where the power goes</h2>
+
+  <p>
+    Now for the price. With a single-tone message, the average power of the AM signal splits into
+    a carrier term and two sideband terms:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">total transmitted power</span>
+    P<sub>t</sub> = P<sub>c</sub> ( 1 +
+    <span class="frac"><span class="num">m²</span><span class="den">2</span></span> )
+    <span class="small">each sideband carries P<sub>c</sub>m²/4 · the carrier carries P<sub>c</sub> no matter what</span>
+  </div>
+
+  <p>
+    The carrier term does not depend on m at all. It is there when the station is playing music
+    and it is there when nobody is speaking. And we established one section ago that the carrier
+    holds none of the information. So the useful fraction is
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">efficiency</span>
+    η =
+    <span class="frac"><span class="num">m²</span><span class="den">2 + m²</span></span>
+    <span class="small">at best, with m = 1: η = 1/3</span>
+  </div>
+
+  <p>
+    Even at full modulation, a standard AM transmitter puts <b>two thirds of its power into a
+    wave that says nothing</b>. A station running a 50 kW carrier radiates all 50 kW of it whether
+    anyone is speaking or not, and adds at most 25 kW of sidebands on top. In practice speech and
+    music average well below m = 1, so the real figure is worse — often only a few per cent.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 5</span><span class="fig-t">TWO THIRDS OF IT, AT BEST, IS WASTED</span></div>
+    <div class="canvas-wrap"><canvas id="figPow"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MODULATION INDEX m</span><span class="ctl-val" id="powMv">1.00</span></div>
+          <input class="slider" type="range" id="powM" aria-label="Modulation index" min="0" max="100" step="1" value="100">
+        </div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">CARRIER POWER</span><span class="ctl-val" id="powPcv">50 kW</span></div>
+          <input class="slider" type="range" id="powPc" aria-label="Carrier power" min="1" max="100" step="1" value="50">
+        </div>
+        <p class="verdict" id="powNote"></p>
+      </div>
+      <dl class="ro" id="powOut"></dl>
+    </div>
+    <figcaption>
+      The bar is the total transmitted power, split into the part that carries the message and the
+      part that does not. The curve underneath is efficiency against m, with your setting marked.
+      Push m all the way to 1 and the curve tops out at <b>33.3 %</b> — that is not a limitation of
+      the equipment, it is the arithmetic of standard AM. Everything to the left of that point is
+      worse.
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>Then why send the carrier at all?</summary>
+    <div class="decode-body">
+      <p>
+        Because the carrier is what makes the envelope a faithful copy of the message. Remove it
+        and you get <b>DSB-SC</b> — double sideband, suppressed carrier — which spends 100 % of its
+        power on information, and whose envelope no longer looks like the message at all. Recovering
+        it needs a receiver that regenerates a carrier locked to the transmitter's phase.
+      </p>
+      <p>
+        That is the trade at the heart of AM: the transmitter wastes power so that every receiver
+        can be trivial. One expensive station, millions of cheap radios. For broadcasting, that is
+        the right way round.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ 7 ============ -->
+  <h2 id="s7"><span class="secnum">07</span> Getting the message back</h2>
+
+  <p>
+    Here is the reward for all that wasted power. The message is sitting in the envelope, and
+    measuring an envelope takes three components: a <strong>diode</strong>, a
+    <strong>resistor</strong> and a <strong>capacitor</strong>.
+  </p>
+  <p>
+    The diode passes only the positive half of the incoming wave. Each positive peak charges the
+    capacitor up to that peak's height. Between peaks, the capacitor leaks slowly through the
+    resistor. The voltage on the capacitor therefore hops up to each new peak and sags gently in
+    between — which is a copy of the envelope, with some ripple on it.
+  </p>
+  <p>
+    Everything depends on the time constant τ = RC, and it is squeezed from both sides:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">the envelope detector condition</span>
+    <span class="frac"><span class="num">1</span><span class="den">f<sub>c</sub></span></span>
+    ≪ RC ≪
+    <span class="frac"><span class="num">1</span><span class="den">f<sub>m</sub></span></span>
+    <span class="small">slow enough to ignore the carrier, fast enough to follow the message</span>
+  </div>
+
+  <p>
+    If RC is too small, the capacitor discharges between every carrier peak and the output is a
+    rough, rippled version of the wave. If RC is too large, the capacitor cannot fall as fast as
+    the envelope does, and the output cuts the corner in a straight line — a failure with the
+    excellent name <strong>diagonal clipping</strong>. Between the two, it works.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 6</span><span class="fig-t">THREE PARTS, AND ONE NUMBER TO GET RIGHT</span></div>
+    <div class="canvas-wrap"><canvas id="figDet"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">TIME CONSTANT RC</span><span class="ctl-val" id="detRCv">25 µs</span></div>
+          <input class="slider" type="range" id="detRC" aria-label="Detector time constant" min="0" max="1000" step="1" value="500">
+        </div>
+        <div class="chip-row" id="detPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="detListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then drag RC while it plays</span>
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="detIdeal" checked> compare with the original message</label>
+        </div>
+        <p class="verdict" id="detNote"></p>
+      </div>
+      <dl class="ro" id="detOut"></dl>
+    </div>
+    <div class="canvas-wrap ckt"><canvas id="figDetCkt"></canvas></div>
+    <figcaption>
+      The faint wave is what arrives at the antenna; the solid line is the voltage on the
+      capacitor, simulated peak by peak. Drag RC to the far left for <b>ripple</b> — the detector
+      is tracking the carrier instead of the envelope. Drag it to the far right for
+      <b>diagonal clipping</b> — straight sloping cuts where the output could not fall fast
+      enough. The window in between is wide, which is exactly why this circuit has never needed to
+      be clever. <b>Listen</b> plays the same detector with everything scaled into hearing range,
+      keeping RC × f<sub>c</sub> and RC × f<sub>m</sub> exactly as they are on screen — so the
+      ripple you can see becomes a ripple you can hear. <b>Drag RC while it plays:</b> the fast end
+      buzzes, because the output is chasing the carrier; the middle is a clean tone, and the
+      loudest of the three; the slow end goes quiet and harsh.
+    </figcaption>
+  </figure>
+
+  <p>
+    Notice what is <em>not</em> in that circuit: no power supply, no oscillator, nothing that has
+    to know the transmitter's phase. A diode and two passive parts pull speech out of the air. That
+    is the whole return on the two thirds of the power we threw away in section 6.
+  </p>
+
+  <!-- ============ 8 ============ -->
+  <h2 id="s8"><span class="secnum">08</span> Many stations, one sky</h2>
+
+  <p>
+    Back to the second problem from section 1. Every station is given its own carrier frequency,
+    so every station's pair of sidebands sits in its own slot along the frequency axis. The slots
+    are stacked side by side and nobody overlaps. This arrangement has a name:
+    <strong>frequency-division multiplexing</strong>.
+  </p>
+  <p>
+    Your antenna picks up all of them at once and adds them together, which sounds like the same
+    mess as before — except now they <em>are</em> in different places in frequency, so a filter can
+    separate them. Tune a bandpass filter to one slot, throw away everything else, and hand what
+    survives to the envelope detector. That is what the tuning knob on a radio does.
+  </p>
+  <p>
+    The slot has to be at least 2B wide, because that is what one station takes. If stations are
+    packed closer than that, their sidebands overlap and you hear both at once — adjacent-channel
+    interference. This is why AM broadcast channels are spaced 10 kHz apart in the Americas
+    (9 kHz in most of the rest of the world) and the audio is filtered to about 5 kHz before it
+    ever reaches the modulator.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 7</span><span class="fig-t">TURN THE DIAL</span></div>
+    <div class="canvas-wrap"><canvas id="figDial"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">TUNED TO</span><span class="ctl-val" id="dialFv">995 kHz</span></div>
+          <input class="slider" type="range" id="dialF" aria-label="Tuning frequency" min="950" max="1050" step="0.5" value="995">
+        </div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">FILTER WIDTH</span><span class="ctl-val" id="dialBWv">10 kHz</span></div>
+          <input class="slider" type="range" id="dialBW" aria-label="Filter bandwidth" min="4" max="60" step="1" value="10">
+        </div>
+        <div class="chip-row" id="dialPresets"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="dialListen" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then turn the dial while it plays</span>
+        </div>
+        <p class="verdict" id="dialNote"></p>
+      </div>
+      <dl class="ro" id="dialOut"></dl>
+    </div>
+    <figcaption>
+      Four stations share the band; each one is a carrier spike with its own two sidebands. The
+      shaded window is your receiver's filter, and the plot underneath is the audio that comes out
+      of the detector. Land on a station and the message is clean. Stop between two and you get
+      almost nothing. Now widen the filter past <b>20 kHz</b> and drive it up the band: the window
+      starts swallowing two stations at once and the recovered audio becomes both of them, mixed —
+      the interference that channel spacing exists to prevent. Watch the <b>hiss</b> while you do
+      it. Noise arrives from every frequency at once, so a filter twice as wide collects twice the
+      noise power, and the readout counts it in decibels against the 10 kHz a station actually
+      needs. That is the quieter half of why a receiver's filter is cut to one channel: a wide
+      window buries the station in hiss even when there is no neighbour to let in. Each station
+      sends a different note with a different waveform, so <b>press Listen and turn the dial</b>:
+      you hear one station, then hiss between them, and where the filter is too wide, two notes at
+      once under a rising hiss.
+    </figcaption>
+  </figure>
+
+  <!-- ============ 9 ============ -->
+  <h2 id="s9"><span class="secnum">09</span> What to remember</h2>
+
+  <p>
+    Six sentences, and they are the whole article:
+  </p>
+  <ul>
+    <li>A message at audio frequencies cannot be radiated: the antenna would be kilometres long,
+      and every station would occupy the same band.</li>
+    <li>Modulation solves both by moving the message up to a high carrier frequency, chosen
+      differently for each transmitter.</li>
+    <li>In AM, the message controls the <em>height</em> of the carrier, and the message shape
+      appears as the envelope: s(t) = A<sub>c</sub>[1 + m·x(t)]cos(2πf<sub>c</sub>t).</li>
+    <li>The index m must stay at or below 1. Above it, the envelope folds and a simple receiver
+      hears distortion.</li>
+    <li>In frequency the result is a carrier and two sidebands, so AM occupies twice the message
+      bandwidth, and at most one third of the power does useful work.</li>
+    <li>The payment for that waste is a receiver made of three passive components.</li>
+  </ul>
+  <p>
+    Once those are solid, the rest of analogue modulation follows quickly. Suppress the carrier
+    and you have DSB-SC, which is efficient but needs a synchronous receiver. Remove one sideband
+    as well and you have SSB, which halves the bandwidth. Leave the amplitude alone and move the
+    frequency instead and you have FM, which is far more resistant to noise — because noise adds
+    itself to amplitude, and FM does not listen to amplitude.
+  </p>
+  <p>
+    All of them are the same sentence in different clothing: <em>take a steady wave, and let the
+    message change one thing about it</em>.
+  </p>
+
+  <div class="cta card">
+    <h3>More of this sort of thing</h3>
+    <p>
+      If you want another piece of RF explained from zero with figures you can break, the Smith
+      chart essay next door does the same job for impedance, reflection and matching — and the
+      chart itself runs live in the Lab.
+    </p>
+    <div class="btn-row">
+      <a class="btn solid" href="../smith-chart/">Read the Smith chart essay</a>
+      <a class="btn" href="../../#lab">Back to the Lab</a>
+    </div>
+  </div>
+
+  <h3 style="margin-top:3rem">Sources &amp; further reading</h3>
+  <ul class="refs">
+    <li>S. Haykin and M. Moher, <em>Communication Systems</em>, 5th ed., Wiley — chapter 3, amplitude modulation and its variants.</li>
+    <li>B. P. Lathi and Z. Ding, <em>Modern Digital and Analog Communication Systems</em>, 4th ed., Oxford — chapter 4, for the envelope-detector conditions.</li>
+    <li>L. W. Couch, <em>Digital and Analog Communication Systems</em>, 8th ed., Pearson — power and efficiency of standard AM.</li>
+    <li>C. A. Balanis, <em>Antenna Theory: Analysis and Design</em>, 4th ed., Wiley — chapter 2, on why an electrically small antenna radiates so poorly.</li>
+  </ul>
+
+</article>
+</main>
+
+<footer class="footer">
+  <span>© 2026 Hassan Keshtkar · <span class="mono-label">hkk.fyi</span></span>
+  <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
+</footer>
+
+<script src="post.js"></script>
+</body>
+</html>
