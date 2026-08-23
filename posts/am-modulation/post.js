@@ -1417,13 +1417,33 @@ var SHAPES = {
     sound.retune();
   }
 
-  /* Noise arrives from everywhere at once, so what reaches the detector is
-     whatever the filter lets through: its power is proportional to the width of
-     the window, and its amplitude to the square root of that. This is the other
-     half of why a receiver's filter is cut to one channel and no wider — a wide
-     window does not only let the neighbours in, it lets more hiss in even when
-     there is no neighbour to let in. Referenced to the 10 kHz a station needs. */
-  function noiseAmp() { return 0.10 * Math.sqrt(S.bw / 10); }
+  /* What the window lets in, besides the station, comes from two places, and
+     they behave differently.
+
+     The receiver's own noise arrives from every frequency at once, so its
+     power follows the width of the window: double the width, double the noise.
+     On its own that is a gentle law — over this slider it is worth about 8 dB —
+     and at one channel wide it should be inaudible under the station.
+
+     The band itself is the other source, and it is the loud one. Past one
+     channel the window stops being empty: it starts taking in the skirts of
+     the neighbours, the distant stations too weak to resolve, and everything
+     else transmitting nearby. None of that is a station you can hear, it is
+     mush, and there is far more of it per kilohertz than there is thermal
+     noise. So it contributes nothing at all up to 2B and then climbs steeply.
+
+     Together: silence when the filter is cut to one channel, and a real hiss
+     once it is opened well past that. Which is the point of the figure. */
+  function noiseAmp() {
+    var over = Math.max(0, S.bw - 10);                             // kHz past one channel
+    var own  = 0.020 * Math.sqrt(S.bw / 10);                       // the set's own floor
+    /* √over alone would step off a cliff the moment the window passed 2B; the
+       neighbours' skirts arrive gradually, so it fades in over the first few
+       kilohertz of excess */
+    var band = 0.075 * Math.sqrt(over / 10) * Math.min(1, over / 6);
+    return own + band;
+  }
+  function noiseDb() { return 20 * Math.log10(noiseAmp() / 0.020); }
 
   /* how much of a station falls inside the filter window */
   function weight(st) {
@@ -1468,7 +1488,7 @@ var SHAPES = {
       a = i / fade;
       nz[i] = nz[i] * a + nz[len + i] * (1 - a);
     }
-    var na = noiseAmp() * 2.4;                       // the hiss is quieter than it looks on screen
+    var na = noiseAmp() * 1.7;                       // the hiss is quieter than it looks on screen
     for (i = 0; i < len; i++) out[i] += nz[i] * na;
 
     return AUDIO.centre(out, 0.75);
@@ -1558,7 +1578,7 @@ var SHAPES = {
     panelLabel(ctx, pA, 'WHAT YOU HEAR', heard.length > 1 ? badCol() : sigA(0.85));
 
     var names = heard.map(function (st) { return st.name; }).join(' + ');
-    var nDb = 10 * Math.log10(S.bw / 10);            // noise power against one channel
+    var nDb = noiseDb();                             // against a filter cut to one channel
     ro(out, [
       ['tuned to', '<b>' + nf(S.f, 5) + ' kHz</b>'],
       ['filter width', S.bw + ' kHz'],
@@ -1569,11 +1589,11 @@ var SHAPES = {
     ]);
 
     /* A filter wider than one channel is wrong twice over, and the second way
-       is quieter than the first: before it reaches the neighbours it has
-       already taken in more noise, and that costs you even on a clear band. */
-    var wide = S.bw > 13
-      ? ' The window is <b>' + nf(S.bw / 10, 2) + '×</b> wider than the station needs, which also lets in <b>'
-        + fix(nDb, 1) + ' dB</b> more noise than a 10 kHz filter would.'
+       shows up before the first: long before a whole neighbour lands inside,
+       the window has started taking in the band around it as hiss. */
+    var wide = S.bw > 11
+      ? ' The window is <b>' + nf(S.bw / 10, 2) + '×</b> wider than the station needs, so it is also taking in <b>'
+        + fix(nDb, 1) + ' dB</b> more noise than a filter cut to one channel.'
       : '';
     verdict(note, heard.length === 1 ? (S.bw > 13 ? '' : 'good') : (heard.length > 1 ? 'bad' : ''),
       heard.length === 0 ? 'Between stations. The filter is sitting on empty spectrum, so nothing reaches the detector but noise — and the wider you open it, the more of that noise there is.' :
