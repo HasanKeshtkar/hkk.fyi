@@ -101,17 +101,6 @@ html:not(.ink) .byline .dot{ opacity:.55; }
   .share.has-native .share-btn:not(#shareCopy):not(#shareNative){ display:none; }
 }
 
-/* ---------- the 30-second version ---------- */
-.tldr{
-  padding:1.15rem 1.35rem; margin:2.4rem 0 0;
-  border-left:3px solid var(--sig);
-}
-.tldr > .mono-label{ color:var(--sig); display:block; margin-bottom:.7rem; }
-.tldr ul{ margin:0; padding-left:1.15rem; }
-.tldr li{ margin:.45rem 0; font-size:.97rem; line-height:1.55; }
-.tldr li::marker{ color:var(--sig); }
-.tldr .tldr-foot{ margin:.95rem 0 0; font-size:.88rem; font-style:italic; opacity:.72; }
-
 /* ---------- plain-English side boxes ---------- */
 details.decode{
   margin:1.4rem 0;
@@ -422,7 +411,6 @@ html.lang-fa main .ro dt{ font-family:var(--font-fa-text); letter-spacing:0; }
 html.lang-fa .post p,
 html.lang-fa .post li,
 html.lang-fa .post-sub,
-html.lang-fa .tldr li,
 html.lang-fa .decode-body p,
 html.lang-fa .cta p{ line-height:1.95; }
 html.lang-fa figcaption,
@@ -431,8 +419,7 @@ html.lang-fa .verdict,
 html.lang-fa .refs li{ line-height:1.85; }
 
 /* italic is not a Persian distinction — it only slants the face badly */
-html.lang-fa main em,
-html.lang-fa .tldr .tldr-foot{ font-style:normal; font-weight:500; }
+html.lang-fa main em{ font-style:normal; font-weight:500; }
 html.lang-fa main em{ color:color-mix(in srgb, var(--fg) 74%, var(--sig)); }
 html.lang-fa main strong,
 html.lang-fa main b{ font-weight:700; }
@@ -440,8 +427,6 @@ html.lang-fa main b{ font-weight:700; }
 /* ---------- 2. direction ---------- */
 html.lang-fa #prog{ transform-origin:100% 50%; }
 
-html.lang-fa .tldr{ border-left:0; border-right:3px solid var(--sig); }
-html.lang-fa .tldr ul{ padding-left:0; padding-right:1.15rem; }
 html.lang-fa .toc ol{ padding-left:0; padding-right:1.2rem; list-style-type:persian; }
 html.lang-fa .post ul,
 html.lang-fa .post ol{ padding-left:0; padding-right:1.2rem; }
@@ -541,7 +526,7 @@ html.lang-fa main .eq{ unicode-bidi:plaintext; }
   figure.fig figcaption{ font-size:.88rem; line-height:1.6; }
   .fig-split{ gap:.9rem; }
   .ro{ font-size:.78rem; }
-  .tldr, .toc, .cta{ padding:1rem 1.1rem; }
+  .toc, .cta{ padding:1rem 1.1rem; }
   .eq{ padding:.8rem .6rem; font-size:.92rem; }
   .post h2{ font-size:1.35rem; gap:.5rem; }
   .pull{ font-size:1.05rem; padding-left:1rem; }

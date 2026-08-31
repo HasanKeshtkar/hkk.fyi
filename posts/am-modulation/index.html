@@ -86,16 +86,13 @@
     <h1 data-i18n="start.h1">AM Modulation</h1>
     <div class="post-lede">
       <p data-i18n="start.p1" class="post-sub">
-        A microphone gives you a signal that swings a few thousand times a second. A radio wave
-        that can cross a city swings a few million times a second. Modulation is how you get the
-        first one to travel on the second one.
+        Modulation puts a low-frequency message onto a high-frequency wave. A microphone's signal
+        swings a few thousand times a second; a radio wave that can cross a city swings a few
+        million.
         <br><br>
-        This article is about the simplest method, <b>amplitude modulation</b>. It is the right
-        place to start, because every other method is a variation on the same idea: take a
-        steady high-frequency wave, and let the message change something about it.
-        <br><br>
-        You only need to know what a sine wave is. <b>Every figure below is live</b> — drag it,
-        break it, watch what happens.
+        This article covers the simplest method: <b>amplitude modulation</b>, where the message
+        sets the height of the carrier. You only need to know what a sine wave is.
+        <b>Every figure below is live</b> — drag it, break it, watch what happens.
       </p>
       <figure class="lede-chart">
         <canvas id="figHero"></canvas>
@@ -142,28 +139,6 @@
       </button>
     </div>
   </header>
-
-  <!-- ============ TL;DR ============ -->
-  <aside class="tldr card">
-    <span data-i18n="start.monolabel3" class="mono-label">THE WHOLE ARTICLE IN 30 SECONDS</span>
-    <ul>
-      <li data-i18n="start.li1">Sound cannot be sent as sound. At speech frequencies a good antenna would be
-        <b>tens of kilometres</b> long, and every station on Earth would sit in the same band,
-        on top of each other.</li>
-      <li data-i18n="start.li2">So we start from a fast, steady sine wave — the <b>carrier</b> — and let the message
-        control its height: <b>s(t) = A<sub>c</sub>[1 + m·x(t)]·cos(2πf<sub>c</sub>t)</b>.</li>
-      <li data-i18n="start.li3">The shape of the message then appears as the <b>envelope</b> of the transmitted wave.
-        That is the whole trick.</li>
-      <li data-i18n="start.li4">Keep the modulation index <b>m ≤ 1</b>. Above 1 the envelope folds over and the
-        message cannot be recovered cleanly.</li>
-      <li data-i18n="start.li5">In frequency, the message moves up and sits next to the carrier as two mirrored
-        <b>sidebands</b>. AM uses <b>twice</b> the bandwidth of the message.</li>
-      <li data-i18n="start.li6">The carrier itself carries no information, yet takes at least two thirds of the
-        power. AM pays that price to make the receiver a <b>diode, a resistor and a
-        capacitor</b>.</li>
-    </ul>
-    <p data-i18n="start.p3" class="tldr-foot">Still here? Good — the rest is the reasoning, plus seven things you can drag.</p>
-  </aside>
 
   <nav class="toc card" aria-label="Contents">
     <span data-i18n="start.monolabel4" class="mono-label">CONTENTS</span>
