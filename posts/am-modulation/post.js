@@ -5,7 +5,62 @@
    using the page's three CSS hues, so it follows the theme.
    ============================================================ */
 
+/* ---------------- words the figures write themselves ----------------
+   tr() reads a label out of i18n.js and falls back to the key, so a string
+   nobody translated is loud rather than invisible.
+
+   A <canvas> gets no stylesheet, so the two things CSS does for Persian in the
+   page body have to be done by hand. No monospace family carries Persian at
+   all, so drawLabel swaps the family for one that can shape it, keeping the
+   size and weight the caller asked for; labelWidth measures in the same font
+   so the plates behind the text still fit.
+
+   Direction is set from the string itself. Setting the whole canvas to 'rtl'
+   would turn a Latin label like "-0.5" into "0.5-": the leading sign is
+   bidi-neutral and drifts to the far end. And a Latin run inside a Persian
+   line is an island that reads the other way, so each one is wrapped in an
+   isolate before it is drawn — without that, "25 km" comes out "km 25". */
+function tr(key) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(key);
+  } catch (e) {}
+  return key;
+}
 var LBL_FONT = 'ui-monospace, "IBM Plex Mono", monospace';
+var LBL_FONT_FA = '"Estedad", "Shabnam", "Segoe UI", Tahoma, sans-serif';
+var RTL_RE = /[\u0600-\u06FF]/;
+var LTR_RUN = /([0-9A-Za-z\u00b5\u03bc\u2126\u00d7][0-9A-Za-z\u00b5\u03bc\u2126\u00d7 .,:=%\u2248\u2265\u2264\u226a\u226b\/+\-]*)/g;
+function isolateLatin(s) {
+  return String(s).replace(LTR_RUN, function (run) {
+    /* The run may end in a space \u2014 "AM " in "\u06a9\u0647 AM \u0645\u06cc\u200c\u062a\u0648\u0627\u0646\u062f". Left inside the
+       isolate that space collapses against the isolate's edge and the two
+       words come out joined, so push it back out to the Persian side. */
+    var m = /^([\s\S]*?)( *)$/.exec(run);
+    return m[1] ? '\u2066' + m[1] + '\u2069' + m[2] : run;
+  });
+}
+function faFont(font) { return font.replace(/(\d[\d.]*px)\s+.*$/, '$1 ' + LBL_FONT_FA); }
+
+function drawLabel(ctx, text, x, y, maxW) {
+  var rtl = RTL_RE.test(String(text)), saved = null;
+  ctx.direction = rtl ? 'rtl' : 'ltr';
+  if (rtl) { text = isolateLatin(String(text)); saved = ctx.font; ctx.font = faFont(saved); }
+  if (maxW === undefined) ctx.fillText(text, x, y);
+  else ctx.fillText(text, x, y, maxW);
+  if (saved) ctx.font = saved;
+}
+/* measureText has to see the same font the text will be drawn in */
+function labelWidth(ctx, text) {
+  if (!RTL_RE.test(String(text))) return ctx.measureText(text).width;
+  var saved = ctx.font, w;
+  ctx.font = faFont(saved);
+  w = ctx.measureText(isolateLatin(String(text))).width;
+  ctx.font = saved;
+  return w;
+}
+/* a quantity dropped into a sentence: an isolated left-to-right island, so
+   Persian punctuation can never end up inside "25 km" */
+function qty(v) { return '<span class="q">' + v + '</span>'; }
 
 /* ---------------- theme toggle (this page only) ---------------- */
 (function () {
@@ -265,7 +320,7 @@ function listenBtn(btnId, build, label) {
   var btn = document.getElementById(btnId);
   if (!btn) return { retune: function () {} };
   if (!AUDIO.supported()) { btn.hidden = true; return { retune: function () {} }; }
-  var word = label || 'LISTEN';
+  var word = label || tr('js.listen');
 
   /* the generator hangs off the button so a test can render a loop and measure
      it, instead of anyone having to judge these by ear */
@@ -274,7 +329,7 @@ function listenBtn(btnId, build, label) {
   function paint(on) {
     btn.classList.toggle('on', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.textContent = on ? '■ STOP' : '▶ ' + word;
+    btn.textContent = on ? tr('js.stop') : '▶ ' + word;
   }
   btn.addEventListener('click', function () {
     if (AUDIO.playing(btnId)) { AUDIO.stop(); return; }
@@ -365,7 +420,7 @@ function panelLabel(ctx, p, text, color) {
   mono(ctx, 9.5);
   ctx.fillStyle = color || fgA(0.55);
   ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-  ctx.fillText(text, p.x, p.mid - p.amp - 4);
+  drawLabel(ctx, text, p.x, p.mid - p.amp - 4);
 }
 /* end ticks align inwards, so the first and last labels stay on the canvas */
 function alignAt(ctx, x, x0, x1) {
@@ -374,13 +429,13 @@ function alignAt(ctx, x, x0, x1) {
 /* text on an opaque plate, so it never fights with a line underneath */
 function plate(ctx, x, y, text, color, align) {
   mono(ctx, 10);
-  var w = ctx.measureText(text).width + 10;
+  var w = labelWidth(ctx, text) + 10;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   var x0 = align === 'right' ? x - w : x;
   ctx.fillStyle = rgba(pal().bg, 0.9);
   ctx.fillRect(x0, y - 8, w, 16);
   ctx.fillStyle = color;
-  ctx.fillText(text, x0 + 5, y);
+  drawLabel(ctx, text, x0 + 5, y);
 }
 
 /* ---------------- message shapes ----------------
@@ -449,19 +504,19 @@ var SHAPES = {
     [100, '100 m'], [1e3, '1 km'], [1e4, '10 km'], [1e5, '100 km']
   ];
   var REFS = [
-    { v: 0.085, t: 'bank card' },
-    { v: 1.7,   t: 'a person' },
-    { v: 8,     t: 'two-storey house' },
-    { v: 300,   t: 'Eiffel Tower' },
-    { v: 8849,  t: 'Mount Everest' }
+    { v: 0.085, t: tr('js.f1.card') },
+    { v: 1.7,   t: tr('js.f1.person') },
+    { v: 8,     t: tr('js.f1.house') },
+    { v: 300,   t: tr('js.f1.eiffel') },
+    { v: 8849,  t: tr('js.f1.everest') }
   ];
 
   pills(host, [
-    { label: 'VOICE 3 kHz', f: 3e3 },
-    { label: 'MUSIC 15 kHz', f: 15e3 },
-    { label: 'AM 1 MHz', f: 1e6 },
-    { label: 'FM 100 MHz', f: 100e6 },
-    { label: 'WI-FI 2.4 GHz', f: 2.4e9 }
+    { label: tr('js.f1.voice'), f: 3e3 },
+    { label: tr('js.f1.music'), f: 15e3 },
+    { label: tr('js.f1.am'), f: 1e6 },
+    { label: tr('js.f1.fm'), f: 100e6 },
+    { label: tr('js.f1.wifi'), f: 2.4e9 }
   ], function (it) { S.f = it.f; sl.value = Math.round(tFromF(it.f)); apply(); }, 0);
 
   sl.value = Math.round(tFromF(S.f));
@@ -495,7 +550,7 @@ var SHAPES = {
       if (everyOther && i % 2) continue;
       ctx.fillStyle = fgA(0.55);
       alignAt(ctx, dx, x0, x1);
-      ctx.fillText(DECADES[i][1], dx, axisY + 10);
+      drawLabel(ctx, DECADES[i][1], dx, axisY + 10);
     }
     /* half-decade ticks, so the log scale reads as a scale */
     ctx.lineWidth = 0.9; ctx.strokeStyle = fgA(0.22);
@@ -505,7 +560,7 @@ var SHAPES = {
     }
     mono(ctx, 9.5); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = fgA(0.45);
-    ctx.fillText('LENGTH OF A QUARTER-WAVE ANTENNA →', x0, axisY + 26);
+    drawLabel(ctx, tr('js.f1.axis'), x0, axisY + 26);
 
     /* things the reader already has a size for */
     REFS.forEach(function (r, k) {
@@ -517,9 +572,9 @@ var SHAPES = {
       ctx.fillStyle = fgA(0.5);
       ctx.textBaseline = 'middle';
       /* keep the label inside the canvas at both ends */
-      var tw = ctx.measureText(r.t).width;
+      var tw = labelWidth(ctx, r.t);
       ctx.textAlign = rx + tw / 2 + 6 > w ? 'right' : (rx - tw / 2 - 6 < 0 ? 'left' : 'center');
-      ctx.fillText(r.t, rx, top);
+      drawLabel(ctx, r.t, rx, top);
     });
 
     /* the marker. Off-scale means the ruler ends before the answer does — the
@@ -535,10 +590,10 @@ var SHAPES = {
        the marker has travelled past the middle of the ruler */
     mono(ctx, 11, 700);
     var txt = fmtM(L);
-    var sub = 'AT ' + fmtHz(S.f).toUpperCase();
-    var lw = ctx.measureText(txt).width;
+    var sub = tr('js.f1.at') + fmtHz(S.f).toUpperCase();
+    var lw = labelWidth(ctx, txt);
     mono(ctx, 9.5);
-    var lw2 = ctx.measureText(sub).width;
+    var lw2 = labelWidth(ctx, sub);
     var bw = Math.max(lw, lw2) + 12;
     var left = mx > (x0 + x1) / 2;
     var tx = left ? mx - 8 - bw : mx + 8;
@@ -547,32 +602,32 @@ var SHAPES = {
     ctx.fillRect(tx, 50, bw, 30);
     mono(ctx, 11, 700);
     ctx.fillStyle = pal().sig; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(txt, tx + 6, 60);
+    drawLabel(ctx, txt, tx + 6, 60);
     mono(ctx, 9.5);
     ctx.fillStyle = fgA(0.55); ctx.textBaseline = 'top';
-    ctx.fillText(sub, tx + 6, 68);
+    drawLabel(ctx, sub, tx + 6, 68);
 
     if (off) {
       mono(ctx, 9.5);
       ctx.fillStyle = badCol(); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText('off the scale →', x1, 40);
+      drawLabel(ctx, tr('js.f1.off'), x1, 40);
     }
 
     ro(out, [
-      ['frequency',      '<b>' + fmtHz(S.f) + '</b>'],
-      ['wavelength λ',   fmtM(lam)],
-      ['antenna λ/4',    '<b>' + fmtM(L) + '</b>'],
-      ['vs a 1.7 m person', (L / 1.7 >= 1 ? grp(L / 1.7) + ' ×' : nf(1.7 / L, 2) + ' × smaller')]
+      [tr('js.f1.ro1'),      '<b>' + fmtHz(S.f) + '</b>'],
+      [tr('js.f1.ro2'),   fmtM(lam)],
+      [tr('js.f1.ro3'),    '<b>' + fmtM(L) + '</b>'],
+      [tr('js.f1.ro4'), (L / 1.7 >= 1 ? grp(L / 1.7) + ' ×' : nf(1.7 / L, 2) + tr('js.f1.smaller'))]
     ]);
 
     note.className = 'verdict' + (L > 1000 ? ' bad' : (L < 5 ? ' good' : ''));
     note.innerHTML =
-      L > 9000  ? fmtM(L) + ' of antenna, for one tone. This is the problem, in one number.' :
-      L > 1000  ? fmtM(L) + ' — taller than any structure ever built. Not a hard problem, an impossible one.' :
-      L > 60    ? 'A real broadcast mast. Expensive, but these exist: this is the AM band.' :
-      L > 5     ? 'A large but ordinary antenna — a mast on a roof.' :
-      L > 0.3   ? 'A normal rod antenna, the kind on a car or a router.' :
-                  'Small enough to be a copper track on a circuit board.';
+      L > 9000  ? qty(fmtM(L)) + tr('js.f1.v0') :
+      L > 1000  ? qty(fmtM(L)) + tr('js.f1.v1') :
+      L > 60    ? tr('js.f1.v2') :
+      L > 5     ? tr('js.f1.v3') :
+      L > 0.3   ? tr('js.f1.v4') :
+                  tr('js.f1.v5');
   });
 
   apply();
@@ -594,9 +649,9 @@ var SHAPES = {
   var out = document.getElementById('amOut');
 
   pills(document.getElementById('amShape'), [
-    { label: 'ONE TONE', s: 'sine' },
-    { label: 'TWO TONES', s: 'two' },
-    { label: 'PULSE', s: 'pulse' }
+    { label: tr('js.f2.one'), s: 'sine' },
+    { label: tr('js.f2.two'), s: 'two' },
+    { label: tr('js.f2.pulse'), s: 'pulse' }
   ], function (it) { S.shape = it.s; fig.redraw(); }, 0);
 
   slM.addEventListener('input', function () { S.fm = +slM.value; apply(); });
@@ -604,7 +659,7 @@ var SHAPES = {
   chk.addEventListener('change', function () { S.env = chk.checked; fig.redraw(); });
   play.addEventListener('click', function () {
     S.run = !S.run;
-    play.textContent = S.run ? '❙❙ Pause' : '▶ Play';
+    play.textContent = S.run ? tr('js.pause') : tr('js.play');
     play.classList.toggle('on', S.run);
   });
 
@@ -638,13 +693,13 @@ var SHAPES = {
     /* 1 — the message */
     zeroLine(ctx, pM, 0.25);
     curve(ctx, pM, mFn, sigA(0.75), 1.8);
-    panelLabel(ctx, pM, 'THE MESSAGE  x(t)');
+    panelLabel(ctx, pM, tr('js.f2.msg'));
 
     /* 2 — the bare carrier */
     zeroLine(ctx, pC, 0.25);
     denseCurve(ctx, pC, cFn, fgA(0.6), 1.2, 6000);
-    panelLabel(ctx, pC, nar ? 'THE CARRIER  cos(2π fc·t)'
-                            : 'THE CARRIER  cos(2π fc·t)  — always the same height');
+    panelLabel(ctx, pC, nar ? tr('js.f2.car')
+                            : tr('js.f2.carlong'));
 
     /* 3 — the two of them multiplied */
     var envFn = function (u) { return (1 + M * mFn(u)) / (1 + M); };
@@ -656,10 +711,10 @@ var SHAPES = {
       });
       mono(ctx, 9.5);
       ctx.fillStyle = fgA(0.6); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText('envelope', x1, pA.mid - pA.amp - 3);
+      drawLabel(ctx, tr('js.f2.env'), x1, pA.mid - pA.amp - 3);
     }
-    panelLabel(ctx, pA, nar ? 'TRANSMITTED  s(t)'
-                            : 'TRANSMITTED  s(t) = Ac[1 + m·x(t)]·cos(2π fc·t)', sigA(0.85));
+    panelLabel(ctx, pA, nar ? tr('js.f2.tx')
+                            : tr('js.f2.txlong'), sigA(0.85));
 
     /* the time ruler */
     mono(ctx, 9);
@@ -671,21 +726,21 @@ var SHAPES = {
       ctx.strokeStyle = fgA(0.25); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(xk, yr); ctx.lineTo(xk, yr + 4); ctx.stroke();
       alignAt(ctx, xk, x0, x1);
-      ctx.fillText(nf(k / steps, 2) + ' ms', xk, yr + 6);
+      drawLabel(ctx, nf(k / steps, 2) + ' ms', xk, yr + 6);
     }
 
     ro(out, [
-      ['message f<sub>m</sub>', '<b>' + nf(S.fm, 3) + ' kHz</b>'],
-      ['carrier f<sub>c</sub>', '<b>' + Math.round(S.fc) + ' kHz</b>'],
-      ['ratio f<sub>c</sub> / f<sub>m</sub>', nf(S.fc / S.fm, 3) + ' : 1'],
-      ['index m', fix(M, 2)],
-      ['envelope high', fix(1 + M, 2) + ' A<sub>c</sub>'],
-      ['envelope low', fix(1 - M, 2) + ' A<sub>c</sub>']
+      [tr('js.f2.ro1'), '<b>' + nf(S.fm, 3) + ' kHz</b>'],
+      [tr('js.f2.ro2'), '<b>' + Math.round(S.fc) + ' kHz</b>'],
+      [tr('js.f2.ro3'), nf(S.fc / S.fm, 3) + ' : 1'],
+      [tr('js.f2.ro4'), fix(M, 2)],
+      [tr('js.f2.ro5'), fix(1 + M, 2) + ' A<sub>c</sub>'],
+      [tr('js.f2.ro6'), fix(1 - M, 2) + ' A<sub>c</sub>']
     ]);
   });
 
   apply();
-  if (REDUCED) { S.run = false; play.textContent = '▶ Play'; play.classList.remove('on'); }
+  if (REDUCED) { S.run = false; play.textContent = tr('js.play'); play.classList.remove('on'); }
   animate(cv, function (sec) {
     if (!S.run) return;
     S.t = -sec * 0.14;                             // milliseconds of signal per second
@@ -708,10 +763,10 @@ var SHAPES = {
   var host = document.getElementById('idxPresets');
 
   pills(host, [
-    { label: 'm = 0', m: 0 },
-    { label: 'm = 0.5', m: 0.5 },
-    { label: 'm = 1  FULL', m: 1 },
-    { label: 'm = 1.4  BROKEN', m: 1.4 }
+    { label: tr('js.f3.m0'), m: 0 },
+    { label: tr('js.f3.m05'), m: 0.5 },
+    { label: tr('js.f3.m1'), m: 1 },
+    { label: tr('js.f3.m14'), m: 1.4 }
   ], function (it) { S.m = it.m; sl.value = Math.round(it.m * 100); apply(); }, null);
 
   sl.addEventListener('input', function () { S.m = +sl.value / 100; clearPills(host); apply(); });
@@ -755,7 +810,7 @@ var SHAPES = {
     [1, -1].forEach(function (s) {
       curve(ctx, pT, function (u) { return s * Math.abs(env(u)) * SC; }, fgA(0.55), 1.3, [5, 4], 700);
     });
-    panelLabel(ctx, pT, 'WHAT IS TRANSMITTED', sigA(0.85));
+    panelLabel(ctx, pT, tr('js.f3.top'), sigA(0.85));
 
     var vmax = 1 + m, vmin = Math.max(0, 1 - m);
     ctx.save(); ctx.setLineDash([2, 4]); ctx.lineWidth = 1; ctx.strokeStyle = fgA(0.4);
@@ -765,8 +820,8 @@ var SHAPES = {
     });
     ctx.restore();
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.6); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('V' + 'ₘₐₓ', x1 + 9, pT.mid - vmax * SC * pT.amp);
-    ctx.fillText('V' + 'ₘᵢₙ', x1 + 9, pT.mid - vmin * SC * pT.amp);
+    drawLabel(ctx, 'V' + 'ₘₐₓ', x1 + 9, pT.mid - vmax * SC * pT.amp);
+    drawLabel(ctx, 'V' + 'ₘᵢₙ', x1 + 9, pT.mid - vmin * SC * pT.amp);
 
     /* ---- lower: what comes back out ---- */
     zeroLine(ctx, pB, 0.25);
@@ -775,35 +830,35 @@ var SHAPES = {
     fillCurve(ctx, pB, got, m > 1 ? rgba(badCol(), 0.10) : sigA(0.08));
     curve(ctx, pB, want, fgA(0.5), 1.4, [5, 4], 600);
     curve(ctx, pB, got, m > 1 ? badCol() : pal().sig, 2, null, 900);
-    panelLabel(ctx, pB, 'WHAT THE RECEIVER RECOVERS  |1 + m·x(t)|', m > 1 ? badCol() : sigA(0.85));
+    panelLabel(ctx, pB, tr('js.f3.bot'), m > 1 ? badCol() : sigA(0.85));
 
     mono(ctx, 9); ctx.fillStyle = fgA(0.45); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillText('0', x0 - 6, pB.mid);
-    ctx.fillText('0', x0 - 6, pT.mid);
-    ctx.fillText('1', x0 - 6, pB.mid - pB.amp / 2.2);
+    drawLabel(ctx, '0', x0 - 6, pB.mid);
+    drawLabel(ctx, '0', x0 - 6, pT.mid);
+    drawLabel(ctx, '1', x0 - 6, pB.mid - pB.amp / 2.2);
 
     if (m > 1.001) {
       mono(ctx, 9.5); ctx.fillStyle = badCol();
       ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText(w < 620 ? 'folded' : 'the dashed line went negative — the solid one folded it back up',
+      drawLabel(ctx, w < 620 ? tr('js.f3.folded') : tr('js.f3.foldlong'),
                    x1, pB.mid - pB.amp - 4);
     }
 
     var meas = (vmax - vmin) / (vmax + vmin);
     ro(out, [
-      ['index m', '<b>' + fix(m, 2) + '</b>'],
+      [tr('js.f2.ro4'), '<b>' + fix(m, 2) + '</b>'],
       ['V<sub>max</sub>', fix(vmax, 2) + ' A<sub>c</sub>'],
       ['V<sub>min</sub>', fix(vmin, 2) + ' A<sub>c</sub>'],
-      ['m from the screen', '<b>' + fix(meas, 2) + '</b>'],
-      ['power in sidebands', fix(100 * (m * m / 2) / (1 + m * m / 2), 1) + ' %']
+      [tr('js.f3.ro4'), '<b>' + fix(meas, 2) + '</b>'],
+      [tr('js.f3.ro5'), fix(100 * (m * m / 2) / (1 + m * m / 2), 1) + ' %']
     ]);
 
     verdict(note,
       m > 1.001 ? 'bad' : (m > 0.35 ? 'good' : ''),
-      m < 0.02 ? 'No modulation at all. A pure carrier: the transmitter is on, and it is saying nothing.' :
-      m < 0.4  ? 'Under-modulated. It works, but most of the power is in the carrier and the message is quiet.' :
-      m <= 1.001 ? 'Healthy. The envelope stays above zero, so the recovered shape matches the message exactly.' :
-      'Over-modulated. The envelope has folded through zero, the recovered shape has kinks that were never sent, and the extra harmonics spill into the neighbouring channels.');
+      m < 0.02 ? tr('js.f3.v0') :
+      m < 0.4  ? tr('js.f3.v1') :
+      m <= 1.001 ? tr('js.f3.v2') :
+      tr('js.f3.v3'));
   });
 
   apply();
@@ -828,15 +883,15 @@ var SHAPES = {
   var out = document.getElementById('specOut');
 
   pills(document.getElementById('specKind'), [
-    { label: 'ONE TONE', k: 'tone' },
-    { label: 'SPEECH BAND', k: 'band' }
+    { label: tr('js.f2.one'), k: 'tone' },
+    { label: tr('js.f4.band'), k: 'band' }
   ], function (it) { S.kind = it.k; apply(); }, 0);
 
   slF.addEventListener('input', function () { S.fm = +slF.value; apply(); });
   slM.addEventListener('input', function () { S.m = +slM.value / 100; apply(); });
 
   function apply() {
-    lblF.textContent = S.kind === 'tone' ? 'MESSAGE FREQUENCY' : 'HIGHEST FREQUENCY B';
+    lblF.textContent = S.kind === 'tone' ? tr('js.f4.slider1') : tr('js.f4.slider2');
     lbF.textContent = nf(S.fm, 3) + ' kHz';
     lbM.textContent = fix(S.m, 2);
     fig.redraw();
@@ -862,7 +917,7 @@ var SHAPES = {
       ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
       mono(ctx, 9.5); ctx.fillStyle = fgA(0.5);
       ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.fillText(label, x0, y - hTop - 8);
+      drawLabel(ctx, label, x0, y - hTop - 8);
     }
     function narrow() { return w < 620; }
     function spike(x, hh, color, lw) {
@@ -883,8 +938,8 @@ var SHAPES = {
     }
 
     /* ---------- transmitted spectrum ---------- */
-    axis(baseTop, narrow() ? 'TRANSMITTED — AROUND 1000 kHz'
-                        : 'TRANSMITTED — AROUND THE CARRIER AT 1000 kHz');
+    axis(baseTop, narrow() ? tr('js.f4.top')
+                        : tr('js.f4.toplong'));
     var hasSb = m > 0.02;                           // at m = 0 there is nothing beside the carrier
     if (hasSb) {
       if (S.kind === 'tone') {
@@ -899,14 +954,14 @@ var SHAPES = {
 
     mono(ctx, 9.5); ctx.textBaseline = 'bottom';
     ctx.fillStyle = fgA(0.7); ctx.textAlign = 'center';
-    ctx.fillText('carrier', Xt(FC), baseTop - HC - 7);
+    drawLabel(ctx, tr('js.f4.carrier'), Xt(FC), baseTop - HC - 7);
     if (hasSb) {
       ctx.fillStyle = sigA(0.85);
-      ctx.textAlign = 'right'; ctx.fillText('LSB', Xt(FC - B) - 4, baseTop - HC * m / 2 - 7);
-      ctx.textAlign = 'left';  ctx.fillText('USB', Xt(FC + B) + 4, baseTop - HC * m / 2 - 7);
+      ctx.textAlign = 'right'; drawLabel(ctx, 'LSB', Xt(FC - B) - 4, baseTop - HC * m / 2 - 7);
+      ctx.textAlign = 'left';  drawLabel(ctx, 'USB', Xt(FC + B) + 4, baseTop - HC * m / 2 - 7);
     } else {
       ctx.fillStyle = badCol(); ctx.textAlign = 'center';
-      ctx.fillText('no sidebands — nothing is being said', Xt(FC), baseTop - HC * 0.45);
+      drawLabel(ctx, tr('js.f4.none'), Xt(FC), baseTop - HC * 0.45);
     }
 
     /* frequency ticks */
@@ -917,7 +972,7 @@ var SHAPES = {
       ctx.beginPath(); ctx.moveTo(xk, baseTop); ctx.lineTo(xk, baseTop + 4); ctx.stroke();
       ctx.fillStyle = fgA(0.45);
       alignAt(ctx, xk, x0, x1);
-      ctx.fillText(grp(FC + i), xk, baseTop + 6);
+      drawLabel(ctx, grp(FC + i), xk, baseTop + 6);
     }
 
     /* the bandwidth bracket */
@@ -934,8 +989,8 @@ var SHAPES = {
     ctx.lineWidth = 1.5; ctx.strokeStyle = fgA(0.5);
     ctx.beginPath(); ctx.moveTo(x0, baseBot); ctx.lineTo(x1, baseBot); ctx.stroke();
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText(narrow() ? 'THE MESSAGE, AT ITS OWN FREQUENCY'
-                          : 'THE MESSAGE — WHERE IT STARTS, NEXT TO ZERO',
+    drawLabel(ctx, narrow() ? tr('js.f4.bot')
+                          : tr('js.f4.botlong'),
                  x1, baseBot - hBot - 8);
 
     var hb = Math.min(hBot - 10, HC * 0.55);
@@ -954,7 +1009,7 @@ var SHAPES = {
       ctx.beginPath(); ctx.moveTo(xb, baseBot); ctx.lineTo(xb, baseBot + 4); ctx.stroke();
       ctx.fillStyle = fgA(0.45);
       alignAt(ctx, xb, x0, x1);
-      ctx.fillText(i + (i === 40 ? ' kHz' : ''), xb, baseBot + 6);
+      drawLabel(ctx, i + (i === 40 ? ' kHz' : ''), xb, baseBot + 6);
     }
 
     /* one line, instead of a pair of arrows that had to cross the bandwidth
@@ -962,19 +1017,19 @@ var SHAPES = {
     if (!narrow() && hasSb) {                      // nothing was copied when m = 0
       mono(ctx, 9.5); ctx.fillStyle = sigA(0.8);
       ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.fillText('↑ the same shape, copied to both sides of the carrier',
+      drawLabel(ctx, tr('js.f4.copied'),
                    x0, baseBot - hBot - 8);
     }
 
     var pctSb = 100 * (m * m / 2) / (1 + m * m / 2);
     ro(out, [
-      ['carrier f<sub>c</sub>', '<b>1000 kHz</b>'],
-      [S.kind === 'tone' ? 'message f<sub>m</sub>' : 'message band B', nf(B, 3) + ' kHz'],
-      ['lower sideband', grp(FC - B) + ' kHz'],
-      ['upper sideband', grp(FC + B) + ' kHz'],
-      ['bandwidth', '<b>' + nf(2 * B, 3) + ' kHz</b>'],
-      ['each sideband', 'm/2 = ' + fix(m / 2, 2) + ' A<sub>c</sub>'],
-      ['power in sidebands', fix(pctSb, 1) + ' %']
+      [tr('js.f2.ro2'), '<b>1000 kHz</b>'],
+      [S.kind === 'tone' ? tr('js.f2.ro1') : tr('js.f4.ro2'), nf(B, 3) + ' kHz'],
+      [tr('js.f4.ro3'), grp(FC - B) + ' kHz'],
+      [tr('js.f4.ro4'), grp(FC + B) + ' kHz'],
+      [tr('js.f4.ro5'), '<b>' + nf(2 * B, 3) + ' kHz</b>'],
+      [tr('js.f4.ro6'), 'm/2 = ' + fix(m / 2, 2) + ' A<sub>c</sub>'],
+      [tr('js.f3.ro5'), fix(pctSb, 1) + ' %']
     ]);
   });
 
@@ -1014,7 +1069,7 @@ var SHAPES = {
 
     var nar = w < 620;
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('TOTAL TRANSMITTED POWER', x0, barY - 7);
+    drawLabel(ctx, tr('js.f5.bar'), x0, barY - 7);
 
     ctx.fillStyle = fgA(0.22);
     ctx.fillRect(x0, barY, wC, barH);
@@ -1030,25 +1085,25 @@ var SHAPES = {
     if (!nar) {                                    // no room for a second caption on a phone
       mono(ctx, 9); ctx.fillStyle = fgA(0.4);
       ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText('full scale: the most AM can total, at m = 1', x0 + sw, barY - 7);
+      drawLabel(ctx, tr('js.f5.full'), x0 + sw, barY - 7);
     }
 
     mono(ctx, 10);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillStyle = fgA(0.8);
-    if (wC > 200)      ctx.fillText('CARRIER — NO INFORMATION', x0 + wC / 2, barY + barH / 2);
-    else if (wC > 70)  ctx.fillText('CARRIER', x0 + wC / 2, barY + barH / 2);
+    if (wC > 200)      drawLabel(ctx, tr('js.f5.carlong'), x0 + wC / 2, barY + barH / 2);
+    else if (wC > 70)  drawLabel(ctx, tr('js.f5.car'), x0 + wC / 2, barY + barH / 2);
     mono(ctx, 9.5); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = fgA(0.55);
-    ctx.fillText(nf(Pc, 3) + ' kW', x0 + 2, barY + barH + 6);
+    drawLabel(ctx, nf(Pc, 3) + ' kW', x0 + 2, barY + barH + 6);
     if (Psb > 0.02) {
       ctx.fillStyle = sigA(0.9);
       if (nar) {                                   // right-aligned: the segment is too short to start under
         ctx.textAlign = 'right';
-        ctx.fillText('sidebands ' + nf(2 * Psb, 3) + ' kW', x0 + sw, barY + barH + 6);
+        drawLabel(ctx, tr('js.f5.sb') + nf(2 * Psb, 3) + ' kW', x0 + sw, barY + barH + 6);
         ctx.textAlign = 'left';
       } else {
-        ctx.fillText('sidebands ' + nf(2 * Psb, 3) + ' kW — the message', x0 + wC + 2, barY + barH + 6);
+        drawLabel(ctx, tr('js.f5.sb') + nf(2 * Psb, 3) + tr('js.f5.sbmsg'), x0 + wC + 2, barY + barH + 6);
       }
     }
 
@@ -1066,7 +1121,7 @@ var SHAPES = {
     ctx.beginPath(); ctx.moveTo(cx0, EY(1 / 3)); ctx.lineTo(cx1, EY(1 / 3)); ctx.stroke();
     ctx.restore();
     mono(ctx, 9); ctx.fillStyle = fgA(0.5); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText(nar ? '33.3 % — the ceiling' : '33.3 % — the ceiling, at m = 1', cx1, EY(1 / 3) - 4);
+    drawLabel(ctx, nar ? tr('js.f5.ceil') : tr('js.f5.ceillong'), cx1, EY(1 / 3) - 4);
 
     ctx.beginPath();
     for (var i = 0; i <= 100; i++) {
@@ -1081,21 +1136,21 @@ var SHAPES = {
 
     mono(ctx, 9); ctx.fillStyle = fgA(0.45);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText('m = 0', cx0 + 3, cy0 + cyH + 5);
+    drawLabel(ctx, tr('js.f3.m0'), cx0 + 3, cy0 + cyH + 5);
     ctx.textAlign = 'right';
-    ctx.fillText('m = 1', cx1, cy0 + cyH + 5);
+    drawLabel(ctx, 'm = 1', cx1, cy0 + cyH + 5);
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.5);
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText(nar ? 'EFFICIENCY η' : 'EFFICIENCY η — THE SHARE OF POWER THAT CARRIES THE MESSAGE',
+    drawLabel(ctx, nar ? tr('js.f5.eff') : tr('js.f5.efflong'),
                  cx0, cy0 - 6);
 
     ro(out, [
-      ['carrier P<sub>c</sub>', nf(Pc, 3) + ' kW'],
-      ['each sideband', nf(Psb, 3) + ' kW'],
-      ['total P<sub>t</sub>', '<b>' + nf(Pt, 4) + ' kW</b>'],
-      ['useful part', nf(2 * Psb, 3) + ' kW'],
-      ['wasted on carrier', '<b>' + nf(Pc, 3) + ' kW</b>'],
-      ['efficiency η', '<b>' + fix(100 * eff, 1) + ' %</b>']
+      [tr('js.f5.ro1'), nf(Pc, 3) + ' kW'],
+      [tr('js.f4.ro6'), nf(Psb, 3) + ' kW'],
+      [tr('js.f5.ro3'), '<b>' + nf(Pt, 4) + ' kW</b>'],
+      [tr('js.f5.ro4'), nf(2 * Psb, 3) + ' kW'],
+      [tr('js.f5.ro5'), '<b>' + nf(Pc, 3) + ' kW</b>'],
+      [tr('js.f5.ro6'), '<b>' + fix(100 * eff, 1) + ' %</b>']
     ]);
 
     /* Both numbers are read off the same arithmetic as the bar, and both are
@@ -1104,10 +1159,10 @@ var SHAPES = {
        to claim. */
     var carrierShare = 100 / (1 + m * m / 2);
     verdict(note, m > 0.95 ? 'good' : '',
-      m < 0.05 ? 'Nothing but carrier. Full power out of the antenna, zero information in it.' :
-      m < 0.5  ? 'Quiet modulation: over <b>' + Math.floor(100 * (1 - eff)) + ' %</b> of the power is doing nothing at all.' :
-      m < 0.95 ? 'Typical broadcast territory — still <b>' + Math.round(carrierShare) + ' %</b> of the power in the carrier.' :
-                 'Full modulation — the best standard AM can do. One third useful, two thirds carrier.');
+      m < 0.05 ? tr('js.f5.v0') :
+      m < 0.5  ? tr('js.f5.v1a') + Math.floor(100 * (1 - eff)) + tr('js.f5.v1b') :
+      m < 0.95 ? tr('js.f5.v2a') + Math.round(carrierShare) + tr('js.f5.v2b') :
+                 tr('js.f5.v3'));
   });
 
   apply();
@@ -1150,9 +1205,9 @@ var SHAPES = {
   function tFromRC(v) { return 1000 * Math.log(v / RCMIN) / Math.log(RCMAX / RCMIN); }
 
   pills(host, [
-    { label: 'TOO FAST', rc: 2e-6 },
-    { label: 'JUST RIGHT', rc: 40e-6 },
-    { label: 'TOO SLOW', rc: 300e-6 }
+    { label: tr('js.f6.fast'), rc: 2e-6 },
+    { label: tr('js.f6.ok'), rc: 40e-6 },
+    { label: tr('js.f6.slow'), rc: 300e-6 }
   ], function (it) { S.rc = it.rc; sl.value = Math.round(tFromRC(it.rc)); apply(); }, 1);
 
   sl.value = Math.round(tFromRC(S.rc));
@@ -1257,14 +1312,14 @@ var SHAPES = {
     }
 
     var nar6 = w < 620;
-    panelLabel(ctx, p, nar6 ? 'ON THE CAPACITOR' : 'VOLTAGE ON THE CAPACITOR',
+    panelLabel(ctx, p, nar6 ? tr('js.f6.panel') : tr('js.f6.panellong'),
                bad ? badCol() : sigA(0.85));
     /* the legend only fits beside the label on a wide canvas; on a phone the
        figure caption underneath already says which line is which */
     if (!nar6) {
       mono(ctx, 9); ctx.fillStyle = fgA(0.45);
       ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText('faint line: the AM signal arriving   ·   dashed: the original message',
+      drawLabel(ctx, tr('js.f6.legend'),
                    x1, p.mid - p.amp - 4);
     }
 
@@ -1290,20 +1345,20 @@ var SHAPES = {
     over = 100 * (over / (N + 1)) / (2 * M);
 
     ro(out, [
-      ['carrier f<sub>c</sub>', fmtHz(FC)],
-      ['message f<sub>m</sub>', fmtHz(FM)],
+      [tr('js.f2.ro2'), fmtHz(FC)],
+      [tr('js.f2.ro1'), fmtHz(FM)],
       ['RC', '<b>' + fmtS(S.rc) + '</b>'],
-      ['RC × f<sub>c</sub>', '<b>' + nf(S.rc * FC, 3) + '</b> ' + '(want ≫ 1)' + ''],
-      ['RC × f<sub>m</sub>', '<b>' + nf(S.rc * FM, 3) + '</b> ' + '(want ≪ 1)' + ''],
-      ['upper limit', fmtS(RCMAXOK)],
-      ['ripple', fix(Math.min(rip, 999), 1) + ' %'],
-      ['cannot follow', fix(Math.min(over, 999), 1) + ' %']
+      ['RC × f<sub>c</sub>', '<b>' + nf(S.rc * FC, 3) + '</b> <span class="want">' + tr('js.f6.want_gt') + '</span>'],
+      ['RC × f<sub>m</sub>', '<b>' + nf(S.rc * FM, 3) + '</b> <span class="want">' + tr('js.f6.want_lt') + '</span>'],
+      [tr('js.f6.ro6'), fmtS(RCMAXOK)],
+      [tr('js.f6.ro7'), fix(Math.min(rip, 999), 1) + ' %'],
+      [tr('js.f6.ro8'), fix(Math.min(over, 999), 1) + ' %']
     ]);
 
     verdict(note, bad ? 'bad' : 'good',
-      S.rc < RCMINOK ? 'Too fast. The capacitor empties between carrier peaks, so the output is chasing the carrier instead of the envelope — that is the ripple.' :
-      S.rc > RCMAXOK ? 'Too slow. The capacitor cannot fall as quickly as the envelope does, so the output cuts straight across the corners: diagonal clipping.' :
-                     'In the window: slow enough to ignore the carrier, fast enough to follow the message.');
+      S.rc < RCMINOK ? tr('js.f6.v0') :
+      S.rc > RCMAXOK ? tr('js.f6.v2') :
+                     tr('js.f6.v1'));
   });
 
   /* ---- the circuit underneath ---- */
@@ -1363,14 +1418,14 @@ var SHAPES = {
 
     mono(ctx, 9.5); ctx.fillStyle = fgA(0.55);
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText('AM in', xa, y - 12);
-    ctx.fillText('diode', xd, y - 14);
+    drawLabel(ctx, tr('js.f6.in'), xa, y - 12);
+    drawLabel(ctx, tr('js.f6.diode'), xd, y - 14);
     ctx.textBaseline = 'top';
-    ctx.fillText('C', xn - 22, y + 16);
-    ctx.fillText('R', xr + 20, y + 24);
+    drawLabel(ctx, 'C', xn - 22, y + 16);
+    drawLabel(ctx, 'R', xr + 20, y + 24);
     ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
     ctx.fillStyle = sigA(0.9);
-    ctx.fillText('the message, out', xo, y - 12);
+    drawLabel(ctx, tr('js.f6.out'), xo, y - 12);
   });
 
   apply();
@@ -1516,7 +1571,7 @@ var SHAPES = {
     ctx.stroke(); ctx.restore();
     mono(ctx, 9.5); ctx.fillStyle = sigA(0.9);
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText('THE FILTER', (wx0 + wx1) / 2, specTop - 18);
+    drawLabel(ctx, tr('js.f7.filter'), (wx0 + wx1) / 2, specTop - 18);
 
     /* the band */
     ctx.lineWidth = 1.5; ctx.strokeStyle = fgA(0.5);
@@ -1527,7 +1582,7 @@ var SHAPES = {
       ctx.beginPath(); ctx.moveTo(X(i), specBase); ctx.lineTo(X(i), specBase + 4); ctx.stroke();
       ctx.fillStyle = fgA(0.45);
       alignAt(ctx, X(i), x0, x1);
-      ctx.fillText(i + (i === F1 ? ' kHz' : ''), X(i), specBase + 6);
+      drawLabel(ctx, i + (i === F1 ? ' kHz' : ''), X(i), specBase + 6);
     }
 
     STATIONS.forEach(function (st) {
@@ -1546,7 +1601,7 @@ var SHAPES = {
       ctx.beginPath(); ctx.moveTo(X(st.f), specBase); ctx.lineTo(X(st.f), specBase - HC); ctx.stroke();
       mono(ctx, 9); ctx.fillStyle = on ? sigA(0.95) : fgA(0.45);
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(w < 620 ? st.name.charAt(0) : st.name, X(st.f), specBase - HC - 4);
+      drawLabel(ctx, w < 620 ? st.name.charAt(0) : st.name, X(st.f), specBase - HC - 4);
     });
 
     /* ---------- what comes out of the detector ---------- */
@@ -1575,31 +1630,31 @@ var SHAPES = {
       /* nothing tuned in, so the noise is the whole of what you hear */
       curve(ctx, pA, hiss, fgA(0.5), 1.4, null, 1400);
     }
-    panelLabel(ctx, pA, 'WHAT YOU HEAR', heard.length > 1 ? badCol() : sigA(0.85));
+    panelLabel(ctx, pA, tr('js.f7.hear'), heard.length > 1 ? badCol() : sigA(0.85));
 
     var names = heard.map(function (st) { return st.name; }).join(' + ');
     var nDb = noiseDb();                             // against a filter cut to one channel
     ro(out, [
-      ['tuned to', '<b>' + nf(S.f, 5) + ' kHz</b>'],
-      ['filter width', S.bw + ' kHz'],
-      ['station needs', '2B = 10 kHz'],
-      ['noise vs 10 kHz', '<b>' + (nDb >= 0 ? '+' : '') + fix(nDb, 1) + ' dB</b>'],
-      ['stations inside', '<b>' + heard.length + '</b>'],
-      ['you hear', names || '—']
+      [tr('js.f7.ro1'), '<b>' + nf(S.f, 5) + ' kHz</b>'],
+      [tr('js.f7.ro2'), S.bw + ' kHz'],
+      [tr('js.f7.ro3'), '2B = 10 kHz'],
+      [tr('js.f7.ro4'), '<b>' + (nDb >= 0 ? '+' : '') + fix(nDb, 1) + ' dB</b>'],
+      [tr('js.f7.ro6'), '<b>' + heard.length + '</b>'],
+      [tr('js.f7.ro5'), names || '—']
     ]);
 
     /* A filter wider than one channel is wrong twice over, and the second way
        shows up before the first: long before a whole neighbour lands inside,
        the window has started taking in the band around it as hiss. */
     var wide = S.bw > 11
-      ? ' The window is <b>' + nf(S.bw / 10, 2) + '×</b> wider than the station needs, so it is also taking in <b>'
-        + fix(nDb, 1) + ' dB</b> more noise than a filter cut to one channel.'
+      ? tr('js.f7.wide_a') + nf(S.bw / 10, 2) + tr('js.f7.wide_b')
+        + fix(nDb, 1) + tr('js.f7.wide_c')
       : '';
     verdict(note, heard.length === 1 ? (S.bw > 13 ? '' : 'good') : (heard.length > 1 ? 'bad' : ''),
-      heard.length === 0 ? 'Between stations. The filter is sitting on empty spectrum, so nothing reaches the detector but noise — and the wider you open it, the more of that noise there is.' :
-      heard.length === 1 ? 'Tuned to ' + names + '. One station inside the window, everything else thrown away — this is what a tuning knob is for.' + wide :
-      'Two stations inside one window: ' + names + '. Their sidebands both reach the detector and you hear them mixed together. ' +
-      'This is why channels are spaced at least 2B apart, and why the filter must not be wider than one channel.' + wide);
+      heard.length === 0 ? tr('js.f7.v0') :
+      heard.length === 1 ? tr('js.f7.v1a') + names + tr('js.f7.v1b') + wide :
+      tr('js.f7.v2a') + names + tr('js.f7.v2b') +
+      tr('js.f7.v2c') + wide);
   });
 
   apply();
@@ -1627,7 +1682,7 @@ var SHAPES = {
     copy.classList.add('done');
     clearTimeout(copy._t);
     copy._t = setTimeout(function () {
-      label.textContent = 'Copy link';
+      label.textContent = tr('js.share.copylink');
       copy.classList.remove('done');
     }, 1800);
   }
@@ -1636,7 +1691,7 @@ var SHAPES = {
     /* the clipboard API needs a secure context; file:// and plain http fall
        back to the textarea trick rather than a dead button */
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(url).then(function () { flash('Copied'); }, legacy);
+      navigator.clipboard.writeText(url).then(function () { flash(tr('js.share.copied')); }, legacy);
     } else legacy();
   });
 
@@ -1650,7 +1705,7 @@ var SHAPES = {
     var ok = false;
     try { ok = document.execCommand('copy'); } catch (e) {}
     document.body.removeChild(ta);
-    flash(ok ? 'Copied' : 'Press ⌘/Ctrl + C');
+    flash(ok ? tr('js.share.copied') : tr('js.share.press'));
   }
 
   if (navigator.share) {
