@@ -186,7 +186,7 @@
     "s9.li8": "B. P. Lathi and Z. Ding, <em>Modern Digital and Analog Communication Systems</em>, 4th ed., Oxford — chapter 4, for the envelope-detector conditions.",
     "s9.li9": "L. W. Couch, <em>Digital and Analog Communication Systems</em>, 8th ed., Pearson — power and efficiency of standard AM.",
     "s9.p1": "Six sentences, and they are the whole article:",
-    "s9.p2": "Once those are solid, the rest of analogue modulation follows quickly. Suppress the carrier and you have DSB-SC, which is efficient but needs a synchronous receiver. Remove one sideband as well and you have SSB, which halves the bandwidth. Leave the amplitude alone and move the frequency instead and you have FM, which is far more resistant to noise — because noise adds itself to amplitude, and FM does not listen to amplitude.",
+    "s9.p2": "Once those are solid, the rest of analogue modulation follows quickly. Suppress the carrier and you have DSB-SC, which is efficient but needs a synchronous receiver. Remove one sideband as well and you have SSB, which halves the bandwidth. Leave the amplitude alone and move the frequency instead and you have <a href='../fm-modulation/'>FM</a>, which is far more resistant to noise — because noise adds itself to amplitude, and FM does not listen to amplitude.",
     "s9.p3": "All of them are the same sentence in different clothing: <em>take a steady wave, and let the message change one thing about it</em>.",
     "s9.p4": "If you want another piece of RF explained from zero with figures you can break, the Smith chart essay next door does the same job for impedance, reflection and matching — and the chart itself runs live in the Lab.",
 
@@ -513,7 +513,7 @@
     "s9.li8": "B. P. Lathi and Z. Ding, <em>Modern Digital and Analog Communication Systems</em>, 4th ed., Oxford — فصل ۴، برای شرط‌های آشکارساز پوش.",
     "s9.li9": "L. W. Couch, <em>Digital and Analog Communication Systems</em>, 8th ed., Pearson — توان و بازده AM استاندارد.",
     "s9.p1": "شش جمله، و همین‌ها کل مقاله است:",
-    "s9.p2": "وقتی این‌ها جا افتاد، بقیه‌ی مدولاسیون آنالوگ سریع پشت سرش می‌آید. حامل را سرکوب کنید تا به DSB-SC برسید که بهینه است ولی گیرنده‌ی همزمان می‌خواهد. یک باند کناری را هم بردارید تا به SSB برسید که پهنای باند را نصف می‌کند. دامنه را رها کنید و به‌جایش فرکانس را تکان بدهید تا به FM برسید که در برابر نویز به‌مراتب مقاوم‌تر است — چون نویز خودش را به دامنه اضافه می‌کند، و FM به دامنه گوش نمی‌دهد.",
+    "s9.p2": "وقتی این‌ها جا افتاد، بقیه‌ی مدولاسیون آنالوگ سریع پشت سرش می‌آید. حامل را سرکوب کنید تا به DSB-SC برسید که بهینه است ولی گیرنده‌ی همزمان می‌خواهد. یک باند کناری را هم بردارید تا به SSB برسید که پهنای باند را نصف می‌کند. دامنه را رها کنید و به‌جایش فرکانس را تکان بدهید تا به <a href='../fm-modulation/'>FM</a> برسید که در برابر نویز به‌مراتب مقاوم‌تر است — چون نویز خودش را به دامنه اضافه می‌کند، و FM به دامنه گوش نمی‌دهد.",
     "s9.p3": "همه‌شان یک جمله‌اند با لباس‌های متفاوت: <em>یک موج یکنواخت بردارید، و بگذارید پیام یک چیزش را عوض کند</em>.",
     "s9.p4": "اگر یک تکه‌ی دیگر از RF می‌خواهید که از صفر و با شکل‌هایی که می‌شود خرابشان کرد توضیح داده شده باشد، مقاله‌ی نمودار اسمیت همین کار را برای امپدانس، بازتاب و تطبیق می‌کند — و خود نمودار هم زنده در آزمایشگاه اجرا می‌شود.",
 

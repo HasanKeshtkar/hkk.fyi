@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM Modulation — how a message rides in the frequency · hkk.fyi</title>
+<meta name="description" content="Frequency modulation, explained in plain English with seven figures you can drag: why noise lands on amplitude, what the instantaneous frequency is, why the phase is an integral, Bessel sidebands, Carson's rule, the limiter and discriminator, and the capture effect.">
+<meta property="og:title" content="FM Modulation">
+<meta property="og:description" content="Noise adds itself to amplitude — so FM stops listening to amplitude. What that costs, and what it buys. Seven live figures, no background needed.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://hkk.fyi/posts/fm-modulation/">
+<meta property="og:site_name" content="hkk.fyi">
+<meta property="article:author" content="Hassan Keshtkar">
+<meta property="og:image" content="https://hkk.fyi/assets/og-fm.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FM Modulation — a carrier wave squeezing and stretching, beside the article title.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://hkk.fyi/assets/og-fm.png">
+<link rel="canonical" href="https://hkk.fyi/posts/fm-modulation/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23F4EFE4'/><path d='M4 32c2-12 4 12 6 0s3-12 5 0 5 14 9 0 7 14 11 0 6 14 10 0 5 14 9 0' fill='none' stroke='%231C1B1A' stroke-width='3'/></svg>">
+<script>
+/* settle the theme before the first paint, so the page never flashes */
+(function(){try{
+  var r=document.documentElement;
+  var t=localStorage.getItem('hkk-theme');
+  if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'ink':'paper';
+  if(t==='ink')r.classList.add('ink');
+}catch(e){}})();
+</script>
+<link rel="stylesheet" href="../../assets/fonts.css">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="post.css">
+<style>
+  /* reading progress hairline under the topbar */
+  #prog{
+    position:fixed; top:0; left:0; height:2px; width:100%;
+    background:var(--sig); transform:scaleX(0); transform-origin:0 50%;
+    z-index:60; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="prog" aria-hidden="true"></div>
+<a class="skip" href="#start">Skip to content</a>
+
+<header class="topbar">
+  <a class="brand" href="../../" aria-label="hkk.fyi — home">
+    <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28" fill="none" stroke="var(--sig)" stroke-width="5"/>
+      <circle cx="43" cy="32" r="17" fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="51" cy="32" r="9"  fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+      <path d="M4 32h56" stroke="var(--fg)" stroke-width="2.5"/>
+      <circle cx="27" cy="19" r="5" fill="var(--sig)"/>
+    </svg>
+    <span class="brand-name">hkk<span class="dim">.fyi</span></span>
+  </a>
+  <nav class="nav" aria-label="Sections">
+    <a href="../../#lab">Lab</a>
+    <a href="../../#writing">Writing</a>
+    <a href="../../#cv">CV</a>
+    <a href="../../#contact">Contact</a>
+  </nav>
+  <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch between light and dark" title="Toggle light / dark">
+    <svg class="theme-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="theme-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  </button>
+</header>
+
+<main>
+<article class="post" id="start">
+
+  <!-- ============ HERO ============ -->
+  <header class="post-hero">
+    <span class="mono-label post-kicker">ESSAY · SIGNALS &amp; COMMUNICATION · ~15 MIN · 7 LIVE FIGURES</span>
+    <h1>FM Modulation</h1>
+    <div class="post-lede">
+      <p class="post-sub">
+        An FM transmitter never changes how loud it is. It says everything by changing how fast
+        it wiggles.
+        <br><br>
+        That one swap — height for frequency — costs a great deal of bandwidth and buys something
+        amplitude modulation cannot have at any price. Almost all the noise a radio picks up
+        arrives as a voltage added to the signal, which means it lands on the amplitude. FM does
+        not listen to the amplitude.
+        <br><br>
+        You only need to know what a sine wave is. <b>Every figure below is live</b> — drag it,
+        break it, watch what happens.
+      </p>
+      <figure class="lede-chart">
+        <canvas id="figHero"></canvas>
+        <figcaption class="mono-label">SAME HEIGHT, CHANGING PACE</figcaption>
+      </figure>
+    </div>
+    <p class="mono-label byline">
+      <span>HASSAN KESHTKAR</span><span class="dot">·</span><span>TEHRAN</span>
+      <span class="dot">·</span><span>2026</span>
+      <span class="dot">·</span><a class="backlink" href="../../">← back to hkk.fyi</a>
+    </p>
+
+    <!-- Plain links, so sharing still works with JS off; post.js only adds the
+         copy button and the phone's native share sheet on top. -->
+    <div class="share" role="group" aria-label="Share this article">
+      <span class="mono-label share-label">SHARE</span>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://x.com/intent/tweet?text=FM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20in%20the%20frequency&url=https%3A%2F%2Fhkk.fyi%2Fposts%2Ffm-modulation%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 3h3.2l-7 8 8.2 10.9h-6.4l-5-6.6-5.8 6.6H1.5l7.5-8.6L1.2 3h6.6l4.5 6zm-1.1 17h1.8L7.7 4.8H5.8z"/></svg>
+        X
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://t.me/share/url?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Ffm-modulation%2F&text=FM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20in%20the%20frequency">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.1 13.1 1.6 11.7c-1-.3-1-1 .2-1.5l19-7.3c.8-.3 1.5.2 1.1 1.4z"/></svg>
+        Telegram
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fhkk.fyi%2Fposts%2Ffm-modulation%2F">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.76-2.05 4.02 0 4.76 2.64 4.76 6.08V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
+        LinkedIn
+      </a>
+      <a class="share-btn" target="_blank" rel="noopener"
+         href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fhkk.fyi%2Fposts%2Ffm-modulation%2F&t=FM%20Modulation%20%E2%80%94%20how%20a%20message%20rides%20in%20the%20frequency">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M2 2h20v20H2zm9.1 11.4L7.2 6.5h2.2l2.7 5 2.7-5h2.1l-3.9 6.9v4.1h-1.9z"/></svg>
+        Hacker News
+      </a>
+      <button class="share-btn" type="button" id="shareCopy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1 1M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1-1"/></svg>
+        <span id="shareCopyLabel">Copy link</span>
+      </button>
+      <button class="share-btn" type="button" id="shareNative" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 3v13M8 6.5 12 3l4 3.5M5 13v6.5h14V13"/></svg>
+        <span>Share…</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="toc card" aria-label="Contents">
+    <span class="mono-label">CONTENTS</span>
+    <ol>
+      <li><a href="#s1">What noise does to a height</a></li>
+      <li><a href="#s2">Put the message in the frequency</a></li>
+      <li><a href="#s3">The phase is the integral</a></li>
+      <li><a href="#s4">Deviation, and the index β</a></li>
+      <li><a href="#s5">A spectrum that never ends</a></li>
+      <li><a href="#s6">Carson's rule</a></li>
+      <li><a href="#s7">Getting the message back</a></li>
+      <li><a href="#s8">What the bandwidth buys</a></li>
+      <li><a href="#s9">What to remember</a></li>
+    </ol>
+  </nav>
+
+  <hr class="rule">
+
+  <!-- ============ 1 ============ -->
+  <h2 id="s1"><span class="secnum">01</span> What noise does to a height</h2>
+
+  <p>
+    Everything a receiver picks up arrives as a voltage on a wire, and the wanted signal is not
+    the only thing arriving. Lightning hundreds of kilometres away, a car ignition in the next
+    street, the thermal agitation of the electrons in the receiver's own first transistor — all of
+    it adds itself to the antenna voltage. It is a sum, not a mixture: what reaches the detector
+    is <em>signal plus noise</em>, one waveform, with no label on either part.
+  </p>
+  <p>
+    Now recall what an AM receiver does with that waveform. It measures the height. The envelope
+    detector follows the peaks, and the peaks it follows are the peaks of the sum. A wave that
+    should have been 1.00 volts tall arrives 1.04 volts tall, and the detector reports 1.04,
+    because that is genuinely how tall it is. Nothing has malfunctioned. The noise simply landed
+    in the same place the message was kept.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 1</span><span class="fig-t">THE SAME NOISE, TWICE</span></div>
+    <div class="canvas-wrap"><canvas id="figNoise"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">NOISE ADDED</span><span class="ctl-val" id="nzLevelv">0.10</span></div>
+          <input class="slider" type="range" id="nzLevel" aria-label="Noise level" min="0" max="60" step="1" value="10">
+        </div>
+        <div class="chip-row" id="nzHear"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="nzPlay" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then drag the noise while it plays</span>
+        </div>
+      </div>
+      <dl class="ro" id="nzOut"></dl>
+    </div>
+    <div class="verdict" id="nzNote"></div>
+    <figcaption>
+      The same message, sent twice with the same noise added on the way. <b>Left</b> is AM, and
+      the noise is sitting on the envelope the detector is trying to read. <b>Right</b> is FM: the
+      noise is on the height too — it has to be, it is the same noise — but the height is not
+      where the message is, and a limiter is about to throw the height away. The faint trace is
+      the recovered audio, the dashed line what was sent. Drag the noise up from zero: the AM
+      output degrades from the first step, while the FM output does not visibly move until the
+      noise is large enough to start moving the <b>zero crossings</b>. <b>Press Listen</b> and use
+      the two buttons to switch which side you are hearing.
+    </figcaption>
+  </figure>
+
+  <p>
+    You can beat this with brute force. Noise power in a given bandwidth is roughly fixed, so
+    doubling the signal-to-noise ratio means quadrupling the transmitter power, and a broadcaster
+    who wants a quiet signal over a wide area ends up paying an electricity bill for it. That is
+    the whole remedy AM offers. There is no clever detector that helps, because there is nothing
+    to be clever <em>about</em>: the detector is reading a height, and the height is genuinely
+    wrong.
+  </p>
+  <p>
+    Which points at the way out. The noise adds a voltage. If the message is not stored in the
+    voltage, the noise has nothing to corrupt.
+  </p>
+
+  <details class="decode">
+    <summary>Why is the noise mostly on the amplitude?</summary>
+    <div class="decode-body">
+      <p>
+        Strictly it is not. Add a small noise vector to a large signal vector and you perturb
+        both the length and the angle of the sum — amplitude <em>and</em> phase. What makes the
+        two cases different is what happens next.
+      </p>
+      <p>
+        The amplitude error is the component of the noise along the signal, and it goes straight
+        through an envelope detector at full size. The phase error is the component across it,
+        divided by the signal amplitude — so it shrinks as the carrier gets stronger, and an FM
+        receiver can shrink it further by spending bandwidth, which is what the rest of this
+        article is about. Below a certain carrier-to-noise ratio that advantage collapses, and
+        section 8 comes back to it.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ 2 ============ -->
+  <h2 id="s2"><span class="secnum">02</span> Put the message in the frequency</h2>
+
+  <p>
+    A sine wave has three things you can change: its height, its frequency, and its phase. AM
+    takes the first. FM takes the second, and leaves the height strictly alone.
+  </p>
+  <p>
+    The quantity being controlled is the <strong>instantaneous frequency</strong> — how fast the
+    wave is going right now. At rest it sits at the carrier frequency f<sub>c</sub>. The message
+    pushes it above and below:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">instantaneous frequency</span>
+    f<sub>i</sub>(t) = f<sub>c</sub> + Δf · x(t)
+    <span class="small">x(t) is the message, scaled to ±1; Δf is the frequency deviation</span>
+  </div>
+
+  <p>
+    Δf is the <strong>deviation</strong>: the furthest the frequency ever gets from the carrier,
+    reached when the message is at full volume. It is a property of the transmitter, chosen by
+    whoever designed it and fixed by regulation. Broadcast FM in most of the world uses
+    Δf = 75 kHz. A hand-held two-way radio uses 2.5 kHz.
+  </p>
+  <p>
+    Notice what is missing from that equation: any mention of amplitude. The transmitted wave is
+    A<sub>c</sub> tall when the message is loud, A<sub>c</sub> tall when it is quiet, and
+    A<sub>c</sub> tall in the silence between words. <b>The envelope of an FM signal is a flat
+    line, and it carries nothing.</b> That is not a curiosity. It is the entire point, and
+    section 7 collects on it.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 2</span><span class="fig-t">THE CARRIER BENDS</span></div>
+    <div class="canvas-wrap"><canvas id="figBend"></canvas></div>
+    <div class="fig-ctls">
+      <div>
+        <div class="chip-row" id="bendShape"></div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">DEVIATION</span><span class="ctl-val" id="bendDevv">10 kHz</span></div>
+          <input class="slider" type="range" id="bendDev" aria-label="Frequency deviation" min="0" max="20" step="0.5" value="10">
+        </div>
+      </div>
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MESSAGE FREQUENCY</span><span class="ctl-val" id="bendFmv">2.5 kHz</span></div>
+          <input class="slider" type="range" id="bendFm" aria-label="Message frequency" min="1.5" max="6" step="0.1" value="2.5">
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="bendEnv" checked> draw the envelope</label>
+        </div>
+      </div>
+    </div>
+    <dl class="ro ro-wide" id="bendOut"></dl>
+    <figcaption>
+      <b>Top</b> is the message. <b>Middle</b> is the instantaneous frequency it asks for, a copy
+      of the message with f<sub>c</sub> as its zero line. <b>Bottom</b> is the wave that comes
+      out: same height everywhere, packed tight where the middle trace is high and stretched thin
+      where it is low. Push the deviation up and the squeezing gets more violent; pull it to zero
+      and you are left with a bare carrier that says nothing. The dashed envelope stays flat no
+      matter what you do — compare that with the same figure in the
+      <a href="../am-modulation/#s3">AM essay</a>, where the envelope <em>is</em> the message.
+    </figcaption>
+  </figure>
+
+  <div class="note card">
+    <b>A note on the drawings.</b> A real FM broadcast runs a carrier near 100 MHz against audio
+    below 15 kHz — a ratio of about 7000 : 1. Drawn honestly, that is a solid block of ink. Every
+    figure here uses a carrier of a few tens of kilohertz instead, with the deviation and the
+    message scaled to match, so the wave stays visible and the figures you can listen to land
+    inside the range of a speaker. Every ratio that matters — β, Carson's rule, the fraction of
+    power inside the channel — is preserved exactly.
+    <br><br>
+    <b>Four of the figures make sound.</b> Nothing plays until you ask for it, and only one plays
+    at a time.
+  </div>
+
+  <!-- ============ 3 ============ -->
+  <h2 id="s3"><span class="secnum">03</span> The phase is the integral</h2>
+
+  <p>
+    There is an obvious way to write the transmitted wave from the equation above, and it is
+    wrong. It is worth seeing why, because the correct version looks stranger than it should and
+    the reason is easy to miss.
+  </p>
+  <p>
+    The tempting thing to write is A<sub>c</sub> cos(2π f<sub>i</sub>(t) · t). Put the
+    instantaneous frequency in the place the carrier frequency used to be. But a cosine does not
+    read the number in front of t and go at that speed; it reads the whole angle inside the
+    brackets, and the speed is how fast that angle is turning. Frequency is not a term in the
+    phase — it is the <em>rate of change</em> of the phase:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">what frequency means</span>
+    f<sub>i</sub>(t) =
+    <span class="frac">
+      <span class="num">1</span>
+      <span class="den">2π</span>
+    </span>
+    ·
+    <span class="frac">
+      <span class="num">dφ</span>
+      <span class="den">dt</span>
+    </span>
+  </div>
+
+  <p>
+    So if you want the frequency to follow the message, the phase has to follow the
+    <em>running total</em> of the message. Integrate f<sub>i</sub> to get φ, and the transmitted
+    wave is:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">FM, in full</span>
+    s(t) = A<sub>c</sub> cos( 2π f<sub>c</sub> t + 2π Δf ∫<sub>0</sub><sup>t</sup> x(τ) dτ )
+    <span class="small">the message enters through an integral, never directly</span>
+  </div>
+
+  <p>
+    The integral is not decoration. It changes what the transmitted wave looks like in ways you
+    would not guess from the message alone — a message that jumps abruptly produces a phase that
+    only ever <em>bends</em>, because an integral cannot jump. It also explains a fact from the
+    next section: the deviation depends on how <em>loud</em> the message is, and the resulting
+    bandwidth depends on how <em>fast</em> it is, and those are two different knobs.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 3</span><span class="fig-t">THREE LAYERS, AND AN INTEGRAL IN THE MIDDLE</span></div>
+    <div class="canvas-wrap"><canvas id="figInt"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="chip-row" id="intShape"></div>
+        <div class="check-row">
+          <label><input type="checkbox" id="intWrong"> show the wrong version too</label>
+        </div>
+      </div>
+      <dl class="ro" id="intOut"></dl>
+    </div>
+    <div class="verdict" id="intNote"></div>
+    <figcaption>
+      <b>Top</b> the message x(t). <b>Middle</b> its running integral, which is the extra phase
+      being added to the carrier. <b>Bottom</b> the wave that phase produces. Switch the message
+      to <b>pulse</b> and watch the middle trace: the message slams between −1 and +1, and the
+      phase answers with straight ramps and sharp corners — bends, never jumps. Tick
+      <b>the wrong version</b> to overlay what you get from cos(2πf<sub>i</sub>(t)·t) instead;
+      it is not a small error, and it is not even a valid FM signal, because its frequency runs
+      away with t.
+    </figcaption>
+  </figure>
+
+  <!-- ============ 4 ============ -->
+  <h2 id="s4"><span class="secnum">04</span> Deviation, and the index β</h2>
+
+  <p>
+    Two numbers describe an FM signal, and confusing them is the usual source of trouble.
+  </p>
+  <ul>
+    <li><b>The deviation Δf</b> is how far the frequency swings, in hertz. It is set by the
+      loudness of the message and capped by the transmitter. Shout into the microphone and Δf
+      grows; whisper and it shrinks.</li>
+    <li><b>The message frequency f<sub>m</sub></b> is how <em>often</em> the frequency swings.
+      Sing a higher note and f<sub>m</sub> grows, while Δf stays exactly where the volume put
+      it.</li>
+  </ul>
+  <p>
+    The ratio of the two is the <strong>modulation index</strong>:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">modulation index</span>
+    β =
+    <span class="frac">
+      <span class="num">Δf</span>
+      <span class="den">f<sub>m</sub></span>
+    </span>
+    <span class="small">how many cycles of carrier-phase the message pushes around, per cycle of message</span>
+  </div>
+
+  <p>
+    β is where FM stops resembling AM. In AM the index m has a hard ceiling: at m = 1 the envelope
+    touches zero, and past it the signal is broken and a simple receiver hears distortion. β has
+    no such ceiling. β = 0.2, β = 5, β = 40 — nothing folds over, nothing clips, and the recovered
+    message is perfect in every case. What changes is how much room the signal takes up, and that
+    is the only thing that changes.
+  </p>
+  <p>
+    Two regimes get their own names, and the boundary is conventionally put at β ≈ 0.3:
+  </p>
+  <ul>
+    <li><b>Narrowband FM</b> (β ≪ 1). The deviation is small compared with the message frequency.
+      The spectrum is a carrier and essentially one pair of sidebands — the same shape as AM, and
+      the same bandwidth, 2f<sub>m</sub>. This is what two-way radios, aircraft marker beacons and
+      the FM sub-carriers inside other systems use, and it buys almost none of FM's noise
+      advantage.</li>
+    <li><b>Wideband FM</b> (β ≫ 1). The deviation dominates. The spectrum spreads out over many
+      sideband pairs and the bandwidth approaches 2Δf, independent of the message frequency.
+      Broadcast FM lives here: Δf = 75 kHz against a 15 kHz top note is β = 5.</li>
+  </ul>
+
+  <!-- ============ 5 ============ -->
+  <h2 id="s5"><span class="secnum">05</span> A spectrum that never ends</h2>
+
+  <p>
+    Take the single-tone case, x(t) = cos(2π f<sub>m</sub> t), and put it through the integral from
+    section 3. The phase comes out as β sin(2π f<sub>m</sub> t), so:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">single-tone FM</span>
+    s(t) = A<sub>c</sub> cos( 2π f<sub>c</sub> t + β sin(2π f<sub>m</sub> t) )
+  </div>
+
+  <p>
+    In AM the equivalent step was a line of algebra and out fell three tones. Here the message
+    sits inside a cosine, inside another cosine, and no amount of rearranging gets it out. The
+    expansion that does work has been known since the 1820s and produces something unsettling:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">the spectrum of single-tone FM</span>
+    s(t) = A<sub>c</sub> Σ<sub>n = −∞</sub><sup>∞</sup> J<sub>n</sub>(β) · cos( 2π (f<sub>c</sub> + n f<sub>m</sub>) t )
+    <span class="small">J<sub>n</sub> is the Bessel function of the first kind, order n</span>
+  </div>
+
+  <p>
+    One tone in, and out come <em>infinitely many</em> sidebands, spaced f<sub>m</sub> apart,
+    running away from the carrier in both directions forever. Their heights are Bessel functions
+    of β, which is the only place in this article where a named special function is unavoidable —
+    it is simply what the integral of a cosine-inside-a-cosine evaluates to.
+  </p>
+  <p>
+    Three things about that sum are worth more than the formula itself:
+  </p>
+  <ul>
+    <li><b>The total power never changes.</b> Σ J<sub>n</sub>(β)² = 1 for every β, so the
+      transmitted power is A<sub>c</sub>²/2 whatever the message does — which it must be, since
+      the amplitude is constant. Modulating an FM transmitter does not add power. It only moves
+      power out of the carrier and into the sidebands.</li>
+    <li><b>The carrier can disappear completely.</b> J<sub>0</sub>(β) is zero at β = 2.405, again
+      at 5.520, again at 8.654. At those settings the transmitter is putting out full power and
+      nothing at all on its own centre frequency. This is not a curiosity either — it is the
+      classic way to calibrate a deviation meter, because you can hear or see the carrier null
+      exactly.</li>
+    <li><b>The sidebands do die out.</b> J<sub>n</sub>(β) stays small until n approaches β and
+      falls away sharply past it, so although the sum is infinite, only about β + 1 pairs matter.
+      That observation is the whole of the next section.</li>
+  </ul>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 4</span><span class="fig-t">DRAG THE INDEX, AND WATCH THE CARRIER VANISH</span></div>
+    <div class="canvas-wrap"><canvas id="figBessel"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">MODULATION INDEX</span><span class="ctl-val" id="bsBetav">2.40</span></div>
+          <input class="slider" type="range" id="bsBeta" aria-label="Modulation index" min="0" max="1000" step="1" value="240">
+        </div>
+        <div class="chip-row" id="bsPreset"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="bsPlay" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then drag β while it plays</span>
+        </div>
+      </div>
+      <dl class="ro" id="bsOut"></dl>
+    </div>
+    <div class="verdict" id="bsNote"></div>
+    <figcaption>
+      Every line is one sideband, at f<sub>c</sub> + n·f<sub>m</sub>, and its height is
+      J<sub>n</sub>(β). The dark line in the centre is the carrier. Drag β up from zero: at the
+      left-hand end there is a carrier and nothing else, then one pair grows and the thing looks
+      exactly like AM, then the energy marches outward and the carrier shrinks. Stop at
+      <b>β = 2.405</b> and the carrier is gone — the readout shows how much of it is left. The
+      bar under the axis is Carson's rule from the next section, and the readout tells you what
+      fraction of the power it contains. <b>Press Listen</b> to hear the same signal: the pitch
+      never changes, only the timbre, because all that is happening is power moving between
+      sidebands.
+    </figcaption>
+  </figure>
+
+  <details class="decode">
+    <summary>Where does the Bessel function come from?</summary>
+    <div class="decode-body">
+      <p>
+        Write s(t) as the real part of A<sub>c</sub> e<sup>j2πf<sub>c</sub>t</sup> ·
+        e<sup>jβ sin(2πf<sub>m</sub>t)</sup>. The second factor is periodic in the message, with
+        period 1/f<sub>m</sub>, so it has a Fourier series — and its coefficients are, by
+        definition, the integrals
+      </p>
+      <p class="eq-inline">
+        J<sub>n</sub>(β) = (1/2π) ∫<sub>−π</sub><sup>π</sup> e<sup>j(β sin θ − nθ)</sup> dθ
+      </p>
+      <p>
+        which is one of the standard definitions of the Bessel function of the first kind. So the
+        Bessel functions are not imported from anywhere: they <em>are</em> the Fourier
+        coefficients of a phase-modulated exponential, and they turn up here for the same reason
+        sines turn up in a Fourier series. The figure above evaluates that integral numerically,
+        which is all it takes.
+      </p>
+    </div>
+  </details>
+
+  <!-- ============ 6 ============ -->
+  <h2 id="s6"><span class="secnum">06</span> Carson's rule</h2>
+
+  <p>
+    An infinite spectrum is not something you can license, so the practical question is where to
+    cut it off. The answer everyone uses dates from 1922 and is a single line:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">Carson's rule</span>
+    BW ≈ 2 ( Δf + f<sub>m</sub> ) = 2 f<sub>m</sub> ( β + 1 )
+    <span class="small">the band holding about 99 % of the transmitted power</span>
+  </div>
+
+  <p>
+    It is a rule of thumb with a real justification: keep every sideband whose amplitude exceeds
+    about 1 % of the unmodulated carrier, and you have kept 98 % or more of the power, and what
+    you have kept is β + 1 pairs on each side. Both limits check out against what you already
+    know:
+  </p>
+  <ul>
+    <li>As β → 0 it gives BW → 2f<sub>m</sub>, which is exactly AM's answer. Narrowband FM
+      occupies the same room as AM, because it has the same shape.</li>
+    <li>As β grows large it gives BW → 2Δf. The bandwidth stops caring about the message
+      frequency and is set purely by how hard the transmitter swings.</li>
+  </ul>
+  <p>
+    Put broadcast numbers in: Δf = 75 kHz, top audio frequency 15 kHz, so
+    BW ≈ 2(75 + 15) = 180 kHz. FM broadcast channels are spaced 200 kHz apart, which is that
+    number plus a guard band. Compare with an AM broadcast channel at 10 kHz. <b>One FM station
+    occupies the room of twenty AM stations</b>, and that is the bill for everything section 8 is
+    about.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 5</span><span class="fig-t">HOW MUCH ROOM DOES IT NEED?</span></div>
+    <div class="canvas-wrap"><canvas id="figCarson"></canvas></div>
+    <div class="fig-ctls">
+      <div>
+        <div class="chip-row" id="csPreset"></div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">DEVIATION</span><span class="ctl-val" id="csDevv">75 kHz</span></div>
+          <input class="slider" type="range" id="csDev" aria-label="Deviation" min="1" max="120" step="1" value="75">
+        </div>
+      </div>
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">TOP MESSAGE FREQUENCY</span><span class="ctl-val" id="csFmv">15 kHz</span></div>
+          <input class="slider" type="range" id="csFm" aria-label="Message frequency" min="1" max="20" step="0.5" value="15">
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="csGrid" checked> draw the 200 kHz channel grid</label>
+        </div>
+      </div>
+    </div>
+    <dl class="ro ro-wide" id="csOut"></dl>
+    <div class="verdict" id="csNote"></div>
+    <figcaption>
+      The spectrum of a single tone at the deviation and message frequency you set, with Carson's
+      band drawn across it and the broadcast channel grid behind. Drag the deviation and watch two
+      things at once: the sidebands march outward, and the readout's <b>power inside Carson</b>
+      barely moves off 99 % — that is the rule doing its job. Now drop to the
+      <b>narrowband</b> preset and the whole thing collapses to a carrier and one pair, sitting in
+      a channel the size of an AM station's. The two presets are the two real ends of FM: the same
+      mathematics, four hundred times apart in bandwidth.
+    </figcaption>
+  </figure>
+
+  <!-- ============ 7 ============ -->
+  <h2 id="s7"><span class="secnum">07</span> Getting the message back</h2>
+
+  <p>
+    An FM receiver does two things in order, and the first one is the reason the whole scheme
+    works.
+  </p>
+
+  <h3>Step one: throw the amplitude away</h3>
+  <p>
+    The wanted signal has a constant envelope. Therefore any variation in the envelope is, by
+    definition, not the message — it is noise, fading, or interference. So the receiver
+    <strong>limits</strong>: it amplifies hard into saturation until the wave is clipped flat top
+    and bottom, closer to a square wave than a sine. Every trace of amplitude information is
+    destroyed, deliberately, along with the noise that was carried in it. The zero crossings
+    survive untouched, and the zero crossings are where the message is.
+  </p>
+  <p>
+    <b>An AM receiver can never do this</b>, at any price, with any circuit. Its amplitude is its
+    message. This single step is what FM buys with its 180 kHz, and it is why the comparison in
+    figure 1 looks the way it does.
+  </p>
+
+  <h3>Step two: turn frequency into voltage</h3>
+  <p>
+    Now something has to convert "how fast is this wave going" into a voltage. The tidiest way to
+    see it is to differentiate. If s(t) = A<sub>c</sub> cos φ(t), then
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">a differentiator makes frequency into amplitude</span>
+    ds/dt = − A<sub>c</sub> · φ′(t) · sin φ(t) = − A<sub>c</sub> · 2π f<sub>i</sub>(t) · sin φ(t)
+  </div>
+
+  <p>
+    Read the right-hand side as a wave whose <em>height</em> is proportional to the instantaneous
+    frequency. The differentiator has converted FM into AM — and an AM signal is something we
+    already know how to demodulate, with the diode, resistor and capacitor from the
+    <a href="../am-modulation/#s7">previous essay</a>. Differentiate, then envelope-detect. That
+    pair is a <strong>slope detector</strong>, and in practice the differentiator is just a tuned
+    circuit operated off to one side of resonance, where its response happens to be a rising line.
+  </p>
+  <p>
+    Real receivers mostly use one of three refinements — the Foster-Seeley discriminator, the
+    ratio detector, or, in anything built in the last forty years, a phase-locked loop, which
+    steers an oscillator to follow the incoming frequency and reads the message straight off the
+    steering voltage. All three do the job of the two lines above with better linearity.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 6</span><span class="fig-t">LIMIT FIRST, THEN DIFFERENTIATE</span></div>
+    <div class="canvas-wrap"><canvas id="figDisc"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">NOISE ADDED</span><span class="ctl-val" id="dsNoisev">0.25</span></div>
+          <input class="slider" type="range" id="dsNoise" aria-label="Noise level" min="0" max="80" step="1" value="25">
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="dsLimit" checked> use the limiter</label>
+        </div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="dsPlay" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then untick the limiter while it plays</span>
+        </div>
+      </div>
+      <dl class="ro" id="dsOut"></dl>
+    </div>
+    <div class="verdict" id="dsNote"></div>
+    <figcaption>
+      The signal as it arrives, noise and all; then what the limiter makes of it; then the
+      recovered message against the original. <b>Untick the limiter</b> and the amplitude noise
+      walks straight into the output, because the differentiator cannot tell a change in height
+      from a change in pace. Tick it again and the same noise is gone. Then push the noise far
+      enough and watch the limiter stop helping: once the noise is large enough to create
+      <b>extra zero crossings</b>, it is writing false frequencies that no later stage can undo.
+      That cliff is the threshold effect, and it is the subject of the next section.
+    </figcaption>
+  </figure>
+
+  <!-- ============ 8 ============ -->
+  <h2 id="s8"><span class="secnum">08</span> What the bandwidth buys</h2>
+
+  <p>
+    FM spends twenty times the room of an AM station. Three things come back for it.
+  </p>
+
+  <h3>Quieting, and why it grows as β²</h3>
+  <p>
+    After the discriminator, the noise that survives is the phase noise differentiated — and
+    differentiating multiplies each frequency component by that frequency, so the output noise
+    density rises as f². Integrating that across the message band and comparing with the recovered
+    signal gives a clean result for a single tone:
+  </p>
+
+  <div class="eq card">
+    <span class="lbl">FM figure of merit</span>
+    SNR<sub>out</sub> / SNR<sub>channel</sub> = (3/2) β²
+  </div>
+
+  <p>
+    The improvement grows with the <em>square</em> of the index, while the bandwidth grows only
+    linearly with it — so every doubling of bandwidth buys about 6 dB. At broadcast settings,
+    β = 5 gives a factor of 37.5. Standard AM at full modulation manages a figure of merit of 1/3.
+    The ratio of the two is about 112, which is <b>roughly 20 dB</b>: the same transmitter power,
+    into the same noise, arriving a hundred times quieter.
+  </p>
+
+  <h3>Capture: the stronger station wins outright</h3>
+  <p>
+    Two AM stations inside one receiver's filter give you both, mixed, at their relative
+    strengths — that was figure 7 of the AM essay. Two FM stations do not mix. The limiter and the
+    discriminator between them track whichever signal is momentarily larger, so the stronger
+    station takes the output completely and the weaker one disappears. A few decibels of advantage
+    is enough. It is why driving between two transmitters on the same frequency gives you one
+    station, then a band of noise, then the other station, instead of a long stretch of both at
+    once.
+  </p>
+
+  <figure class="fig card">
+    <div class="fig-head mono-label"><span class="fig-n">FIG 7</span><span class="fig-t">TWO STATIONS, ONE FREQUENCY</span></div>
+    <div class="canvas-wrap"><canvas id="figCapture"></canvas></div>
+    <div class="fig-split">
+      <div>
+        <div class="ctl">
+          <div class="ctl-label"><span class="mono-label">STRONGER BY</span><span class="ctl-val" id="cpRatiov">0.0 dB</span></div>
+          <input class="slider" type="range" id="cpRatio" aria-label="Power ratio" min="0" max="140" step="1" value="0">
+        </div>
+        <div class="chip-row" id="cpPreset"></div>
+        <div class="chip-row">
+          <button class="pill audio" type="button" id="cpPlay" aria-pressed="false">▶ LISTEN</button>
+          <span class="audio-hint">then drag the ratio while it plays</span>
+        </div>
+      </div>
+      <dl class="ro" id="cpOut"></dl>
+    </div>
+    <div class="verdict" id="cpNote"></div>
+    <figcaption>
+      Two FM transmitters on the same channel, sending different notes. The bars show how much of
+      each one reaches the output, measured from the recovered audio rather than asserted. At 0 dB
+      the receiver cannot decide and the output is a mess belonging to neither. Nudge the slider
+      and the fight is over remarkably fast: by <b>6 dB</b> the weaker station is essentially gone.
+      <b>Press Listen</b> and drag — the weaker note does not fade out so much as get switched off.
+      The dotted line is what an AM receiver would have done with the same two signals: a straight
+      mix, all the way across.
+    </figcaption>
+  </figure>
+
+  <h3>The threshold, where it all stops working</h3>
+  <p>
+    None of this is free below a certain carrier-to-noise ratio. The advantage rests on the noise
+    being small enough that it only nudges the phase. Once the noise vector is comparable with the
+    signal vector it can swing the sum all the way around zero, adding or removing a whole cycle —
+    and a discriminator reads that as an enormous momentary frequency, which you hear as a click.
+    The clicks arrive slowly at first, then all at once.
+  </p>
+  <p>
+    The collapse happens near a carrier-to-noise ratio of about 10 dB, and it is steep: a decibel
+    of extra noise below threshold costs far more than a decibel of output. So <b>FM is better
+    than AM above threshold and worse below it</b>. AM degrades into something hissy but audible;
+    FM degrades into nothing. It is the reason a distant AM station is still just about listenable
+    while a distant FM station is silent.
+  </p>
+
+  <h3>Pre-emphasis, the last trick</h3>
+  <p>
+    One consequence of that f² noise slope is that the treble suffers most, even though music has
+    least energy there. So broadcast FM tilts the deal: before transmission the high frequencies
+    are boosted by a simple RC network, and the receiver applies the exact inverse afterwards. The
+    music comes out flat, the noise comes out cut. The time constant is 50 µs in Europe and most
+    of the world, 75 µs in the Americas — which is why a radio set for the wrong one sounds either
+    dull or harsh.
+  </p>
+
+  <!-- ============ 9 ============ -->
+  <h2 id="s9"><span class="secnum">09</span> What to remember</h2>
+
+  <p>
+    Six sentences, and they are the whole article:
+  </p>
+  <ul>
+    <li>Noise arrives as a voltage added to the signal, so it lands on the amplitude — which is
+      exactly where AM keeps its message.</li>
+    <li>FM keeps the amplitude constant and puts the message in the instantaneous frequency,
+      f<sub>i</sub>(t) = f<sub>c</sub> + Δf·x(t), which means the message enters the wave through
+      an integral: s(t) = A<sub>c</sub>cos(2πf<sub>c</sub>t + 2πΔf∫x dτ).</li>
+    <li>The index β = Δf/f<sub>m</sub> has no ceiling — nothing breaks as it grows, only the
+      bandwidth.</li>
+    <li>One tone produces infinitely many sidebands with Bessel amplitudes J<sub>n</sub>(β), total
+      power constant, and a carrier that vanishes at β = 2.405.</li>
+    <li>Carson's rule cuts the infinity down to BW ≈ 2(Δf + f<sub>m</sub>) — 180 kHz for broadcast
+      FM, twenty AM channels.</li>
+    <li>The receiver limits first, destroying the amplitude and the noise in it, then differentiates
+      to turn frequency back into amplitude — and that buys (3/2)β² in noise, plus the capture
+      effect, down to a threshold below which it all collapses at once.</li>
+  </ul>
+  <p>
+    AM and FM are the same sentence with one word changed: <em>take a steady wave, and let the
+    message change one thing about it</em>. AM changes the height and pays in noise. FM changes the
+    pace and pays in bandwidth. Which is the better bargain depends entirely on which of the two
+    you have to spare — and in 1930, when the spectrum was empty and amplifiers were noisy,
+    everyone had bandwidth to spare.
+  </p>
+
+  <div class="cta card">
+    <h3>More of this sort of thing</h3>
+    <p>
+      This essay is the second half of a pair. The first one builds amplitude modulation from
+      zero with the same kind of figures — and the Smith chart essay next door does the same job
+      for impedance, reflection and matching, with the chart itself running live in the Lab.
+    </p>
+    <div class="btn-row">
+      <a class="btn solid" href="../am-modulation/">Read the AM essay</a>
+      <a class="btn" href="../smith-chart/">The Smith chart essay</a>
+      <a class="btn" href="../../#lab">Back to the Lab</a>
+    </div>
+  </div>
+
+  <h3 style="margin-top:3rem">Sources &amp; further reading</h3>
+  <ul class="refs">
+    <li>S. Haykin and M. Moher, <em>Communication Systems</em>, 5th ed., Wiley — chapter 4, angle modulation, and chapter 9 for the noise analysis and the threshold effect.</li>
+    <li>B. P. Lathi and Z. Ding, <em>Modern Digital and Analog Communication Systems</em>, 4th ed., Oxford — chapter 5, for the Bessel expansion and Carson's rule.</li>
+    <li>J. R. Carson, “Notes on the theory of modulation”, <em>Proc. IRE</em> 10(1), 1922 — the original, and shorter than you would expect.</li>
+    <li>E. H. Armstrong, “A method of reducing disturbances in radio signalling by a system of frequency modulation”, <em>Proc. IRE</em> 24(5), 1936 — wideband FM, and the paper that overturned Carson's own conclusion that FM could not help.</li>
+    <li>L. W. Couch, <em>Digital and Analog Communication Systems</em>, 8th ed., Pearson — pre-emphasis, de-emphasis and practical discriminators.</li>
+  </ul>
+
+</article>
+</main>
+
+<footer class="footer">
+  <span>© 2026 Hassan Keshtkar · <span class="mono-label">hkk.fyi</span></span>
+  <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
+</footer>
+
+<script src="post.js"></script>
+</body>
+</html>
