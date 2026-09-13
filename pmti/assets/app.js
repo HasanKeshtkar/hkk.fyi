@@ -311,6 +311,28 @@ window.addEventListener('keydown', (e) => {
   if (target != null) scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
 });
 
+/* -------------------------------------------------- auto-played sliders */
+// A range input that plays by itself (period s, value = fn(phase 0..1)) while `wrap` is on screen.
+// Dragging it hands control to the user; the little "auto" button hands it back.
+function autoRange(input, btn, wrap, period, fn, onValue) {
+  let auto = !reduced, t0 = null;
+  const setAuto = (on) => { auto = on; btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on); if (on) t0 = null; };
+  input.addEventListener('pointerdown', () => setAuto(false));
+  input.addEventListener('input', () => { if (auto) setAuto(false); onValue(parseFloat(input.value)); });
+  btn.addEventListener('click', () => setAuto(!auto));
+  const an = register(wrap, (t) => {
+    if (!auto || !an.visible) return;
+    if (t0 == null) { // start from the slider's current value so nothing jumps
+      const v0 = parseFloat(input.value); let best = 0, err = 1e9;
+      for (let ph = 0; ph < 1; ph += .002) { const e = Math.abs(fn(ph) - v0); if (e < err) { err = e; best = ph; } }
+      t0 = t - best * period;
+    }
+    const v = fn(((t - t0) / period) % 1);
+    input.value = v; onValue(v);
+  });
+  setAuto(auto);
+}
+
 /* ------------------------------------------------------ pinned scenes */
 const scenes = [];
 function prepDraw(root) {
@@ -429,20 +451,12 @@ function makeScene(wrap, fn) {
 /* ------------------------------------------------------- PM-TI: k slider */
 {
   const cv = $('#mapK'), rng = $('#kRange'), kv = $('#kVal'), fw = $('#kFwhm');
-  let k = 1, auto = true, autoStart = null;
+  let k = 1;
   const draw = () => { drawPhantom(cv, k); kv.textContent = k.toFixed(2); fw.textContent = fwhm(k).w.toFixed(1); };
-  rng.addEventListener('input', () => { k = parseFloat(rng.value); auto = false; draw(); });
   staticDraws.push(draw); draw();
-  // self-demo: sweep k 1 -> 3 -> 1 once when the slide is first seen
-  const wrap = $('#mapKWrap');
-  const an = register(wrap, (t) => {
-    if (!auto || reduced || !an.visible) return;
-    if (autoStart == null) autoStart = t + .8;
-    const u = t - autoStart; if (u < 0) return;
-    if (u > 6) { auto = false; return; }
-    const ph = u / 6, kk = 1 + 2 * (ph < .5 ? ease(ph * 2) : 1 - ease((ph - .5) * 2));
-    k = Math.round(kk * 100) / 100; rng.value = k; draw();
-  });
+  // auto: k sweeps 1 -> 3 -> 1 (8 s) while the slide is on screen; touching the slider hands control over
+  autoRange(rng, $('#kAuto'), $('#mapKWrap'), 8, (ph) => 1 + 2 * (ph < .5 ? ease(ph * 2) : 1 - ease((ph - .5) * 2)),
+    (v) => { k = Math.round(v * 100) / 100; draw(); });
   // penalty scope: envelope at one off-centre point, three k
   const sc = $('#scPen'), imb = $('#imbRange'), iv = $('#imbVal');
   const drawPen = () => {
@@ -459,7 +473,9 @@ function makeScene(wrap, fn) {
     ctx.globalAlpha = 1;
     $('#penR').innerHTML = [1, 2, 3].map(kk => `<b class="k${kk}">k=${kk} · ${envK(a, b, kk).toFixed(2)}</b>`).join('');
   };
-  imb.addEventListener('input', drawPen); staticDraws.push(drawPen); drawPen();
+  staticDraws.push(drawPen); drawPen();
+  // auto: the imbalance E2/E1 breathes 1 -> 0.15 -> 1 (9 s) while on screen
+  autoRange(imb, $('#imbAuto'), $('#pmti'), 9, (ph) => 1 - .85 * (.5 - .5 * Math.cos(2 * Math.PI * ph)), drawPen);
 }
 
 /* -------------------------------------------------- results: three maps */
