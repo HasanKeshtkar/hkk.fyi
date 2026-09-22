@@ -525,10 +525,8 @@ html.ink .chip.solid{
   border-color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
 
-/* waiting to be revealed on scroll (site.js adds this, and lifts it away) */
+/* waiting to be revealed on scroll (site.js adds this, and animates it away) */
 .rise{ opacity:0; }
-/* holds the water filters used while things are being revealed */
-body > svg.water-defs{ position:absolute; width:0; height:0; overflow:hidden; pointer-events:none; }
 
 /* ================= responsive ================= */
 @media (max-width: 860px){

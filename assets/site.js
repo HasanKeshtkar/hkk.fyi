@@ -368,7 +368,9 @@ const strings = (function initStrings () {
 })();
 
 /* ============ one set of listeners feeds every wave on the page ============ */
-const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, and when
+const motion = new Set();   // running entrance animations — printing finishes them all
+addEventListener('beforeprint', () => motion.forEach(a => a.finish()));
+
 {
   let px = null, py = null;
   addEventListener('pointermove', (e) => {
@@ -381,10 +383,7 @@ const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, a
   addEventListener('scroll', () => {
     const v = scrollY - sy; sy = scrollY;
     if (!v) return;
-    scrollFx.dir = Math.sign(v);
-    scrollFx.speed = Math.min(Math.abs(v), 150);
-    scrollFx.at = performance.now();
-    field && field.roll(v, scrollFx.at);
+    field && field.roll(v, performance.now());
     waveHero.pump(Math.abs(v));
     // a rule scrolling past a resting cursor gets plucked too: relative to the
     // page, the cursor just moved by v
@@ -392,106 +391,23 @@ const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, a
   }, { passive: true });
 }
 
-/* ============ scrolling glides, like moving through water ============
-   Mouse-wheel steps are eased instead of jumped: the page drifts towards
-   where you asked it to be and slows as it arrives. Only for fine
-   pointers (touch scrolling already has its own inertia), never for
-   pinch-zoom or a box that can scroll itself, and keyboard, scrollbar and
-   anchor-link scrolling are left alone — a glide in flight yields to them. */
-if (!reduced && matchMedia('(pointer: fine)').matches) {
-  const root = document.documentElement;
-  let target = 0, cur = 0, raf = null;
-  const max = () => root.scrollHeight - innerHeight;
-  const innerScroller = (el, dy) => {
-    for (; el && el !== document.body && el !== root; el = el.parentElement) {
-      const oy = getComputedStyle(el).overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 &&
-          (dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : el.scrollTop > 0)) return true;
-    }
-    return false;
-  };
-  const stop = () => { cancelAnimationFrame(raf); raf = null; root.style.scrollBehavior = ''; };
-  const glide = () => {
-    cur += (target - cur) * .075;
-    if (Math.abs(target - cur) < .4) cur = target;
-    scrollTo(0, cur);
-    if (cur === target) stop(); else raf = requestAnimationFrame(glide);
-  };
-  addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.defaultPrevented || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    if (innerScroller(e.target, e.deltaY)) return;
-    e.preventDefault();
-    const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1;
-    if (!raf) { target = cur = scrollY; root.style.scrollBehavior = 'auto'; }
-    target = Math.max(0, Math.min(max(), target + e.deltaY * unit));
-    if (!raf) raf = requestAnimationFrame(glide);
-  }, { passive: false });
-  // something else moved the page (keys, scrollbar, a link): let it win
-  addEventListener('scroll', () => { if (raf && Math.abs(scrollY - cur) > 3) stop(); }, { passive: true });
-}
-
-/* ============ reveal on scroll: things surface as if through water ============
-   Each block rises slowly into place while a rippling-water distortion
-   (turbulence driving a displacement map) and a little blur wash out of
-   it — like something coming up from under the surface. Blocks that enter
-   together surface one after another. It's all inline style for the
-   length of the animation and gone afterwards, so no stray stacking
-   context is left to trap the hover cards. */
-if (!reduced && 'IntersectionObserver' in window) {
+/* ============ reveal on scroll: things arrive like a damped oscillator ============
+   Each block rises in, overshoots a hair, and settles. Blocks that enter
+   together go one after another, so a screenful arrives as a wavefront.
+   The animation only holds its first frame while waiting (fill: backwards),
+   so once it's done nothing is left on the element — no stray stacking
+   contexts to trap the hover cards. */
+if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
+  const RISE = [
+    { opacity: 0, transform: 'translateY(26px)', easing: 'cubic-bezier(.2,.65,.3,1)' },
+    { opacity: 1, transform: 'translateY(-4px)', offset: .55, easing: 'ease-in-out' },
+    { transform: 'translateY(1.5px)', offset: .8, easing: 'ease-in-out' },
+    { opacity: 1, transform: 'none' },
+  ];
   const sel = '.hero h1, .hero .lede, .hero .portrait, .hero .wave, .section > h2, .section-intro,' +
               '.cv-head, .cv-block, .project, .wr, .project-slot, .port';
   const els = [...document.querySelectorAll(sel)];
   els.forEach(el => el.classList.add('rise'));
-
-  // one hidden <svg> holds a water filter for each block in flight
-  const defs = document.createElementNS(NS, 'svg');
-  defs.setAttribute('class', 'water-defs');
-  defs.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(defs);
-  const mk = (tag, attrs, parent) => {
-    const e = document.createElementNS(NS, tag);
-    for (const k in attrs) e.setAttribute(k, attrs[k]);
-    parent.appendChild(e);
-    return e;
-  };
-
-  const live = new Set();
-  let uid = 0, raf = null;
-  const DUR = 1700, RISE = 34, WARP = 30, BLUR = 3;
-
-  const paint = (j, u) => {
-    const q = (1 - u) ** 3;                              // 1 → 0, easing out
-    j.disp.setAttribute('scale', (WARP * q).toFixed(1));
-    j.turb.setAttribute('baseFrequency', '0.004 ' + (.022 + .006 * Math.sin(u * 6 + j.seed)).toFixed(4));
-    j.el.style.filter = `url(#${j.id}) blur(${(BLUR * q * q).toFixed(2)}px)`;
-    j.el.style.opacity = Math.min(1, u * 2.2).toFixed(3);
-    j.el.style.transform = `translateY(${(RISE * q * j.dir).toFixed(1)}px)`;
-  };
-  const finish = (j) => {
-    j.el.classList.remove('rise');
-    j.el.style.filter = j.el.style.opacity = j.el.style.transform = '';
-    j.f.remove();
-    live.delete(j);
-  };
-  const tick = (now) => {
-    raf = null;
-    for (const j of live) {
-      if (now < j.t0) continue;
-      const u = Math.min(1, (now - j.t0) / DUR);
-      paint(j, u);
-      j.el.classList.remove('rise');
-      if (u >= 1) finish(j);
-    }
-    if (live.size) raf = requestAnimationFrame(tick);
-  };
-  const start = (el, delay) => {
-    const id = 'water' + (++uid);
-    const f = mk('filter', { id, x: '-5%', y: '-20%', width: '110%', height: '140%', 'color-interpolation-filters': 'sRGB' }, defs);
-    const turb = mk('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.004 0.022', numOctaves: 1, seed: uid, result: 'ripple' }, f);
-    const disp = mk('feDisplacementMap', { in: 'SourceGraphic', in2: 'ripple', scale: WARP, xChannelSelector: 'R', yChannelSelector: 'G' }, f);
-    live.add({ el, f, turb, disp, id, seed: uid, dir: scrollFx.dir, t0: performance.now() + delay });
-    if (!raf) raf = requestAnimationFrame(tick);
-  };
 
   let queue = [], pending = false;
   const flush = () => {
@@ -501,9 +417,11 @@ if (!reduced && 'IntersectionObserver' in window) {
       return (ra.top - rb.top) || (ra.left - rb.left);
     });
     queue.forEach((el, i) => {
-      const delay = Math.min(i, 8) * 150;
-      start(el, delay);
-      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 500);
+      const delay = Math.min(i, 8) * 85;
+      el.classList.remove('rise');
+      const a = el.animate(RISE, { duration: 950, delay, fill: 'backwards' });
+      motion.add(a); a.onfinish = () => motion.delete(a);
+      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 250);
     });
     queue = [];
   };
@@ -517,10 +435,7 @@ if (!reduced && 'IntersectionObserver' in window) {
   }, { rootMargin: '0px 0px -6% 0px' });
   els.forEach(el => io.observe(el));
   // printing (or anything else that needs the whole page) gets it all at once
-  addEventListener('beforeprint', () => {
-    live.forEach(finish);
-    els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); });
-  });
+  addEventListener('beforeprint', () => els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); }));
 }
 
 /* ============ nav highlight while scrolling ============ */

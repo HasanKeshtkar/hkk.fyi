@@ -11,8 +11,8 @@ Static site, no build step, no frameworks, exactly three colors
 ```
 index.html            main page (about · CV · lab · writing · contact)
 assets/site.css       all styling (3-color palette lives at the top)
-assets/site.js        hero wave, scroll-rippled grid, pluckable rules, eased
-                      wheel scrolling, water-surfacing reveal, theme toggle
+assets/site.js        hero wave, scroll-rippled grid, pluckable rules, scroll
+                      reveal, theme toggle
 assets/fold.js        <details> open as a wave (home page + essays)
 projects/<name>/      each interactive project, fully self-contained
 CNAME                 custom domain for GitHub Pages (hkk.fyi)
