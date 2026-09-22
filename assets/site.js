@@ -288,7 +288,7 @@ const field = (function initField () {
    as its section scrolls in. */
 const strings = (function initStrings () {
   if (reduced) return null;
-  const N = 120, MID = 24, AMAX = 22, STEP = 1000 / 60, SUB = 2;
+  const N = 120, MID = 24, AMAX = 32, STEP = 1000 / 50;
   const all = [...document.querySelectorAll('.section h2 .secrule')].map(el => {
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${N - 1} ${MID * 2}`);
@@ -303,14 +303,14 @@ const strings = (function initStrings () {
     return s;
   });
 
+  // smooth curve: each sample is a control point, the curve passes through midpoints
   function draw (s, e) {
-    let d = '';
-    for (let i = 0; i < N; i++) {
-      const v = Math.max(-AMAX, Math.min(AMAX, s.y[i]));
-      d += (i ? 'L' : 'M') + i + ' ' + (MID + v).toFixed(2);
-    }
+    const Y = (i) => (MID + Math.max(-AMAX, Math.min(AMAX, s.y[i]))).toFixed(2);
+    let d = 'M0 ' + Y(0);
+    for (let i = 1; i < N - 1; i++) d += 'Q' + i + ' ' + Y(i) + ' ' + (i + .5) + ' ' + ((+Y(i) + +Y(i + 1)) / 2).toFixed(2);
+    d += 'L' + (N - 1) + ' ' + Y(N - 1);
     s.base.setAttribute('d', d); s.hot.setAttribute('d', d);
-    s.hot.style.opacity = Math.min(1, e / 5).toFixed(3);
+    s.hot.style.opacity = Math.min(1, e / 6).toFixed(3);
   }
 
   let running = false, lastT = null, acc = 0;
@@ -322,17 +322,17 @@ const strings = (function initStrings () {
     let any = false;
     for (const s of all) {
       if (!s.live) continue;
-      for (let n = 0; n < steps * SUB; n++) {
+      for (let n = 0; n < steps; n++) {
         const y = s.y, p = s.p;
         let m = 0;
         for (let i = 1; i < N - 1; i++) {
-          const v = (y[i - 1] + y[i + 1] - p[i]) * .9975;
+          const v = (y[i - 1] + y[i + 1] - p[i]) * .994;
           p[i] = v;
           if (v > m) m = v; else if (-v > m) m = -v;
         }
         s.y = p; s.p = y; s.peak = m;
       }
-      if (s.peak < .05) { s.y.fill(0); s.p.fill(0); s.live = false; draw(s, 0); continue; }
+      if (s.peak < .25) { s.y.fill(0); s.p.fill(0); s.live = false; draw(s, 0); continue; }
       draw(s, s.peak);
       any = true;
     }
@@ -341,6 +341,7 @@ const strings = (function initStrings () {
 
   // a short wave packet (a few cycles under a bell), not a single bump
   const pluck = (s, f, a) => {
+    a *= Math.max(.45, Math.min(1, s.el.clientWidth / 640));   // gentler on short rules
     const c = f * (N - 1), w = 9, k = .6;
     for (let i = 1; i < N - 1; i++) {
       const b = a * Math.exp(-(((i - c) / w) ** 2)) * Math.cos((i - c) * k);
@@ -355,13 +356,13 @@ const strings = (function initStrings () {
       for (const s of all) {
         const r = s.el.getBoundingClientRect(), cy = r.top + r.height / 2;
         if (x < r.left || x > r.right || (y0 - cy) * (y1 - cy) >= 0) continue;
-        const a = Math.max(14, Math.min(32, Math.abs(y1 - y0) * 1.2)) * Math.sign(y1 - y0);
+        const a = Math.max(24, Math.min(48, Math.abs(y1 - y0) * 1.5)) * Math.sign(y1 - y0);
         pluck(s, (x - r.left) / r.width, a);
       }
     },
     intro (h2) {
       const s = all.find(s => h2.contains(s.el));
-      if (s) pluck(s, .1, -30);
+      if (s) pluck(s, .1, -44);
     },
   };
 })();
@@ -448,71 +449,8 @@ const spy = new IntersectionObserver((entries) => {
 }, { rootMargin: '-35% 0px -55% 0px' });
 sections.forEach(s => s && spy.observe(s));
 
-/* ============ CV folds open as a wave ============
-   Opening a fold eases its height open while the lines inside rise in one
-   after another — delay grows with distance from the fold's top-left
-   corner, so a wavefront sweeps diagonally across rows, table cells and
-   skill chips alike. Closing runs it backwards, quicker. Summary clicks
-   are taken over for this; printing still opens everything directly. */
-let setFold = (d, open) => { d.open = open; };
-if (!reduced && Element.prototype.animate) {
-  const ITEMS = '.cv-row, .cv-entry > p, .cv-entry > details, li, tr, .chip';
-  const WAVE = [
-    { opacity: 0, transform: 'translateY(16px)', easing: 'cubic-bezier(.2,.65,.3,1)' },
-    { opacity: 1, transform: 'translateY(-3px)', offset: .55, easing: 'ease-in-out' },
-    { transform: 'translateY(1px)', offset: .8, easing: 'ease-in-out' },
-    { opacity: 1, transform: 'none' },
-  ];
-  const busy = new WeakMap();
-  // lines that belong to this fold, not to a fold nested inside it
-  const itemsOf = (d) => [...d.querySelectorAll(ITEMS)].filter(el =>
-    (el.tagName === 'DETAILS' ? el.parentElement.closest('details') : el.closest('details')) === d);
-  const settle = (d) => {
-    const b = busy.get(d);
-    if (b) { b.finish(); busy.delete(d); }
-  };
-
-  setFold = (d, open) => {
-    settle(d);
-    if (open === d.open) return;
-    const summary = d.querySelector(':scope > summary');
-    d.style.overflow = 'hidden';
-    const from = d.offsetHeight;
-    if (open) d.open = true;
-    const to = open ? d.offsetHeight : summary.offsetHeight;
-    const o = d.getBoundingClientRect();
-    const items = itemsOf(d);
-    const anims = items.map(el => {
-      const r = el.getBoundingClientRect();
-      const lag = Math.min(560, (r.top - o.top) * .8 + (r.left - o.left) * .35);
-      if (!open) return el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, delay: Math.max(0, 140 - lag * .25), fill: 'forwards' });
-      const a = el.animate(WAVE, { duration: 720, delay: lag, fill: 'backwards' });
-      motion.add(a); a.onfinish = a.oncancel = () => motion.delete(a);
-      return a;
-    });
-    const h = d.animate([{ height: from + 'px' }, { height: to + 'px' }],
-      { duration: open ? 480 : 300, delay: open ? 0 : 60, easing: 'cubic-bezier(.3,.7,.2,1)' });
-    let done = false;
-    const end = () => {
-      if (done) return;
-      done = true;
-      if (!open) { d.open = false; anims.forEach(a => a.cancel()); }
-      d.style.overflow = '';
-      motion.delete(handle); busy.delete(d);
-    };
-    const handle = { finish: () => { h.finish(); end(); } };
-    h.onfinish = end;
-    motion.add(handle); busy.set(d, handle);
-  };
-
-  document.querySelectorAll('#cv details > summary').forEach(sm => {
-    sm.addEventListener('click', (e) => {
-      e.preventDefault();
-      const d = sm.parentElement;
-      setFold(d, !d.open);
-    });
-  });
-}
+/* ============ CV folds open as a wave — see fold.js ============ */
+const setFold = (d, open) => (window.hkkFold ? hkkFold.set(d, open) : (d.open = open));
 
 /* ============ CV: expand / collapse all ============ */
 const cvFolds = [...document.querySelectorAll('#cv details.cv-fold')];

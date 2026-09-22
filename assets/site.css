@@ -419,7 +419,8 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .cv-fold summary.cv-title:hover{ color:var(--sig); background:color-mix(in srgb, var(--fg) 14%, var(--bg)); }
 .cv-fold:not([open]) summary.cv-title{ margin-bottom:0; }
 .fold-hint{ margin-left:auto; color:var(--sig); transition:transform .2s ease; }
-.cv-fold[open] > summary .fold-hint{ transform:rotate(180deg); }
+.cv-fold[open] > summary .fold-hint,
+.wr[open] > summary .fold-hint{ transform:rotate(180deg); }
 .cv-head-actions{ display:flex; gap:.5rem; flex-wrap:wrap; }
 .cv-entry > p{ margin:.4rem 0; }
 .cv-row{ display:flex; justify-content:space-between; gap:1rem; align-items:baseline; flex-wrap:wrap; }
