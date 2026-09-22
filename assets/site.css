@@ -154,8 +154,8 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .secrule.is-string{ height:48px; background:none; }
 .secrule svg{ display:block; width:100%; height:100%; overflow:visible; }
 .str, .str-hot{ fill:none; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
-.str{ stroke:color-mix(in srgb, var(--fg) 25%, transparent); stroke-width:1; }
-.str-hot{ stroke:var(--sig); stroke-width:1.6; opacity:0; }
+.str{ stroke:color-mix(in srgb, var(--fg) 30%, transparent); stroke-width:2; stroke-linecap:round; }
+.str-hot{ stroke:var(--sig); stroke-width:2.8; stroke-linecap:round; opacity:0; }
 
 /* opaque so the page grid never shows through elements */
 .card{
@@ -525,8 +525,17 @@ html.ink .chip.solid{
   border-color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
 
-/* waiting to be revealed on scroll (site.js adds this, and animates it away) */
+/* waiting to be revealed on scroll (site.js adds this, and washes it away) */
 .rise{ opacity:0; }
+/* the blue crest riding a reveal's wave edge — positioned in page coordinates */
+body > svg.crest{ position:absolute; z-index:2; pointer-events:none; overflow:visible; }
+.crest path{ fill:none; stroke:var(--sig); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+/* scroll-progress trace on the top bar's bottom edge */
+.topbar .rail{
+  position:absolute; left:0; bottom:-10.5px; width:100%; height:20px;
+  overflow:visible; pointer-events:none;
+}
+.rail path{ fill:none; stroke:var(--sig); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
 
 /* ================= responsive ================= */
 @media (max-width: 860px){
@@ -576,7 +585,7 @@ html.ink .chip.solid{
 /* ================= print: only the CV, in ink on paper ================= */
 @media print{
   :root, html.ink{ --bg:#fff; --fg:#000; }
-  body::before, #field{ display:none; }
+  body::before, #field, .crest{ display:none; }
   .rise{ opacity:1 !important; }
   .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions{ display:none !important; }
   .cv-title{ background:none; border-bottom:1.5px solid #000; border-radius:0; padding:.2rem 0 .35rem; }

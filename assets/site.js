@@ -367,10 +367,57 @@ const strings = (function initStrings () {
   };
 })();
 
-/* ============ one set of listeners feeds every wave on the page ============ */
-const motion = new Set();   // running entrance animations — printing finishes them all
-addEventListener('beforeprint', () => motion.forEach(a => a.finish()));
+/* ============ the top bar's edge is a line you travel down ============
+   A blue trace along the bottom of the bar marks how far down the page
+   you are. Scrolling drives a wave along it — its phase follows your
+   position, its height follows your speed — and it relaxes flat the
+   moment you stop. */
+const rail = (function initRail () {
+  const bar = document.querySelector('.topbar');
+  if (!bar) return null;
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'rail');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  const path = document.createElementNS(NS, 'path');
+  svg.appendChild(path);
+  bar.appendChild(svg);
 
+  let amp = 0, target = 0, raf = null;
+  const draw = () => {
+    const W = bar.clientWidth, max = document.documentElement.scrollHeight - innerHeight;
+    const L = W * (max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0);
+    const k = 2 * Math.PI / 52, ph = scrollY * .04;
+    svg.setAttribute('viewBox', `0 -10 ${W} 20`);
+    let d = '';
+    for (let x = 0; x <= L; x += 3) {
+      const pin = Math.min(1, x / 30, (L - x) / 30);          // ends stay on the line
+      d += (x ? 'L' : 'M') + x + ' ' + (amp * pin * Math.sin(k * x - ph)).toFixed(2);
+    }
+    if (L > 0) d += 'L' + L.toFixed(1) + ' 0';
+    path.setAttribute('d', d);
+  };
+  const loop = () => {
+    raf = null;
+    target *= .9;
+    amp += (target - amp) * .22;
+    draw();
+    if (amp > .04 || target > .04) raf = requestAnimationFrame(loop);
+    else { amp = target = 0; draw(); }
+  };
+  draw();
+  addEventListener('resize', draw);
+  return {
+    kick (v) {
+      if (reduced) { draw(); return; }
+      target = Math.min(7, target + Math.abs(v) * .05);
+      if (!raf) raf = requestAnimationFrame(loop);
+    },
+  };
+})();
+
+/* ============ one set of listeners feeds every wave on the page ============ */
+const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, and when
 {
   let px = null, py = null;
   addEventListener('pointermove', (e) => {
@@ -383,31 +430,100 @@ addEventListener('beforeprint', () => motion.forEach(a => a.finish()));
   addEventListener('scroll', () => {
     const v = scrollY - sy; sy = scrollY;
     if (!v) return;
-    field && field.roll(v, performance.now());
+    scrollFx.dir = Math.sign(v);
+    scrollFx.speed = Math.min(Math.abs(v), 150);
+    scrollFx.at = performance.now();
+    field && field.roll(v, scrollFx.at);
     waveHero.pump(Math.abs(v));
+    rail && rail.kick(v);
     // a rule scrolling past a resting cursor gets plucked too: relative to the
     // page, the cursor just moved by v
     if (px !== null && strings) strings.cross(px, py - v, py);
   }, { passive: true });
 }
 
-/* ============ reveal on scroll: things arrive like a damped oscillator ============
-   Each block rises in, overshoots a hair, and settles. Blocks that enter
-   together go one after another, so a screenful arrives as a wavefront.
-   The animation only holds its first frame while waiting (fill: backwards),
-   so once it's done nothing is left on the element — no stray stacking
-   contexts to trap the hover cards. */
-if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
-  const RISE = [
-    { opacity: 0, transform: 'translateY(26px)', easing: 'cubic-bezier(.2,.65,.3,1)' },
-    { opacity: 1, transform: 'translateY(-4px)', offset: .55, easing: 'ease-in-out' },
-    { transform: 'translateY(1.5px)', offset: .8, easing: 'ease-in-out' },
-    { opacity: 1, transform: 'none' },
-  ];
+/* ============ reveal on scroll: content washes in behind a wave ============
+   Each block is uncovered by a travelling sine edge that sweeps across it —
+   upwards when you are scrolling down, downwards when you are scrolling up
+   — with a thin blue crest riding the edge. The faster you scroll, the
+   taller the wave. Blocks that enter together go one after another, so a
+   screenful arrives as a wavefront. It's all inline style for the length
+   of the sweep and gone afterwards, so no stray stacking context is left
+   to trap the hover cards. */
+if (!reduced && 'IntersectionObserver' in window) {
   const sel = '.hero h1, .hero .lede, .hero .portrait, .hero .wave, .section > h2, .section-intro,' +
               '.cv-head, .cv-block, .project, .wr, .project-slot, .port';
   const els = [...document.querySelectorAll(sel)];
   els.forEach(el => el.classList.add('rise'));
+  const live = new Set();
+  const P = 60;           // clip slack around the box: focus rings, hover cards
+  let raf = null;
+
+  const paint = (j, p) => {
+    const { W, H, A, k, dir } = j;
+    const a = A * (1 - .55 * p);                         // the wave calms as it lands
+    const base = dir > 0 ? H + A - p * (H + 2 * A) : -A + p * (H + 2 * A);
+    const ph = p * Math.PI * 2.4;                        // …and rolls sideways
+    const n = Math.max(8, Math.ceil(W / 22));
+    const edge = [];
+    for (let i = 0; i <= n; i++) {
+      const x = W * i / n;
+      edge.push([x, base + a * Math.sin(k * x - ph)]);
+    }
+    const y0 = edge[0][1], y1 = edge[n][1];
+    const pts = dir > 0
+      ? [[-P, y0], ...edge, [W + P, y1], [W + P, H + P], [-P, H + P]]
+      : [[-P, -P], [W + P, -P], [W + P, y1], ...[...edge].reverse(), [-P, y0]];
+    const dy = ((1 - p) * 10 * dir).toFixed(1) + 'px';
+    j.el.style.clipPath = 'polygon(' + pts.map(([x, y]) => x.toFixed(1) + 'px ' + y.toFixed(1) + 'px').join(',') + ')';
+    j.el.style.transform = `translateY(${dy})`;
+    j.crest.style.transform = `translateY(${dy})`;
+    j.crest.style.opacity = Math.sin(Math.PI * Math.min(1, p * 1.1)).toFixed(3);
+    j.cp.setAttribute('d', edge.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(''));
+  };
+  const finish = (j) => {
+    j.el.classList.remove('rise');
+    j.el.style.clipPath = ''; j.el.style.transform = '';
+    j.crest.remove();
+    live.delete(j);
+  };
+  const tick = (now) => {
+    raf = null;
+    for (const j of live) {
+      if (now < j.t0) continue;
+      if (!j.started) { j.started = true; document.body.appendChild(j.crest); }
+      const u = Math.min(1, (now - j.t0) / j.D);
+      paint(j, 1 - (1 - u) ** 3);
+      if (!j.shown) { j.shown = true; j.el.classList.remove('rise'); }
+      if (u >= 1) finish(j);
+    }
+    if (live.size) raf = requestAnimationFrame(tick);
+  };
+
+  const start = (el, delay) => {
+    const r = el.getBoundingClientRect();
+    const W = r.width, H = r.height;
+    const fresh = scrollFx.speed * Math.exp(-(performance.now() - scrollFx.at) / 250);
+    const A = Math.min(12 + fresh * .22, 36, H * .3 + 5);
+    const crest = document.createElementNS(NS, 'svg');
+    crest.setAttribute('class', 'crest');
+    crest.setAttribute('aria-hidden', 'true');
+    crest.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    Object.assign(crest.style, {
+      left: r.left + scrollX + 'px', top: r.top + scrollY + 'px',
+      width: W + 'px', height: H + 'px', opacity: 0,
+    });
+    const cp = document.createElementNS(NS, 'path');
+    crest.appendChild(cp);
+    live.add({
+      el, W, H, A, crest, cp,
+      k: 2 * Math.PI / Math.max(160, Math.min(420, W / 1.7)),
+      dir: scrollFx.dir,
+      t0: performance.now() + delay,
+      D: Math.min(1300, 760 + H * .9),
+    });
+    if (!raf) raf = requestAnimationFrame(tick);
+  };
 
   let queue = [], pending = false;
   const flush = () => {
@@ -417,11 +533,9 @@ if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
       return (ra.top - rb.top) || (ra.left - rb.left);
     });
     queue.forEach((el, i) => {
-      const delay = Math.min(i, 8) * 85;
-      el.classList.remove('rise');
-      const a = el.animate(RISE, { duration: 950, delay, fill: 'backwards' });
-      motion.add(a); a.onfinish = () => motion.delete(a);
-      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 250);
+      const delay = Math.min(i, 8) * 95;
+      start(el, delay);
+      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 350);
     });
     queue = [];
   };
@@ -435,7 +549,10 @@ if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
   }, { rootMargin: '0px 0px -6% 0px' });
   els.forEach(el => io.observe(el));
   // printing (or anything else that needs the whole page) gets it all at once
-  addEventListener('beforeprint', () => els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); }));
+  addEventListener('beforeprint', () => {
+    live.forEach(finish);
+    els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); });
+  });
 }
 
 /* ============ nav highlight while scrolling ============ */
