@@ -9,9 +9,10 @@ Static site, no build step, no frameworks, exactly three colors
 ## Structure
 
 ```
-index.html            main page (about · lab · CV · contact)
+index.html            main page (about · CV · lab · writing · contact)
 assets/site.css       all styling (3-color palette lives at the top)
-assets/site.js        standing wave, theme toggle, instrument launcher
+assets/site.js        hero wave, ripple grid, pluckable rules, scroll reveal,
+                      theme toggle, instrument launcher
 projects/<name>/      each interactive project, fully self-contained
 CNAME                 custom domain for GitHub Pages (hkk.fyi)
 ```

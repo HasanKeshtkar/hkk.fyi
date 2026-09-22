@@ -43,6 +43,13 @@ body::before{
   z-index:0;
 }
 body > *{ position:relative; z-index:1; }
+/* on the home page site.js swaps the grid for a live one (a rippling canvas) */
+html.has-field body::before{ display:none; }
+body > #field{
+  position:fixed; top:0; left:0; z-index:0;
+  width:100%; height:100vh; height:100lvh;
+  pointer-events:none;
+}
 
 ::selection{ background:var(--sig); color:var(--paper); }
 
@@ -50,6 +57,11 @@ a{ color:inherit; text-decoration-color:var(--sig); text-decoration-thickness:2p
 a:hover{ color:var(--sig); }
 
 :focus-visible{ outline:2px solid var(--sig); outline-offset:3px; border-radius:2px; }
+
+.sr{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap;
+}
 
 .skip{
   position:absolute; left:-9999px; top:0;
@@ -138,6 +150,12 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 }
 .secsym{ width:32px; height:19px; opacity:.75; flex:none; }
 .secrule{ flex:1; height:1px; background:color-mix(in srgb, var(--fg) 25%, transparent); }
+/* …which site.js turns into a string you can pluck */
+.secrule.is-string{ height:20px; background:none; }
+.secrule svg{ display:block; width:100%; height:100%; overflow:visible; }
+.str, .str-hot{ fill:none; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
+.str{ stroke:color-mix(in srgb, var(--fg) 25%, transparent); stroke-width:1; }
+.str-hot{ stroke:var(--sig); stroke-width:1.6; opacity:0; }
 
 /* opaque so the page grid never shows through elements */
 .card{
@@ -158,7 +176,20 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
   margin:0 0 1.2rem; font-weight:700;
   position:relative;
 }
-.lede{ max-width:58ch; font-size:1.05rem; margin:0 0 1.05rem; position:relative; }
+.lede{ max-width:46ch; font-size:1.12rem; margin:0 0 1.05rem; position:relative; }
+
+/* the word "waves" in the title, doing what it says */
+.wavy{ color:var(--sig); white-space:nowrap; }
+.wavy i{
+  display:inline-block; font-style:normal;
+  animation:swell 2.8s ease-in-out infinite;
+  animation-delay:calc(var(--i) * .17s - 2.8s);
+}
+@keyframes swell{
+  0%, 100%{ transform:translateY(.05em); }
+  50%{ transform:translateY(-.07em); }
+}
+@media (prefers-reduced-motion: reduce){ .wavy i{ animation:none; } }
 
 .hero-grid{
   display:grid; grid-template-columns:1.75fr 1fr; gap:2.6rem;
@@ -166,13 +197,24 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 }
 .hero-grid .portrait{ justify-self:end; width:100%; }
 
-/* standing wave */
+/* hero wave: forward + reflected on a line; hover to probe it */
 .wave{ margin:1.6rem 0 0; position:relative; }
 #waveSvg{ width:100%; height:130px; display:block; cursor:crosshair; }
+#waveSvg path, #waveSvg line{ vector-effect:non-scaling-stroke; }
 .wave-env{ stroke:color-mix(in srgb, var(--sig) 45%, transparent); stroke-width:1.2; fill:none; stroke-dasharray:5 6; }
 .wave-line{ stroke:var(--sig); stroke-width:2.4; fill:none; stroke-linecap:round; }
+.wave-trail{ stroke:var(--sig); stroke-width:2; fill:none; }
+.wave-part{ stroke:var(--fg); stroke-width:1; fill:none; }
+.wave-parts{ opacity:0; transition:opacity .4s ease; }
+.wave.probing .wave-parts{ opacity:.3; }
 .wave-axis{ stroke:color-mix(in srgb, var(--fg) 30%, transparent); stroke-width:1; }
 .wave-node{ fill:var(--fg); opacity:.5; }
+.wave-read{
+  position:absolute; right:0; top:-.4rem; margin:0;
+  font-size:.66rem; color:var(--sig);
+  opacity:0; transition:opacity .3s ease; pointer-events:none;
+}
+.wave.probing .wave-read{ opacity:1; }
 
 /* ================= portrait ================= */
 .portrait{
@@ -489,13 +531,18 @@ html.ink .pub-note,
 html.ink .port .mono-label,
 html.ink .course-grid b,
 html.ink .hcard-more,
-html.ink .fold-hint{
+html.ink .fold-hint,
+html.ink .wavy,
+html.ink .wave-read{
   color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
 html.ink .chip.solid{
   color:color-mix(in srgb, var(--sig) 72%, var(--paper));
   border-color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
+
+/* waiting to be revealed on scroll (site.js adds this, and animates it away) */
+.rise{ opacity:0; }
 
 /* ================= responsive ================= */
 @media (max-width: 860px){
@@ -553,7 +600,8 @@ html.ink .chip.solid{
 /* ================= print: only the CV, in ink on paper ================= */
 @media print{
   :root, html.ink{ --bg:#fff; --fg:#000; }
-  body::before{ display:none; }
+  body::before, #field{ display:none; }
+  .rise{ opacity:1 !important; }
   .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions, #launcher{ display:none !important; }
   .cv-title{ background:none; border-bottom:1.5px solid #000; border-radius:0; padding:.2rem 0 .35rem; }
   .section{ padding:0; }
