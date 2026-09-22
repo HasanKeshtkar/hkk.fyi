@@ -326,7 +326,7 @@ const strings = (function initStrings () {
         const y = s.y, p = s.p;
         let m = 0;
         for (let i = 1; i < N - 1; i++) {
-          const v = (y[i - 1] + y[i + 1] - p[i]) * .994;
+          const v = (y[i - 1] + y[i + 1] - p[i]) * .97;
           p[i] = v;
           if (v > m) m = v; else if (-v > m) m = -v;
         }
@@ -355,7 +355,7 @@ const strings = (function initStrings () {
     cross (x, y0, y1) {
       for (const s of all) {
         const r = s.el.getBoundingClientRect(), cy = r.top + r.height / 2;
-        if (x < r.left || x > r.right || (y0 - cy) * (y1 - cy) >= 0) continue;
+        if (x < r.left || x > r.right || (y0 < cy) === (y1 < cy)) continue;
         const a = Math.max(24, Math.min(48, Math.abs(y1 - y0) * 1.5)) * Math.sign(y1 - y0);
         pluck(s, (x - r.left) / r.width, a);
       }
