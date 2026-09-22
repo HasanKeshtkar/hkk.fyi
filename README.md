@@ -11,8 +11,8 @@ Static site, no build step, no frameworks, exactly three colors
 ```
 index.html            main page (about · CV · lab · writing · contact)
 assets/site.css       all styling (3-color palette lives at the top)
-assets/site.js        hero wave, ripple grid, pluckable rules, scroll reveal,
-                      theme toggle, instrument launcher
+assets/site.js        hero wave, scroll-rippled grid, pluckable rules, scroll
+                      reveal, wave-opening CV folds, theme toggle
 projects/<name>/      each interactive project, fully self-contained
 CNAME                 custom domain for GitHub Pages (hkk.fyi)
 ```
@@ -20,8 +20,9 @@ CNAME                 custom domain for GitHub Pages (hkk.fyi)
 ## Adding a project
 
 1. Drop the app into `projects/<name>/` (must have its own `index.html`).
-2. In `index.html`, duplicate the `<article class="project card">` block
-   inside the **Lab** section and point it at `projects/<name>/`.
+2. In `index.html`, duplicate an `<article class="project card">` block
+   inside the **Lab** section's `.lab-grid` and point its links at
+   `projects/<name>/` (they open in a new tab).
 
 ## Credits
 

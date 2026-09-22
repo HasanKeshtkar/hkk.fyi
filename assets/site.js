@@ -135,11 +135,11 @@ const waveHero = (function initWave () {
 })();
 
 /* ============ the page is a medium ============
-   The faint engineering grid behind everything is a 2-D membrane: the
-   pointer drags through it, a click drops a stone in it, and scrolling
-   rolls waves in from the edge you are heading towards. Grid lines bend
-   with the slope of the surface; crests light up blue at the crossings.
-   It sleeps (one static frame, no loop) whenever the surface is still. */
+   The faint engineering grid behind everything is a 2-D membrane, and
+   scrolling rolls waves in from the edge you are heading towards. Grid
+   lines bend with the slope of the surface; crests light up blue at the
+   crossings. It sleeps (one static frame, no loop) whenever it is still.
+   (The pointer used to ripple it too; that was too busy.) */
 const field = (function initField () {
   if (reduced) return null;
   const cvs = document.createElement('canvas');
@@ -196,16 +196,6 @@ const field = (function initField () {
     }
     const t = cur; cur = prev; prev = t;
     return m;
-  };
-
-  // a soft blob (not a single cell) so the ripples come out smooth
-  const splash = (px, py, s) => {
-    const ci = Math.round(px / S) + 1, cj = Math.round(py / S) + 1;
-    for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
-      const i = ci + di, j = cj + dj;
-      if (i < 1 || j < 1 || i >= nx - 1 || j >= ny - 1) continue;
-      cur[j * nx + i] += s * Math.exp(-(di * di + dj * dj) / 2.2);
-    }
   };
 
   const draw = (live) => {
@@ -277,15 +267,6 @@ const field = (function initField () {
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
   return {
-    // drag: a trail of blobs along the pointer's path, harder the faster it moves
-    drag (x0, y0, x1, y1) {
-      const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
-      if (len < 1 || len > 300) return;
-      const s = Math.min(len, 60) * .004, n = Math.ceil(len / S);
-      for (let i = 1; i <= n; i++) splash(x0 + dx * i / n, y0 + dy * i / n, s);
-      wake();
-    },
-    drop (x, y) { splash(x, y, 1.1); wake(); },
     // scroll: a ragged front rolls in from the edge you are scrolling towards
     roll (v, t) {
       const a = Math.min(Math.abs(v), 90) * .0022;
@@ -300,13 +281,14 @@ const field = (function initField () {
 })();
 
 /* ============ section rules are strings ============
-   Each heading's hairline is a 1-D string (exact at c = 1: pulses keep
-   their shape). Sweep the pointer across one and it's plucked where you
-   crossed it, in the direction you crossed; it's also plucked once as its
-   section scrolls in. */
+   Each heading's hairline is a 1-D string (exact at c = 1: a wave packet
+   keeps its shape as it runs and reflects). Sweep the pointer across one
+   and it's plucked where you crossed it, in the direction you crossed;
+   scrolling it past a resting cursor plucks it too, and it's plucked once
+   as its section scrolls in. */
 const strings = (function initStrings () {
   if (reduced) return null;
-  const N = 72, MID = 10, AMAX = 8, STEP = 1000 / 60;
+  const N = 120, MID = 24, AMAX = 22, STEP = 1000 / 60, SUB = 2;
   const all = [...document.querySelectorAll('.section h2 .secrule')].map(el => {
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${N - 1} ${MID * 2}`);
@@ -328,7 +310,7 @@ const strings = (function initStrings () {
       d += (i ? 'L' : 'M') + i + ' ' + (MID + v).toFixed(2);
     }
     s.base.setAttribute('d', d); s.hot.setAttribute('d', d);
-    s.hot.style.opacity = Math.min(1, e / 2.5).toFixed(3);
+    s.hot.style.opacity = Math.min(1, e / 5).toFixed(3);
   }
 
   let running = false, lastT = null, acc = 0;
@@ -340,27 +322,28 @@ const strings = (function initStrings () {
     let any = false;
     for (const s of all) {
       if (!s.live) continue;
-      for (let n = 0; n < steps; n++) {
+      for (let n = 0; n < steps * SUB; n++) {
         const y = s.y, p = s.p;
         let m = 0;
         for (let i = 1; i < N - 1; i++) {
-          const v = (y[i - 1] + y[i + 1] - p[i]) * .993;
+          const v = (y[i - 1] + y[i + 1] - p[i]) * .9975;
           p[i] = v;
           if (v > m) m = v; else if (-v > m) m = -v;
         }
         s.y = p; s.p = y; s.peak = m;
       }
-      if (s.peak < .03) { s.y.fill(0); s.p.fill(0); s.live = false; draw(s, 0); continue; }
+      if (s.peak < .05) { s.y.fill(0); s.p.fill(0); s.live = false; draw(s, 0); continue; }
       draw(s, s.peak);
       any = true;
     }
     if (any) requestAnimationFrame(loop); else running = false;
   };
 
+  // a short wave packet (a few cycles under a bell), not a single bump
   const pluck = (s, f, a) => {
-    const c = f * (N - 1), w = 3.2;
+    const c = f * (N - 1), w = 9, k = .6;
     for (let i = 1; i < N - 1; i++) {
-      const b = a * Math.exp(-(((i - c) / w) ** 2));
+      const b = a * Math.exp(-(((i - c) / w) ** 2)) * Math.cos((i - c) * k);
       s.y[i] += b; s.p[i] += b;             // same shift in both = released from rest
     }
     s.live = true; s.peak = Math.max(s.peak || 0, Math.abs(a));
@@ -372,28 +355,27 @@ const strings = (function initStrings () {
       for (const s of all) {
         const r = s.el.getBoundingClientRect(), cy = r.top + r.height / 2;
         if (x < r.left || x > r.right || (y0 - cy) * (y1 - cy) >= 0) continue;
-        const a = Math.max(2, Math.min(7, Math.abs(y1 - y0) * .35)) * Math.sign(y1 - y0);
+        const a = Math.max(14, Math.min(32, Math.abs(y1 - y0) * 1.2)) * Math.sign(y1 - y0);
         pluck(s, (x - r.left) / r.width, a);
       }
     },
     intro (h2) {
       const s = all.find(s => h2.contains(s.el));
-      if (s) pluck(s, .06, -5);
+      if (s) pluck(s, .1, -30);
     },
   };
 })();
 
 /* ============ one set of listeners feeds every wave on the page ============ */
+const motion = new Set();   // running entrance animations — printing finishes them all
+addEventListener('beforeprint', () => motion.forEach(a => a.finish()));
+
 {
   let px = null, py = null;
   addEventListener('pointermove', (e) => {
-    if (px !== null) {
-      field && field.drag(px, py, e.clientX, e.clientY);
-      strings && strings.cross(e.clientX, py, e.clientY);
-    }
+    if (px !== null && strings) strings.cross(e.clientX, py, e.clientY);
     px = e.clientX; py = e.clientY;
   }, { passive: true });
-  addEventListener('pointerdown', (e) => { field && field.drop(e.clientX, e.clientY); }, { passive: true });
   document.documentElement.addEventListener('pointerleave', () => { px = py = null; });
 
   let sy = scrollY;
@@ -427,7 +409,6 @@ if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
   els.forEach(el => el.classList.add('rise'));
 
   let queue = [], pending = false;
-  const running = new Set();
   const flush = () => {
     pending = false;
     queue.sort((a, b) => {
@@ -438,7 +419,7 @@ if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
       const delay = Math.min(i, 8) * 85;
       el.classList.remove('rise');
       const a = el.animate(RISE, { duration: 950, delay, fill: 'backwards' });
-      running.add(a); a.onfinish = () => running.delete(a);
+      motion.add(a); a.onfinish = () => motion.delete(a);
       if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 250);
     });
     queue = [];
@@ -453,10 +434,7 @@ if (!reduced && 'IntersectionObserver' in window && Element.prototype.animate) {
   }, { rootMargin: '0px 0px -6% 0px' });
   els.forEach(el => io.observe(el));
   // printing (or anything else that needs the whole page) gets it all at once
-  addEventListener('beforeprint', () => {
-    els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); });
-    running.forEach(a => a.finish());
-  });
+  addEventListener('beforeprint', () => els.forEach(el => { el.classList.remove('rise'); io.unobserve(el); }));
 }
 
 /* ============ nav highlight while scrolling ============ */
@@ -470,27 +448,71 @@ const spy = new IntersectionObserver((entries) => {
 }, { rootMargin: '-35% 0px -55% 0px' });
 sections.forEach(s => s && spy.observe(s));
 
-/* ============ instrument launcher (fullscreen dialog) ============ */
-const launcher = document.getElementById('launcher');
-const frame    = document.getElementById('launcherFrame');
-const lTitle   = document.getElementById('launcherTitle');
-const lExt     = document.getElementById('launcherExt');
+/* ============ CV folds open as a wave ============
+   Opening a fold eases its height open while the lines inside rise in one
+   after another — delay grows with distance from the fold's top-left
+   corner, so a wavefront sweeps diagonally across rows, table cells and
+   skill chips alike. Closing runs it backwards, quicker. Summary clicks
+   are taken over for this; printing still opens everything directly. */
+let setFold = (d, open) => { d.open = open; };
+if (!reduced && Element.prototype.animate) {
+  const ITEMS = '.cv-row, .cv-entry > p, .cv-entry > details, li, tr, .chip';
+  const WAVE = [
+    { opacity: 0, transform: 'translateY(16px)', easing: 'cubic-bezier(.2,.65,.3,1)' },
+    { opacity: 1, transform: 'translateY(-3px)', offset: .55, easing: 'ease-in-out' },
+    { transform: 'translateY(1px)', offset: .8, easing: 'ease-in-out' },
+    { opacity: 1, transform: 'none' },
+  ];
+  const busy = new WeakMap();
+  // lines that belong to this fold, not to a fold nested inside it
+  const itemsOf = (d) => [...d.querySelectorAll(ITEMS)].filter(el =>
+    (el.tagName === 'DETAILS' ? el.parentElement.closest('details') : el.closest('details')) === d);
+  const settle = (d) => {
+    const b = busy.get(d);
+    if (b) { b.finish(); busy.delete(d); }
+  };
 
-document.querySelectorAll('[data-launch]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const src = btn.dataset.launch;
-    if (frame.getAttribute('src') !== src) frame.setAttribute('src', src);
-    lTitle.textContent = (btn.dataset.title || 'INSTRUMENT').toUpperCase() + ' · LIVE';
-    lExt.href = src;
-    launcher.showModal();
-    document.body.style.overflow = 'hidden';
+  setFold = (d, open) => {
+    settle(d);
+    if (open === d.open) return;
+    const summary = d.querySelector(':scope > summary');
+    d.style.overflow = 'hidden';
+    const from = d.offsetHeight;
+    if (open) d.open = true;
+    const to = open ? d.offsetHeight : summary.offsetHeight;
+    const o = d.getBoundingClientRect();
+    const items = itemsOf(d);
+    const anims = items.map(el => {
+      const r = el.getBoundingClientRect();
+      const lag = Math.min(560, (r.top - o.top) * .8 + (r.left - o.left) * .35);
+      if (!open) return el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, delay: Math.max(0, 140 - lag * .25), fill: 'forwards' });
+      const a = el.animate(WAVE, { duration: 720, delay: lag, fill: 'backwards' });
+      motion.add(a); a.onfinish = a.oncancel = () => motion.delete(a);
+      return a;
+    });
+    const h = d.animate([{ height: from + 'px' }, { height: to + 'px' }],
+      { duration: open ? 480 : 300, delay: open ? 0 : 60, easing: 'cubic-bezier(.3,.7,.2,1)' });
+    let done = false;
+    const end = () => {
+      if (done) return;
+      done = true;
+      if (!open) { d.open = false; anims.forEach(a => a.cancel()); }
+      d.style.overflow = '';
+      motion.delete(handle); busy.delete(d);
+    };
+    const handle = { finish: () => { h.finish(); end(); } };
+    h.onfinish = end;
+    motion.add(handle); busy.set(d, handle);
+  };
+
+  document.querySelectorAll('#cv details > summary').forEach(sm => {
+    sm.addEventListener('click', (e) => {
+      e.preventDefault();
+      const d = sm.parentElement;
+      setFold(d, !d.open);
+    });
   });
-});
-document.getElementById('launcherClose').addEventListener('click', () => launcher.close());
-launcher.addEventListener('close', () => { document.body.style.overflow = ''; });
-launcher.addEventListener('click', (e) => {      // click on the backdrop closes
-  if (e.target === launcher) launcher.close();
-});
+}
 
 /* ============ CV: expand / collapse all ============ */
 const cvFolds = [...document.querySelectorAll('#cv details.cv-fold')];
@@ -500,8 +522,7 @@ const syncToggleLabel = () => {
 };
 toggleAllBtn.addEventListener('click', () => {
   const anyClosed = cvFolds.some(d => !d.open);
-  cvFolds.forEach(d => d.open = anyClosed);
-  syncToggleLabel();
+  cvFolds.forEach((d, i) => setTimeout(() => setFold(d, anyClosed), i * 70));
 });
 cvFolds.forEach(d => d.addEventListener('toggle', syncToggleLabel));
 syncToggleLabel();
