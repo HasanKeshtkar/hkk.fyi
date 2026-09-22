@@ -525,17 +525,10 @@ html.ink .chip.solid{
   border-color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
 
-/* waiting to be revealed on scroll (site.js adds this, and washes it away) */
+/* waiting to be revealed on scroll (site.js adds this, and lifts it away) */
 .rise{ opacity:0; }
-/* the blue crest riding a reveal's wave edge — positioned in page coordinates */
-body > svg.crest{ position:absolute; z-index:2; pointer-events:none; overflow:visible; }
-.crest path{ fill:none; stroke:var(--sig); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
-/* scroll-progress trace on the top bar's bottom edge */
-.topbar .rail{
-  position:absolute; left:0; bottom:-10.5px; width:100%; height:20px;
-  overflow:visible; pointer-events:none;
-}
-.rail path{ fill:none; stroke:var(--sig); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+/* holds the water filters used while things are being revealed */
+body > svg.water-defs{ position:absolute; width:0; height:0; overflow:hidden; pointer-events:none; }
 
 /* ================= responsive ================= */
 @media (max-width: 860px){
@@ -585,7 +578,7 @@ body > svg.crest{ position:absolute; z-index:2; pointer-events:none; overflow:vi
 /* ================= print: only the CV, in ink on paper ================= */
 @media print{
   :root, html.ink{ --bg:#fff; --fg:#000; }
-  body::before, #field, .crest{ display:none; }
+  body::before, #field{ display:none; }
   .rise{ opacity:1 !important; }
   .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions{ display:none !important; }
   .cv-title{ background:none; border-bottom:1.5px solid #000; border-radius:0; padding:.2rem 0 .35rem; }

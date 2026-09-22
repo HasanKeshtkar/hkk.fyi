@@ -367,55 +367,6 @@ const strings = (function initStrings () {
   };
 })();
 
-/* ============ the top bar's edge is a line you travel down ============
-   A blue trace along the bottom of the bar marks how far down the page
-   you are. Scrolling drives a wave along it — its phase follows your
-   position, its height follows your speed — and it relaxes flat the
-   moment you stop. */
-const rail = (function initRail () {
-  const bar = document.querySelector('.topbar');
-  if (!bar) return null;
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('class', 'rail');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  const path = document.createElementNS(NS, 'path');
-  svg.appendChild(path);
-  bar.appendChild(svg);
-
-  let amp = 0, target = 0, raf = null;
-  const draw = () => {
-    const W = bar.clientWidth, max = document.documentElement.scrollHeight - innerHeight;
-    const L = W * (max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0);
-    const k = 2 * Math.PI / 52, ph = scrollY * .04;
-    svg.setAttribute('viewBox', `0 -10 ${W} 20`);
-    let d = '';
-    for (let x = 0; x <= L; x += 3) {
-      const pin = Math.min(1, x / 30, (L - x) / 30);          // ends stay on the line
-      d += (x ? 'L' : 'M') + x + ' ' + (amp * pin * Math.sin(k * x - ph)).toFixed(2);
-    }
-    if (L > 0) d += 'L' + L.toFixed(1) + ' 0';
-    path.setAttribute('d', d);
-  };
-  const loop = () => {
-    raf = null;
-    target *= .9;
-    amp += (target - amp) * .22;
-    draw();
-    if (amp > .04 || target > .04) raf = requestAnimationFrame(loop);
-    else { amp = target = 0; draw(); }
-  };
-  draw();
-  addEventListener('resize', draw);
-  return {
-    kick (v) {
-      if (reduced) { draw(); return; }
-      target = Math.min(7, target + Math.abs(v) * .05);
-      if (!raf) raf = requestAnimationFrame(loop);
-    },
-  };
-})();
-
 /* ============ one set of listeners feeds every wave on the page ============ */
 const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, and when
 {
@@ -435,93 +386,110 @@ const scrollFx = { dir: 1, speed: 0, at: 0 };   // last direction, last speed, a
     scrollFx.at = performance.now();
     field && field.roll(v, scrollFx.at);
     waveHero.pump(Math.abs(v));
-    rail && rail.kick(v);
     // a rule scrolling past a resting cursor gets plucked too: relative to the
     // page, the cursor just moved by v
     if (px !== null && strings) strings.cross(px, py - v, py);
   }, { passive: true });
 }
 
-/* ============ reveal on scroll: content washes in behind a wave ============
-   Each block is uncovered by a travelling sine edge that sweeps across it —
-   upwards when you are scrolling down, downwards when you are scrolling up
-   — with a thin blue crest riding the edge. The faster you scroll, the
-   taller the wave. Blocks that enter together go one after another, so a
-   screenful arrives as a wavefront. It's all inline style for the length
-   of the sweep and gone afterwards, so no stray stacking context is left
-   to trap the hover cards. */
+/* ============ scrolling glides, like moving through water ============
+   Mouse-wheel steps are eased instead of jumped: the page drifts towards
+   where you asked it to be and slows as it arrives. Only for fine
+   pointers (touch scrolling already has its own inertia), never for
+   pinch-zoom or a box that can scroll itself, and keyboard, scrollbar and
+   anchor-link scrolling are left alone — a glide in flight yields to them. */
+if (!reduced && matchMedia('(pointer: fine)').matches) {
+  const root = document.documentElement;
+  let target = 0, cur = 0, raf = null;
+  const max = () => root.scrollHeight - innerHeight;
+  const innerScroller = (el, dy) => {
+    for (; el && el !== document.body && el !== root; el = el.parentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 &&
+          (dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : el.scrollTop > 0)) return true;
+    }
+    return false;
+  };
+  const stop = () => { cancelAnimationFrame(raf); raf = null; root.style.scrollBehavior = ''; };
+  const glide = () => {
+    cur += (target - cur) * .075;
+    if (Math.abs(target - cur) < .4) cur = target;
+    scrollTo(0, cur);
+    if (cur === target) stop(); else raf = requestAnimationFrame(glide);
+  };
+  addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.defaultPrevented || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    if (innerScroller(e.target, e.deltaY)) return;
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1;
+    if (!raf) { target = cur = scrollY; root.style.scrollBehavior = 'auto'; }
+    target = Math.max(0, Math.min(max(), target + e.deltaY * unit));
+    if (!raf) raf = requestAnimationFrame(glide);
+  }, { passive: false });
+  // something else moved the page (keys, scrollbar, a link): let it win
+  addEventListener('scroll', () => { if (raf && Math.abs(scrollY - cur) > 3) stop(); }, { passive: true });
+}
+
+/* ============ reveal on scroll: things surface as if through water ============
+   Each block rises slowly into place while a rippling-water distortion
+   (turbulence driving a displacement map) and a little blur wash out of
+   it — like something coming up from under the surface. Blocks that enter
+   together surface one after another. It's all inline style for the
+   length of the animation and gone afterwards, so no stray stacking
+   context is left to trap the hover cards. */
 if (!reduced && 'IntersectionObserver' in window) {
   const sel = '.hero h1, .hero .lede, .hero .portrait, .hero .wave, .section > h2, .section-intro,' +
               '.cv-head, .cv-block, .project, .wr, .project-slot, .port';
   const els = [...document.querySelectorAll(sel)];
   els.forEach(el => el.classList.add('rise'));
-  const live = new Set();
-  const P = 60;           // clip slack around the box: focus rings, hover cards
-  let raf = null;
 
-  const paint = (j, p) => {
-    const { W, H, A, k, dir } = j;
-    const a = A * (1 - .55 * p);                         // the wave calms as it lands
-    const base = dir > 0 ? H + A - p * (H + 2 * A) : -A + p * (H + 2 * A);
-    const ph = p * Math.PI * 2.4;                        // …and rolls sideways
-    const n = Math.max(8, Math.ceil(W / 22));
-    const edge = [];
-    for (let i = 0; i <= n; i++) {
-      const x = W * i / n;
-      edge.push([x, base + a * Math.sin(k * x - ph)]);
-    }
-    const y0 = edge[0][1], y1 = edge[n][1];
-    const pts = dir > 0
-      ? [[-P, y0], ...edge, [W + P, y1], [W + P, H + P], [-P, H + P]]
-      : [[-P, -P], [W + P, -P], [W + P, y1], ...[...edge].reverse(), [-P, y0]];
-    const dy = ((1 - p) * 10 * dir).toFixed(1) + 'px';
-    j.el.style.clipPath = 'polygon(' + pts.map(([x, y]) => x.toFixed(1) + 'px ' + y.toFixed(1) + 'px').join(',') + ')';
-    j.el.style.transform = `translateY(${dy})`;
-    j.crest.style.transform = `translateY(${dy})`;
-    j.crest.style.opacity = Math.sin(Math.PI * Math.min(1, p * 1.1)).toFixed(3);
-    j.cp.setAttribute('d', edge.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(''));
+  // one hidden <svg> holds a water filter for each block in flight
+  const defs = document.createElementNS(NS, 'svg');
+  defs.setAttribute('class', 'water-defs');
+  defs.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(defs);
+  const mk = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.appendChild(e);
+    return e;
+  };
+
+  const live = new Set();
+  let uid = 0, raf = null;
+  const DUR = 1700, RISE = 34, WARP = 30, BLUR = 3;
+
+  const paint = (j, u) => {
+    const q = (1 - u) ** 3;                              // 1 → 0, easing out
+    j.disp.setAttribute('scale', (WARP * q).toFixed(1));
+    j.turb.setAttribute('baseFrequency', '0.004 ' + (.022 + .006 * Math.sin(u * 6 + j.seed)).toFixed(4));
+    j.el.style.filter = `url(#${j.id}) blur(${(BLUR * q * q).toFixed(2)}px)`;
+    j.el.style.opacity = Math.min(1, u * 2.2).toFixed(3);
+    j.el.style.transform = `translateY(${(RISE * q * j.dir).toFixed(1)}px)`;
   };
   const finish = (j) => {
     j.el.classList.remove('rise');
-    j.el.style.clipPath = ''; j.el.style.transform = '';
-    j.crest.remove();
+    j.el.style.filter = j.el.style.opacity = j.el.style.transform = '';
+    j.f.remove();
     live.delete(j);
   };
   const tick = (now) => {
     raf = null;
     for (const j of live) {
       if (now < j.t0) continue;
-      if (!j.started) { j.started = true; document.body.appendChild(j.crest); }
-      const u = Math.min(1, (now - j.t0) / j.D);
-      paint(j, 1 - (1 - u) ** 3);
-      if (!j.shown) { j.shown = true; j.el.classList.remove('rise'); }
+      const u = Math.min(1, (now - j.t0) / DUR);
+      paint(j, u);
+      j.el.classList.remove('rise');
       if (u >= 1) finish(j);
     }
     if (live.size) raf = requestAnimationFrame(tick);
   };
-
   const start = (el, delay) => {
-    const r = el.getBoundingClientRect();
-    const W = r.width, H = r.height;
-    const fresh = scrollFx.speed * Math.exp(-(performance.now() - scrollFx.at) / 250);
-    const A = Math.min(12 + fresh * .22, 36, H * .3 + 5);
-    const crest = document.createElementNS(NS, 'svg');
-    crest.setAttribute('class', 'crest');
-    crest.setAttribute('aria-hidden', 'true');
-    crest.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    Object.assign(crest.style, {
-      left: r.left + scrollX + 'px', top: r.top + scrollY + 'px',
-      width: W + 'px', height: H + 'px', opacity: 0,
-    });
-    const cp = document.createElementNS(NS, 'path');
-    crest.appendChild(cp);
-    live.add({
-      el, W, H, A, crest, cp,
-      k: 2 * Math.PI / Math.max(160, Math.min(420, W / 1.7)),
-      dir: scrollFx.dir,
-      t0: performance.now() + delay,
-      D: Math.min(1300, 760 + H * .9),
-    });
+    const id = 'water' + (++uid);
+    const f = mk('filter', { id, x: '-5%', y: '-20%', width: '110%', height: '140%', 'color-interpolation-filters': 'sRGB' }, defs);
+    const turb = mk('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.004 0.022', numOctaves: 1, seed: uid, result: 'ripple' }, f);
+    const disp = mk('feDisplacementMap', { in: 'SourceGraphic', in2: 'ripple', scale: WARP, xChannelSelector: 'R', yChannelSelector: 'G' }, f);
+    live.add({ el, f, turb, disp, id, seed: uid, dir: scrollFx.dir, t0: performance.now() + delay });
     if (!raf) raf = requestAnimationFrame(tick);
   };
 
@@ -533,9 +501,9 @@ if (!reduced && 'IntersectionObserver' in window) {
       return (ra.top - rb.top) || (ra.left - rb.left);
     });
     queue.forEach((el, i) => {
-      const delay = Math.min(i, 8) * 95;
+      const delay = Math.min(i, 8) * 150;
       start(el, delay);
-      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 350);
+      if (el.tagName === 'H2') setTimeout(() => strings && strings.intro(el), delay + 500);
     });
     queue = [];
   };
