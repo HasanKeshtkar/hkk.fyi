@@ -18,6 +18,13 @@ projects/<name>/      each interactive project, fully self-contained
 CNAME                 custom domain for GitHub Pages (hkk.fyi)
 ```
 
+## Shared assets are versioned
+
+`index.html` and the essays load `assets/site.css`, `site.js` and `fold.js`
+with a `?v=` suffix (first 8 hex digits of the file's md5). Bump it when
+you change the file, so browsers and the CDN never pair a new page with an
+old stylesheet or script.
+
 ## Adding a project
 
 1. Drop the app into `projects/<name>/` (must have its own `index.html`).

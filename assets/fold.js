@@ -11,7 +11,7 @@
    Exposes window.hkkFold.set(details, open). No-op under reduced motion. */
 (function () {
   var FOLDS = '#cv details, details.wr, details.decode';
-  var ITEMS = '.cv-row, .cv-entry > p, .cv-entry > details, li, tr, .chip, ' +
+  var ITEMS = '.cv-row, .cv-entry > p, .courses > p, li, tr, .chip, ' +
               '.wr-body > *, .decode-body > :not(ul):not(ol)';
   var WAVE = [
     { opacity: 0, transform: 'translateY(16px)', easing: 'cubic-bezier(.2,.65,.3,1)' },

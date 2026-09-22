@@ -431,10 +431,8 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .cv-list li{ margin:.4rem 0; }
 .cv-list li::marker{ color:var(--sig); }
 
-.courses{ margin-top:.8rem; }
-.courses summary{ cursor:pointer; list-style:none; }
-.courses summary::-webkit-details-marker{ display:none; }
-.courses summary:hover{ color:var(--sig); opacity:1; }
+.courses{ margin-top:.9rem; }
+.courses > .mono-label{ margin:0; }
 .course-grid{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
   gap:.25rem .9rem; list-style:none; margin:.8rem 0 .5rem; padding:0;
@@ -446,6 +444,7 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
   padding:.22rem 0;
 }
 .course-grid b{ font-family:var(--font-mono); font-weight:500; color:var(--sig); }
+.course-grid .of{ font-weight:400; font-size:.82em; opacity:.6; }
 
 .pub-list{ margin:0; padding-left:1.2rem; }
 .pub-list li{ margin:.7rem 0; }
@@ -583,7 +582,6 @@ html.ink .chip.solid{
   .section{ padding:0; }
   #cv h2 .secrule{ display:none; }
   #cv{ font-size:12px; }
-  .courses summary{ display:none; } /* site.js opens every <details> on beforeprint */
   #cv .fold-hint{ display:none; }
   .cv-table td:nth-child(2){ display:table-cell; }
   .hcard{ display:none; }
