@@ -13,7 +13,7 @@
 <meta property="og:image" content="https://hkk.fyi/assets/og-home.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="hkk.fyi — Everything is a wave. Hassan Keshtkar, applied electromagnetics.">
+<meta property="og:image:alt" content="hkk.fyi — I really love waves. Hassan Keshtkar, applied electromagnetics.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://hkk.fyi/assets/og-home.png">
 <link rel="canonical" href="https://hkk.fyi/">
@@ -44,9 +44,9 @@
   </a>
   <nav class="nav" aria-label="Sections">
     <a href="#about">About</a>
+    <a href="#cv">CV</a>
     <a href="#lab">Lab</a>
     <a href="#writing">Writing</a>
-    <a href="#cv">CV</a>
     <a href="#contact">Contact</a>
   </nav>
   <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch between light and dark" title="Toggle light / dark">
@@ -61,20 +61,12 @@
   <section class="hero" id="about" aria-label="About">
     <div class="hero-grid">
       <div class="hero-text">
-        <h1>Everything<br>is a wave.</h1>
+        <h1>I really<br>love <span class="wavy"><span class="sr">waves</span><span aria-hidden="true"><i style="--i:0">w</i><i style="--i:1">a</i><i style="--i:2">v</i><i style="--i:3">e</i><i style="--i:4">s</i></span></span>.</h1>
         <div class="hero-body">
         <p class="lede">
-          Electromagnetic waves are what pull me in — the way they radiate,
-          guide, and interfere. I chase them across the spectrum: microwave
-          circuits and antennas on one side, photonics on the other.
-          Same physics, different wavelengths.
-        </p>
-        <p class="lede">
-          EE undergraduate at the <a class="hcard-link" href="https://en.wikipedia.org/wiki/University_of_Tehran" target="_blank" rel="noopener">University of Tehran<span class="hcard uni-card" aria-hidden="true"><img class="hcard-img" src="assets/ut-gate.jpg" alt=""><span class="hcard-body"><b>University of Tehran</b><span class="hcard-facts">Iran's oldest modern university — the “Mother University.” Est. 1934 · ~50,000 students · ranked <b>#1 in Iran</b>, QS 2026.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>;
-          my thesis aims those waves at non-invasive
-          <a class="hcard-link" href="https://en.wikipedia.org/wiki/Deep_brain_stimulation" target="_blank" rel="noopener">deep brain stimulation<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-fg" cx="32" cy="32" r="26"/><path class="hc-sig" d="M10 32h10l4-9 6 18 5-13 3 4h16"/></svg><span class="hcard-body"><b>Deep brain stimulation</b><span class="hcard-facts">A neurostimulation therapy: an implanted pulse generator delivers controlled electrical impulses through electrodes to targets deep in the brain — an established treatment for Parkinson's, essential tremor, dystonia and OCD.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>.
-          The details live in the <a href="#cv">CV</a> — the instruments run
-          live in the <a href="#lab">Lab</a>.
+          Radio, microwaves, light — same equations, different wavelengths.
+          I study them at the <a class="hcard-link" href="https://en.wikipedia.org/wiki/University_of_Tehran" target="_blank" rel="noopener">University of Tehran<span class="hcard uni-card" aria-hidden="true"><img class="hcard-img" src="assets/ut-gate.jpg" alt=""><span class="hcard-body"><b>University of Tehran</b><span class="hcard-facts">Iran's oldest modern university — the “Mother University.” Est. 1934 · ~50,000 students · ranked <b>#1 in Iran</b>, QS 2026.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>
+          and aim them <a class="hcard-link" href="https://en.wikipedia.org/wiki/Deep_brain_stimulation" target="_blank" rel="noopener">deep into the brain<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-fg" cx="32" cy="32" r="26"/><path class="hc-sig" d="M10 32h10l4-9 6 18 5-13 3 4h16"/></svg><span class="hcard-body"><b>Deep brain stimulation</b><span class="hcard-facts">A neurostimulation therapy: an implanted pulse generator delivers controlled electrical impulses through electrodes to targets deep in the brain — an established treatment for Parkinson's, essential tremor, dystonia and OCD.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a>, no scalpel needed.
         </p>
         </div>
       </div>
@@ -88,182 +80,14 @@
 
     <figure class="wave" aria-hidden="true">
       <svg id="waveSvg" preserveAspectRatio="none"></svg>
+      <figcaption class="wave-read mono-label" id="waveRead"></figcaption>
     </figure>
-  </section>
-
-  <!-- ================= LAB / PROJECTS ================= -->
-  <section id="lab" class="section">
-    <h2>
-      <span class="secnum">01</span> Lab
-      <svg class="secsym" viewBox="0 0 34 16" aria-hidden="true"><path d="M0 8h5l2-6 4 12 4-12 4 12 4-12 2 6h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
-      <span class="secrule" aria-hidden="true"></span>
-    </h2>
-    <p class="section-intro">Instruments I've built. They aren't screenshots — everything here runs live, in this page, offline-capable, no frameworks.</p>
-
-    <!-- To add a project: put its app in projects/<name>/ and duplicate this card. -->
-    <article class="project card">
-      <div class="project-preview">
-        <iframe src="https://smith.hkk.fyi/" title="Live preview of Smith Chart Studio" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
-        <button class="preview-hit" type="button" data-launch="https://smith.hkk.fyi/" data-title="Smith Chart Studio">
-          <span class="mono-label">▶ RUN</span>
-        </button>
-      </div>
-      <div class="project-info">
-        <h3>Smith Chart Studio</h3>
-        <p class="mono-label proj-tags">RF · canvas · teaching tool · 0 dependencies</p>
-        <p>
-          A full interactive <a class="hcard-link" href="https://en.wikipedia.org/wiki/Smith_chart" target="_blank" rel="noopener">Smith chart<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-sig" style="stroke-width:4" cx="32" cy="32" r="27"/><circle class="hc-fg" cx="42.5" cy="32" r="16.5"/><circle class="hc-fg" cx="50" cy="32" r="9"/><path class="hc-fg" d="M5 32h54"/><circle class="uni-emblem" cx="27" cy="19" r="4.5"/></svg><span class="hcard-body"><b>The Smith chart</b><span class="hcard-facts">Invented in 1939 by Phillip H. Smith at Bell Labs — still every RF engineer's favorite circle, 87 years on.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a> with a built-in tutor. Drag the reflection
-          point and watch Z, Γ, SWR and return loss stay in sync; rotate along a
-          transmission line; flip impedance/admittance grids — then work through
-          seven guided lessons, from “what is this chart” to L-network matching.
-        </p>
-        <p>
-          And if you want the story rather than the tool:
-          <a href="posts/smith-chart/"><b>Folding infinity into a circle</b></a> is an essay on
-          where the chart came from — a bored Bell Labs engineer in 1929, an infinite plane
-          folded down to the size of a coin, and why software never managed to kill it.
-          Seven live figures, no RF background needed.
-        </p>
-        <div class="btn-row">
-          <button class="btn solid" type="button" data-launch="https://smith.hkk.fyi/" data-title="Smith Chart Studio">Launch here</button>
-          <a class="btn" href="https://smith.hkk.fyi/" target="_blank" rel="noopener">Open in new tab ↗</a>
-          <a class="btn" href="posts/smith-chart/">Read the essay</a>
-        </div>
-      </div>
-    </article>
-
-    <article class="project card">
-      <div class="project-preview">
-        <iframe src="pmti/" title="Live preview of the PM-TI pitch" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
-        <button class="preview-hit" type="button" data-launch="pmti/" data-title="PM-TI">
-          <span class="mono-label">▶ RUN</span>
-        </button>
-      </div>
-      <div class="project-info">
-        <h3>PM-TI — the pitch</h3>
-        <p class="mono-label proj-tags">bioelectromagnetics · B.Sc. thesis · ICEE 2026 · 0 dependencies</p>
-        <p>
-          My thesis in five minutes, told as a scroll: a brain that misfires, deep brain stimulation,
-          the surgery it costs, temporal interference from the scalp, and why its hotspot is too wide —
-          then PM-TI, our fix: one carrier, opposite phase modulation, and one knob <i>k</i> that cuts the
-          hotspot width by two thirds in simulation and by more than half on the bench, without a single
-          new electrode.
-        </p>
-        <p>
-          Every map and waveform is computed live from the thesis FEM export and the 70 mm saline
-          phantom I scanned on the bench — drag <i>k</i>, sweep along <i>x</i>, and compare the
-          simulation with the 7×7 pixel measurement. Arrow keys step through it like slides.
-        </p>
-        <div class="btn-row">
-          <button class="btn solid" type="button" data-launch="pmti/" data-title="PM-TI">Launch here</button>
-          <a class="btn" href="pmti/" target="_blank" rel="noopener">Open in new tab ↗</a>
-        </div>
-      </div>
-    </article>
-
-    <article class="project-slot card" aria-label="Reserved slot for the next instrument">
-      <p class="mono-label">NEXT INSTRUMENT</p>
-      <p>On the bench. This slot is reserved — the lab is never finished.</p>
-    </article>
-  </section>
-
-  <!-- ================= WRITING ================= -->
-  <section id="writing" class="section">
-    <h2>
-      <span class="secnum">02</span> Writing
-      <svg class="secsym" viewBox="0 0 30 16" aria-hidden="true"><path d="M0 4h21M0 8h30M0 12h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span class="secrule" aria-hidden="true"></span>
-    </h2>
-    <p class="section-intro">Long essays on the things I keep circling back to. Same rule as the Lab — every figure is live and you can break it, nothing here is a screenshot.</p>
-
-    <!-- To add an essay: put it in posts/<name>/ and duplicate this block. -->
-    <div class="writing-list">
-      <details class="wr card">
-        <summary>
-          <span class="wr-title">FM Modulation</span>
-          <span class="wr-when">2026</span>
-          <span class="fold-hint" aria-hidden="true">▾</span>
-        </summary>
-        <div class="wr-body">
-          <p class="mono-label wr-meta">ESSAY · SIGNALS &amp; COMMUNICATION · ~15 MIN · 7 LIVE FIGURES</p>
-          <p>
-            An FM transmitter never changes how loud it is. It says everything by changing how
-            fast it wiggles — and that one swap buys something amplitude modulation cannot have
-            at any price, because almost all the noise a radio picks up lands on the amplitude.
-          </p>
-          <p>
-            What the instantaneous frequency is, why the message enters through an integral,
-            where the endless Bessel sidebands come from, how Carson's rule cuts them down to
-            180 kHz, and why a limiter and a differentiator are all a receiver needs. The
-            companion piece to the AM essay.
-          </p>
-          <div class="btn-row">
-            <a class="btn solid" href="posts/fm-modulation/">Read the essay</a>
-          </div>
-        </div>
-      </details>
-
-      <details class="wr card">
-        <summary>
-          <span class="wr-title">AM Modulation</span>
-          <span class="wr-when">2026</span>
-          <span class="fold-hint" aria-hidden="true">▾</span>
-        </summary>
-        <div class="wr-body">
-          <p class="mono-label wr-meta">ESSAY · SIGNALS &amp; COMMUNICATION · ~14 MIN · 7 LIVE FIGURES</p>
-          <p>
-            A microphone gives you a signal that swings a few thousand times a second. A radio
-            wave that can cross a city swings a few million. Modulation is how you get the first
-            one to travel on the second — and amplitude modulation is the simplest way to do it.
-          </p>
-          <p>
-            Why sound cannot be sent as sound, how the carrier takes the shape of the message,
-            where the sidebands come from, why two thirds of the power is wasted, and how a
-            diode and two passive parts get the message back. Plain English, nothing assumed
-            beyond a sine wave.
-          </p>
-          <div class="btn-row">
-            <a class="btn solid" href="posts/am-modulation/">Read the essay</a>
-          </div>
-        </div>
-      </details>
-
-      <details class="wr card">
-        <summary>
-          <span class="wr-title">Folding infinity into a circle</span>
-          <span class="wr-when">2026</span>
-          <span class="fold-hint" aria-hidden="true">▾</span>
-        </summary>
-        <div class="wr-body">
-          <p class="mono-label wr-meta">ESSAY · RF &amp; MICROWAVE · ~15 MIN · 7 LIVE FIGURES</p>
-          <p>
-            Almost every engineering student is a little scared of the Smith chart — it looks
-            like a dartboard left out in the rain. It isn't hard. A bored Bell Labs engineer
-            drew it in 1939 to stop doing the same arithmetic every day, and every radio
-            instrument built this year still puts his circles on the screen.
-          </p>
-          <p>
-            The story of how an infinite plane gets folded down to the size of a coin, why the
-            grid lines survive the fold, and why software never managed to kill it. No RF
-            background needed — every term gets explained the first time it shows up.
-          </p>
-          <div class="btn-row">
-            <a class="btn solid" href="posts/smith-chart/">Read the essay</a>
-          </div>
-        </div>
-      </details>
-    </div>
-
-    <article class="project-slot card" aria-label="Reserved slot for the next essay">
-      <p class="mono-label">NEXT ESSAY</p>
-      <p>In the drafts. This slot is reserved — there is always a next one.</p>
-    </article>
   </section>
 
   <!-- ================= CV ================= -->
   <section id="cv" class="section">
     <h2>
-      <span class="secnum">03</span> Curriculum Vitae
+      <span class="secnum">01</span> Curriculum Vitae
       <svg class="secsym" viewBox="0 0 28 16" aria-hidden="true"><path d="M0 8h9M11 2v12M17 2v12M19 8h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span class="secrule" aria-hidden="true"></span>
     </h2>
@@ -410,6 +234,130 @@
     </div>
   </section>
 
+  <!-- ================= LAB / PROJECTS ================= -->
+  <section id="lab" class="section">
+    <h2>
+      <span class="secnum">02</span> Lab
+      <svg class="secsym" viewBox="0 0 34 16" aria-hidden="true"><path d="M0 8h5l2-6 4 12 4-12 4 12 4-12 2 6h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+    <p class="section-intro">Instruments I've built. Not screenshots — every preview here is running live; each one opens in its own tab.</p>
+
+    <!-- To add a project: put its app in projects/<name>/ and duplicate one card. -->
+    <div class="lab-grid">
+      <article class="project card">
+        <div class="project-preview">
+          <iframe src="https://smith.hkk.fyi/" title="Live preview of Smith Chart Studio" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
+          <a class="preview-hit" href="https://smith.hkk.fyi/" target="_blank" rel="noopener" aria-label="Open Smith Chart Studio in a new tab"><span class="mono-label">OPEN ↗</span></a>
+        </div>
+        <div class="project-info">
+          <h3>Smith Chart Studio</h3>
+          <p class="mono-label proj-tags">RF · canvas · teaching tool</p>
+          <p>
+            A full interactive <a class="hcard-link" href="https://en.wikipedia.org/wiki/Smith_chart" target="_blank" rel="noopener">Smith chart<span class="hcard" aria-hidden="true"><svg class="hcard-icon" viewBox="0 0 64 64"><circle class="hc-sig" style="stroke-width:4" cx="32" cy="32" r="27"/><circle class="hc-fg" cx="42.5" cy="32" r="16.5"/><circle class="hc-fg" cx="50" cy="32" r="9"/><path class="hc-fg" d="M5 32h54"/><circle class="uni-emblem" cx="27" cy="19" r="4.5"/></svg><span class="hcard-body"><b>The Smith chart</b><span class="hcard-facts">Invented in 1939 by Phillip H. Smith at Bell Labs — still every RF engineer's favorite circle, 87 years on.</span><span class="hcard-more">Wikipedia ↗</span></span></span></a> with a built-in tutor. Drag the reflection point, watch
+            Z, Γ and SWR stay in sync, then work through seven lessons up to L-network matching.
+          </p>
+          <div class="btn-row">
+            <a class="btn solid" href="https://smith.hkk.fyi/" target="_blank" rel="noopener">Open ↗</a>
+            <a class="btn" href="posts/smith-chart/">Read the essay</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="project card">
+        <div class="project-preview">
+          <iframe src="pmti/" title="Live preview of the PM-TI pitch" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
+          <a class="preview-hit" href="pmti/" target="_blank" rel="noopener" aria-label="Open the PM-TI pitch in a new tab"><span class="mono-label">OPEN ↗</span></a>
+        </div>
+        <div class="project-info">
+          <h3>PM-TI — the pitch</h3>
+          <p class="mono-label proj-tags">bioelectromagnetics · B.Sc. thesis · ICEE 2026</p>
+          <p>
+            My thesis in five minutes, told as a scroll: deep brain stimulation without the
+            surgery, and one knob <i>k</i> that shrinks the hotspot by two thirds in simulation
+            and by more than half on the bench.
+          </p>
+          <div class="btn-row">
+            <a class="btn solid" href="pmti/" target="_blank" rel="noopener">Open ↗</a>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <article class="project-slot card" aria-label="Reserved slot for the next instrument">
+      <p class="mono-label">NEXT INSTRUMENT</p>
+      <p>On the bench. This slot is reserved — the lab is never finished.</p>
+    </article>
+  </section>
+
+  <!-- ================= WRITING ================= -->
+  <section id="writing" class="section">
+    <h2>
+      <span class="secnum">03</span> Writing
+      <svg class="secsym" viewBox="0 0 30 16" aria-hidden="true"><path d="M0 4h21M0 8h30M0 12h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="secrule" aria-hidden="true"></span>
+    </h2>
+    <p class="section-intro">Long essays on the things I keep circling back to. Same rule as the Lab — every figure is live and you can break it, nothing here is a screenshot.</p>
+
+    <!-- To add an essay: put it in posts/<name>/ and duplicate this block. -->
+    <div class="writing-list">
+      <details class="wr card">
+        <summary>
+          <span class="wr-title">AM Modulation</span>
+          <span class="wr-when">2026</span>
+          <span class="fold-hint" aria-hidden="true">▾</span>
+        </summary>
+        <div class="wr-body">
+          <p class="mono-label wr-meta">ESSAY · SIGNALS &amp; COMMUNICATION · ~14 MIN · 7 LIVE FIGURES</p>
+          <p>
+            A microphone gives you a signal that swings a few thousand times a second. A radio
+            wave that can cross a city swings a few million. Modulation is how you get the first
+            one to travel on the second — and amplitude modulation is the simplest way to do it.
+          </p>
+          <p>
+            Why sound cannot be sent as sound, how the carrier takes the shape of the message,
+            where the sidebands come from, why two thirds of the power is wasted, and how a
+            diode and two passive parts get the message back. Plain English, nothing assumed
+            beyond a sine wave.
+          </p>
+          <div class="btn-row">
+            <a class="btn solid" href="posts/am-modulation/">Read the essay</a>
+          </div>
+        </div>
+      </details>
+
+      <details class="wr card">
+        <summary>
+          <span class="wr-title">Folding infinity into a circle</span>
+          <span class="wr-when">2026</span>
+          <span class="fold-hint" aria-hidden="true">▾</span>
+        </summary>
+        <div class="wr-body">
+          <p class="mono-label wr-meta">ESSAY · RF &amp; MICROWAVE · ~15 MIN · 7 LIVE FIGURES</p>
+          <p>
+            Almost every engineering student is a little scared of the Smith chart — it looks
+            like a dartboard left out in the rain. It isn't hard. A bored Bell Labs engineer
+            drew it in 1939 to stop doing the same arithmetic every day, and every radio
+            instrument built this year still puts his circles on the screen.
+          </p>
+          <p>
+            The story of how an infinite plane gets folded down to the size of a coin, why the
+            grid lines survive the fold, and why software never managed to kill it. No RF
+            background needed — every term gets explained the first time it shows up.
+          </p>
+          <div class="btn-row">
+            <a class="btn solid" href="posts/smith-chart/">Read the essay</a>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <article class="project-slot card" aria-label="Reserved slot for the next essay">
+      <p class="mono-label">NEXT ESSAY</p>
+      <p>In the drafts. This slot is reserved — there is always a next one.</p>
+    </article>
+  </section>
+
   <!-- ================= CONTACT ================= -->
   <section id="contact" class="section">
     <h2>
@@ -457,18 +405,8 @@
   <span class="footer-love">built with love <span class="heart" aria-hidden="true">♥</span> &amp; AI :)))</span>
 </footer>
 
-<!-- Fullscreen launcher for lab instruments -->
-<dialog id="launcher">
-  <div class="launcher-bar">
-    <span class="mono-label" id="launcherTitle">INSTRUMENT</span>
-    <span class="launcher-actions">
-      <a id="launcherExt" class="btn" href="#" target="_blank" rel="noopener">New tab ↗</a>
-      <button id="launcherClose" class="btn solid" type="button">Close ✕</button>
-    </span>
-  </div>
-  <iframe id="launcherFrame" title="Running instrument"></iframe>
-</dialog>
 
+<script src="assets/fold.js"></script>
 <script src="assets/site.js"></script>
 </body>
 </html>

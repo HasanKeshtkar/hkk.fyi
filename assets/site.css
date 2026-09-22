@@ -43,6 +43,13 @@ body::before{
   z-index:0;
 }
 body > *{ position:relative; z-index:1; }
+/* on the home page site.js swaps the grid for a live one (a rippling canvas) */
+html.has-field body::before{ display:none; }
+body > #field{
+  position:fixed; top:0; left:0; z-index:0;
+  width:100%; height:100vh; height:100lvh;
+  pointer-events:none;
+}
 
 ::selection{ background:var(--sig); color:var(--paper); }
 
@@ -50,6 +57,11 @@ a{ color:inherit; text-decoration-color:var(--sig); text-decoration-thickness:2p
 a:hover{ color:var(--sig); }
 
 :focus-visible{ outline:2px solid var(--sig); outline-offset:3px; border-radius:2px; }
+
+.sr{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap;
+}
 
 .skip{
   position:absolute; left:-9999px; top:0;
@@ -138,6 +150,12 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 }
 .secsym{ width:32px; height:19px; opacity:.75; flex:none; }
 .secrule{ flex:1; height:1px; background:color-mix(in srgb, var(--fg) 25%, transparent); }
+/* …which site.js turns into a string you can pluck */
+.secrule.is-string{ height:48px; background:none; }
+.secrule svg{ display:block; width:100%; height:100%; overflow:visible; }
+.str, .str-hot{ fill:none; vector-effect:non-scaling-stroke; stroke-linejoin:round; }
+.str{ stroke:color-mix(in srgb, var(--fg) 30%, transparent); stroke-width:2; stroke-linecap:round; }
+.str-hot{ stroke:var(--sig); stroke-width:2.8; stroke-linecap:round; opacity:0; }
 
 /* opaque so the page grid never shows through elements */
 .card{
@@ -158,7 +176,20 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
   margin:0 0 1.2rem; font-weight:700;
   position:relative;
 }
-.lede{ max-width:58ch; font-size:1.05rem; margin:0 0 1.05rem; position:relative; }
+.lede{ max-width:46ch; font-size:1.12rem; margin:0 0 1.05rem; position:relative; }
+
+/* the word "waves" in the title, doing what it says */
+.wavy{ color:var(--sig); white-space:nowrap; }
+.wavy i{
+  display:inline-block; font-style:normal;
+  animation:swell 2.8s ease-in-out infinite;
+  animation-delay:calc(var(--i) * .17s - 2.8s);
+}
+@keyframes swell{
+  0%, 100%{ transform:translateY(.05em); }
+  50%{ transform:translateY(-.07em); }
+}
+@media (prefers-reduced-motion: reduce){ .wavy i{ animation:none; } }
 
 .hero-grid{
   display:grid; grid-template-columns:1.75fr 1fr; gap:2.6rem;
@@ -166,13 +197,24 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 }
 .hero-grid .portrait{ justify-self:end; width:100%; }
 
-/* standing wave */
+/* hero wave: forward + reflected on a line; hover to probe it */
 .wave{ margin:1.6rem 0 0; position:relative; }
 #waveSvg{ width:100%; height:130px; display:block; cursor:crosshair; }
+#waveSvg path, #waveSvg line{ vector-effect:non-scaling-stroke; }
 .wave-env{ stroke:color-mix(in srgb, var(--sig) 45%, transparent); stroke-width:1.2; fill:none; stroke-dasharray:5 6; }
 .wave-line{ stroke:var(--sig); stroke-width:2.4; fill:none; stroke-linecap:round; }
+.wave-trail{ stroke:var(--sig); stroke-width:2; fill:none; }
+.wave-part{ stroke:var(--fg); stroke-width:1; fill:none; }
+.wave-parts{ opacity:0; transition:opacity .4s ease; }
+.wave.probing .wave-parts{ opacity:.3; }
 .wave-axis{ stroke:color-mix(in srgb, var(--fg) 30%, transparent); stroke-width:1; }
 .wave-node{ fill:var(--fg); opacity:.5; }
+.wave-read{
+  position:absolute; right:0; top:-.4rem; margin:0;
+  font-size:.66rem; color:var(--sig);
+  opacity:0; transition:opacity .3s ease; pointer-events:none;
+}
+.wave.probing .wave-read{ opacity:1; }
 
 /* ================= portrait ================= */
 .portrait{
@@ -245,48 +287,49 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .hcard-facts{ display:block; font-size:.76rem; opacity:.85; line-height:1.5; }
 .hcard-more{ display:inline-block; margin-top:7px; font-family:var(--font-mono); font-size:.7rem; color:var(--sig); }
 
-/* ================= lab ================= */
+/* ================= lab =================
+   Compact cards, two to a row: a live (scaled-down) preview on top, a few
+   lines below. Everything opens in a new tab — no in-page launcher. */
+.lab-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1.2rem; margin-top:1.6rem; }
 .project{
-  display:grid; grid-template-columns:1.15fr 1fr;
-  margin-top:1.6rem; /* no overflow:hidden — hover cards must escape */
+  display:flex; flex-direction:column;  /* no overflow:hidden — hover cards must escape */
+  transition:transform .2s ease, border-color .2s ease;
 }
+.project:hover{ transform:translateY(-3px); border-color:var(--sig); }
 .project-preview{
-  position:relative; aspect-ratio:16/10; min-height:280px;
-  /* min-width:0 is critical: as a grid item, min-height (280px) combined with
-     aspect-ratio (16/10) transfers an automatic MIN-WIDTH of 280*16/10 = 448px,
-     which forces the grid track — and the whole card — wider than a phone
-     viewport (393px) and breaks out of the frame. Zeroing it lets the track
-     drive the width and the height simply follows. */
+  position:relative; aspect-ratio:2/1;
+  /* min-width:0 keeps the aspect-ratio box from forcing its grid track wider
+     than a phone viewport */
   min-width:0;
-  border-right:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent);
+  border-bottom:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent);
   background:var(--ink);
-  overflow:hidden; border-radius:4.5px 0 0 4.5px;
+  overflow:hidden; border-radius:4.5px 4.5px 0 0;
 }
 .project-preview iframe{
-  /* absolutely positioned so the 200% layout box (transforms don't shrink
-     the box, only the paint) is out of flow and simply clipped by the
-     card's overflow:hidden — otherwise it breaks the card on mobile */
+  /* absolutely positioned so the 250% layout box (transforms don't shrink
+     the box, only the paint) is out of flow and simply clipped */
   position:absolute; top:0; left:0;
-  width:200%; height:200%;
-  transform:scale(.5); transform-origin:0 0;
+  width:250%; height:250%;
+  transform:scale(.4); transform-origin:0 0;
   border:0; pointer-events:none;
 }
 .preview-hit{
   position:absolute; inset:0;
-  background:transparent; border:0; cursor:pointer;
-  display:flex; align-items:flex-end; justify-content:flex-start;
-  padding:1rem;
+  display:flex; align-items:flex-end; justify-content:flex-end;
+  padding:.8rem; text-decoration:none;
 }
 .preview-hit .mono-label{
-  background:var(--sig); color:var(--paper); opacity:1;
-  padding:.45rem .9rem; border-radius:3px;
-  transition:transform .15s ease;
+  background:var(--sig); color:var(--paper); opacity:0;
+  padding:.4rem .8rem; border-radius:3px;
+  transform:translateY(6px); transition:opacity .2s ease, transform .2s ease;
 }
-.preview-hit:hover .mono-label{ transform:scale(1.06); }
-.project-info{ padding:1.5rem 1.6rem; }
-.project-info h3{ margin:0 0 .3rem; font-size:1.35rem; }
-.proj-tags{ color:var(--sig); opacity:1; margin:0 0 .8rem; }
-.project-info p{ margin:0 0 1.1rem; }
+.project:hover .preview-hit .mono-label,
+.preview-hit:focus-visible .mono-label{ opacity:1; transform:none; }
+.project-info{ padding:1.1rem 1.2rem 1.2rem; display:flex; flex-direction:column; flex:1; }
+.project-info h3{ margin:0 0 .2rem; font-size:1.15rem; }
+.proj-tags{ color:var(--sig); opacity:1; margin:0 0 .6rem; }
+.project-info p:not(.mono-label){ margin:0 0 1rem; font-size:.95rem; }
+.project-info .btn-row{ margin-top:auto; }
 
 .btn-row{ display:flex; gap:.6rem; flex-wrap:wrap; }
 .btn{
@@ -376,7 +419,8 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .cv-fold summary.cv-title:hover{ color:var(--sig); background:color-mix(in srgb, var(--fg) 14%, var(--bg)); }
 .cv-fold:not([open]) summary.cv-title{ margin-bottom:0; }
 .fold-hint{ margin-left:auto; color:var(--sig); transition:transform .2s ease; }
-.cv-fold[open] > summary .fold-hint{ transform:rotate(180deg); }
+.cv-fold[open] > summary .fold-hint,
+.wr[open] > summary .fold-hint{ transform:rotate(180deg); }
 .cv-head-actions{ display:flex; gap:.5rem; flex-wrap:wrap; }
 .cv-entry > p{ margin:.4rem 0; }
 .cv-row{ display:flex; justify-content:space-between; gap:1rem; align-items:baseline; flex-wrap:wrap; }
@@ -463,24 +507,6 @@ main{ max-width:var(--maxw); margin:0 auto; padding:0 1.2rem; }
 .footer-love{ font-size:.9rem; opacity:.8; }
 .footer-love .heart{ color:var(--sig); font-style:normal; }
 
-/* ================= launcher dialog ================= */
-#launcher{
-  width:min(1280px, 96vw); height:92vh;
-  padding:0; border:2px solid var(--fg); border-radius:8px;
-  background:var(--bg); color:var(--fg);
-  display:none; flex-direction:column; overflow:hidden;
-}
-#launcher[open]{ display:flex; }
-#launcher::backdrop{ background:rgba(28,27,26,.72); backdrop-filter:blur(3px); }
-.launcher-bar{
-  display:flex; align-items:center; justify-content:space-between; gap:1rem;
-  padding:.55rem .9rem;
-  border-bottom:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent);
-  background:color-mix(in srgb, var(--fg) 5%, transparent);
-}
-.launcher-actions{ display:flex; gap:.5rem; }
-#launcherFrame{ flex:1; border:0; width:100%; background:var(--paper); }
-
 /* small red labels get a lighter tint on the dark theme for legibility
    (still a mix of the same three hues) */
 html.ink .secnum,
@@ -489,13 +515,18 @@ html.ink .pub-note,
 html.ink .port .mono-label,
 html.ink .course-grid b,
 html.ink .hcard-more,
-html.ink .fold-hint{
+html.ink .fold-hint,
+html.ink .wavy,
+html.ink .wave-read{
   color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
 html.ink .chip.solid{
   color:color-mix(in srgb, var(--sig) 72%, var(--paper));
   border-color:color-mix(in srgb, var(--sig) 72%, var(--paper));
 }
+
+/* waiting to be revealed on scroll (site.js adds this, and animates it away) */
+.rise{ opacity:0; }
 
 /* ================= responsive ================= */
 @media (max-width: 860px){
@@ -514,17 +545,9 @@ html.ink .chip.solid{
   .hero-text > h1{ grid-area:title; margin-bottom:0; }
   .hero-body{ grid-area:body; }
   .hero-grid .portrait{ grid-area:photo; justify-self:end; align-self:center; max-width:100%; margin:0; }
-  .project{ grid-template-columns:1fr; }
-  /* Drop aspect-ratio + min-height here: together they transfer a phantom
-     min-width (280*16/10 = 448px) that blows the card past a phone viewport.
-     A plain fixed height + full width can't overflow. */
-  .project-preview{
-    aspect-ratio:auto; min-height:0; height:200px; width:100%;
-    border-right:0; border-bottom:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent);
-  }
+  .lab-grid{ grid-template-columns:1fr; }
   .topbar{ gap:.8rem; }
   .nav{ gap:.8rem; }
-  .project-preview{ border-radius:4.5px 4.5px 0 0; }
 }
 @media (max-width: 560px){
   body{ font-size:16px; }
@@ -553,8 +576,9 @@ html.ink .chip.solid{
 /* ================= print: only the CV, in ink on paper ================= */
 @media print{
   :root, html.ink{ --bg:#fff; --fg:#000; }
-  body::before{ display:none; }
-  .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions, #launcher{ display:none !important; }
+  body::before, #field{ display:none; }
+  .rise{ opacity:1 !important; }
+  .topbar, .hero, #lab, #writing, #contact, .footer, .cv-head-actions{ display:none !important; }
   .cv-title{ background:none; border-bottom:1.5px solid #000; border-radius:0; padding:.2rem 0 .35rem; }
   .section{ padding:0; }
   #cv h2 .secrule{ display:none; }
