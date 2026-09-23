@@ -8,18 +8,24 @@ Everything is offline: fonts, images and data live in `assets/`.
 Double-click `index.html` (any modern browser; Chrome/Edge recommended).
 Or serve the folder, e.g. `python -m http.server 8765 --directory pitch` and open http://localhost:8765/.
 
-## Presenting
+## Reading
+
+The page explains itself — no presenter needed. Every slide has a short plain-words paragraph under its
+title, and the story runs as a chain: problem → solution → the new problem that solution brings → …
+A rail on the left (wide screens) shows where you are in that chain; a recap slide lists all six links.
+Math is kept to the two formulas that matter: TI and PM-TI.
 
 - `→` / `Space` / `PageDown` — next step (pinned scenes have several steps)
 - `←` / `PageUp` — previous step
 - theme button (top right) — ink / paper, same key as hkk.fyi
+- the k and E₂/E₁ sliders play by themselves until touched; "auto" hands control back
 - "Live" section: play/pause, drag on any map or the profile to scrub `x`
 
-## Flow (≈ 5 min)
+## Flow
 
-hero → problem 01 disease → solution 01 DBS → problem 02 invasive → solution 02 TI (+ two equations)
-→ problem 03 wide focus → solution 03 PM-TI (+ two equations, penalty demo, k knob)
-→ simulation results → live x-sweep (envelope vs k) → bench test → simulation vs measurement → close
+hero → P1 disease → S1 DBS → P2 surgery → S2 TI (+ TI formula) → P3 wide focus
+→ S3 PM-TI (+ PM-TI formula, penalty demo, k knob) → simulation results → live x-sweep
+→ bench test → simulation vs measurement → recap (three problems, three answers) → close + QR
 
 ## Data
 

@@ -276,6 +276,24 @@ const cIO = new IntersectionObserver((es) => es.forEach(e => {
 }), { threshold: .6 });
 $$('[data-count]').forEach(el => cIO.observe(el));
 
+// story rail: which link of the problem -> solution chain is on screen
+const rail = $('#rail'), railLinks = $$('#rail a'), railOrder = railLinks.map(a => a.dataset.s);
+const stageEls = $$('section[data-stage], .pinwrap[data-stage]');
+function updateRail() {
+  const mid = scrollY + innerHeight * .5;
+  let el = null; stageEls.forEach(e => { if (e.offsetTop <= mid) el = e; });
+  let st = el ? el.dataset.stage : null;
+  if (el && el.classList.contains('pinwrap')) { const on = $('.st.on', el); if (on && on.dataset.stage) st = on.dataset.stage; }
+  const idx = st === 'end' ? railOrder.length : railOrder.indexOf(st);
+  rail.classList.toggle('show', !!st);
+  railLinks.forEach((a, i) => { a.classList.toggle('on', i === idx); a.classList.toggle('past', i < idx); });
+}
+railLinks.forEach(a => a.addEventListener('click', (e) => {
+  if (!a.dataset.at) return;               // a step inside a pinned scene
+  e.preventDefault(); const w = $(a.getAttribute('href'));
+  scrollTo({ top: w.offsetTop + parseFloat(a.dataset.at) * (w.offsetHeight - innerHeight) + 2, behavior: reduced ? 'auto' : 'smooth' });
+}));
+
 // progress bar + active nav
 const navLinks = $$('#nav a');
 const navTargets = navLinks.map(a => $(a.getAttribute('href')));
@@ -286,6 +304,7 @@ function onScroll() {
   navTargets.forEach((el, i) => { if (el && el.offsetTop - innerHeight * .5 <= scrollY) act = i; });
   navLinks.forEach((a, i) => a.classList.toggle('active', i === act));
   scenes.forEach(s => s.update());
+  updateRail();
   reveal();
 }
 let ticking = false;

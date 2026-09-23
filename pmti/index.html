@@ -162,10 +162,10 @@ html.ink .dis img{ filter:grayscale(1) invert(1) contrast(1.15); mix-blend-mode:
 .pinwrap{ position:relative; height:320vh; }
 .pin{ position:sticky; top:0; height:100vh; overflow:hidden; display:flex; align-items:center; }
 .pin .inner{ width:100%; max-width:var(--maxw); margin:0 auto; padding:5.5rem 1.2rem 2rem; display:grid; grid-template-columns:1.05fr 1fr; gap:2.5rem; align-items:center; }
-.pin .txt{ position:relative; min-height:15rem; }
+.pin .txt{ position:relative; min-height:23rem; }
 .pin .txt .st{ position:absolute; inset:0; opacity:0; transform:translateY(18px); transition:opacity .55s ease, transform .55s ease; pointer-events:none; }
 .pin .txt .st.on{ opacity:1; transform:none; pointer-events:auto; }
-.pin .txt h2.big{ font-size:clamp(2.1rem, 4.8vw, 4.2rem); }
+.pin .txt h2.big{ font-size:clamp(2rem, 4vw, 3.5rem); }
 .scene{ position:relative; width:100%; }
 .scene svg{ width:100%; height:auto; display:block; overflow:visible; }
 .ln{ fill:none; stroke:var(--fg); stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
@@ -177,7 +177,7 @@ html.ink .dis img{ filter:grayscale(1) invert(1) contrast(1.15); mix-blend-mode:
 .fill-sig{ fill:var(--sig); } .fill-fg{ fill:var(--fg); } .fill-alert{ fill:var(--alert); }
 .lbl{ font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; fill:var(--fg); opacity:.7; }
 .lbl.sig{ fill:var(--sig); opacity:1 } .lbl.e1{ fill:var(--e1); opacity:1 } .lbl.e2{ fill:var(--e2); opacity:1 } .lbl.alert{ fill:var(--alert); opacity:1 }
-.xray{ position:relative; width:64%; margin-top:1.6rem; border-radius:6px; overflow:hidden; border:1.5px solid color-mix(in srgb, var(--fg) 35%, transparent);
+.xray{ position:relative; width:50%; margin-top:1.2rem; border-radius:6px; overflow:hidden; border:1.5px solid color-mix(in srgb, var(--fg) 35%, transparent);
   opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease; box-shadow:0 20px 60px rgba(0,0,0,.35); }
 .xray.on{ opacity:1; transform:none; }
 .xray img{ width:100%; display:block; }
@@ -218,7 +218,7 @@ math[display="block"]{ margin:.35rem 0; }
 .map .cap b{ font-size:1.05rem; letter-spacing:.02em; text-transform:none; }
 .map.k1 .cap b{ color:var(--k1) } .map.k2 .cap b{ color:var(--k2) } .map.k3 .cap b{ color:var(--k3) }
 .maps3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; align-items:start; }
-.maps3 .map canvas{ max-width:290px; margin:0 auto; }
+.maps3 .map canvas{ max-width:265px; margin:0 auto; }
 .cbar{ display:flex; align-items:center; gap:.7rem; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; opacity:.8; margin-top:1rem; }
 .cbar i{ flex:1; height:8px; border-radius:2px; background:linear-gradient(90deg,#000004,#451077,#9F2F7F,#F1605D,#FEC98D,#FCFDBF); max-width:260px; }
 
@@ -248,7 +248,7 @@ math[display="block"]{ margin:.35rem 0; }
 
 /* ================= sweep ================= */
 .sweep{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; margin-top:.6rem; }
-.sweep .map canvas{ max-width:225px; margin:0 auto; }
+.sweep .map canvas{ max-width:200px; margin:0 auto; }
 .sweep .col{ display:grid; gap:.6rem; }
 .sweep .col .map canvas{ cursor:ew-resize; }
 .sweep .col .scope{ height:150px; }
@@ -290,6 +290,43 @@ math[display="block"]{ margin:.35rem 0; }
 .btn.mini.auto{ opacity:.55; }
 .btn.mini.auto.on{ opacity:1; background:var(--sig); border-color:var(--sig); color:var(--paper); }
 
+/* ================= reading version ================= */
+/* plain-words explanation under each title */
+.ex{ font-size:clamp(.98rem, 1.25vw, 1.1rem); line-height:1.6; font-weight:400; opacity:.86; max-width:50ch; margin:1.1rem 0 0; padding-left:1rem; border-left:2px solid var(--sig); }
+.ex.alert{ border-left-color:var(--alert); }
+.ex b{ font-weight:600; }
+.note{ font-size:.86rem; line-height:1.55; opacity:.7; margin:.7rem 0 0; max-width:46ch; }
+/* title left, explanation right — for the dense slides */
+.head2{ display:grid; grid-template-columns:1.15fr .85fr; gap:2.6rem; align-items:end; }
+.head2 .ex{ margin:0; }
+.head2 h2.big{ font-size:clamp(2.2rem, 4.4vw, 3.9rem); }
+
+/* story rail: problem -> solution -> problem ... */
+.rail{ position:fixed; left:16px; top:50%; transform:translateY(-50%); z-index:40; display:none; flex-direction:column; gap:.15rem; opacity:0; pointer-events:none; transition:opacity .4s ease; }
+.rail.show{ opacity:1; pointer-events:auto; }
+.rail::before{ content:""; position:absolute; left:4px; top:14px; bottom:14px; width:1px; background:color-mix(in srgb, var(--fg) 25%, transparent); }
+.rail a{ position:relative; display:flex; align-items:center; gap:.6rem; padding:.34rem 0; text-decoration:none; font-family:var(--font-mono); font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; opacity:.42; transition:opacity .3s; }
+.rail a i{ width:9px; height:9px; border-radius:50%; border:1.5px solid currentColor; background:var(--bg); flex:none; transition:background .3s, box-shadow .3s; }
+.rail a.p{ color:var(--alert); } .rail a.s{ color:var(--e1); } .rail a.r{ color:var(--fg); }
+.rail a span{ color:var(--fg); }
+.rail a.past{ opacity:.72; } .rail a.past i{ background:currentColor; }
+.rail a.on{ opacity:1; } .rail a.on i{ background:currentColor; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 28%, transparent); }
+.rail a.on span{ color:inherit; font-weight:500; }
+.rail a:hover{ opacity:1; }
+@media (min-width:1400px){ .rail{ display:flex; } }
+
+/* recap: three problems, three answers */
+.story{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; margin-top:2rem; }
+.story .col{ display:grid; gap:.5rem; align-content:start; }
+.story .sc{ padding:1rem 1.1rem 1.1rem; border:1.5px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top:3px solid var(--sig); border-radius:6px; background:color-mix(in srgb, var(--bg) 96%, var(--fg)); }
+.story .sc.p{ border-top-color:var(--alert); }
+.story .sc span{ display:block; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--sig); }
+.story .sc.p span{ color:var(--alert); }
+.story .sc b{ display:block; font-size:1.3rem; letter-spacing:-.01em; margin:.3rem 0 .25rem; }
+.story .sc p{ margin:0; font-size:.95rem; line-height:1.5; opacity:.8; }
+.story .ar{ text-align:center; font-family:var(--font-mono); font-size:.8rem; opacity:.5; line-height:1; }
+.story .sc.ours{ border-color:var(--sig); box-shadow:0 0 0 3px color-mix(in srgb, var(--sig) 16%, transparent); }
+
 /* ================= closing ================= */
 .qrcard{
   justify-self:center; display:grid; justify-items:center; gap:.7rem; text-decoration:none; color:inherit;
@@ -313,9 +350,12 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .pin .inner, .two, .two.wide-r, .two.wide-l, .pmti-grid{ grid-template-columns:1fr; }
   .bench-facts{ grid-template-columns:1fr 1fr; }
   .pinwrap{ height:260vh; }
-  .pin .txt{ min-height:11rem; }
+  .pin .txt{ min-height:19rem; }
+  .head2, .story{ grid-template-columns:1fr; }
   .dis-grid, .maps3, .stats, .sweep{ grid-template-columns:1fr 1fr; }
-  .xray{ position:relative; right:auto; bottom:auto; width:70%; margin:1rem auto 0; }
+  .xray{ display:none; }                       /* no room next to the text in a pinned scene */
+  .pin .inner{ gap:1rem; padding-top:4.6rem; }
+  .pin .scene svg{ max-height:38vh; }
   .nav{ display:none; }
   .meas-grid{ grid-template-columns:auto 1fr 1fr 1fr; }
 }
@@ -323,11 +363,22 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .dis-grid, .maps3, .stats, .sweep, .scopes3 .row{ grid-template-columns:1fr; }
   .hero h1{ font-size:5.2rem; }
   math{ font-size:1.05rem; }
+  .pin .txt{ min-height:22.5rem; }
 }
 </style>
 </head>
 <body>
 <div id="progress"></div>
+
+<nav class="rail" id="rail" aria-label="the story so far">
+  <a class="p" data-s="p1" href="#disease"><i></i><span>P1 · disease</span></a>
+  <a class="s" data-s="s1" href="#dbs"><i></i><span>S1 · DBS</span></a>
+  <a class="p" data-s="p2" href="#dbs" data-at="0.8"><i></i><span>P2 · surgery</span></a>
+  <a class="s" data-s="s2" href="#ti"><i></i><span>S2 · TI</span></a>
+  <a class="p" data-s="p3" href="#focal"><i></i><span>P3 · too wide</span></a>
+  <a class="s" data-s="s3" href="#pmti"><i></i><span>S3 · PM-TI</span></a>
+  <a class="r" data-s="res" href="#results"><i></i><span>proof</span></a>
+</nav>
 
 <header class="topbar">
   <div class="inner">
@@ -364,6 +415,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   <div class="kicker rv">B.Sc. final project · University of Tehran · ICEE 2026</div>
   <h1 class="rv d1">PM<span class="dash">-</span>TI</h1>
   <p class="sub rv d2">Sharper deep-brain stimulation.<br>No surgery. No new hardware.</p>
+  <p class="ex rv d3">My B.Sc. project, told as a chain: a problem, its answer, the new problem that answer brings — until the last answer, which is ours. Scroll, or use the arrow keys.</p>
   <div class="meta rv d3">
     <div>Student<b>Hassan Keshtkar</b></div>
     <div>Supervisor<b>Dr. Hoda Ameri</b></div>
@@ -374,10 +426,15 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 1 · PROBLEM 01 — the disease ============ -->
-<section class="slide" id="disease" data-step>
+<section class="slide" id="disease" data-step data-stage="p1">
   <div class="kicker alert rv">Problem · 01</div>
-  <h2 class="big rv d1">Millions live with a brain that misfires.</h2>
-  <p class="sub rv d2">When the drugs stop working, the target sits <b>deep</b> inside the brain.</p>
+  <div class="head2">
+    <div>
+      <h2 class="big rv d1">Millions live with a brain that misfires.</h2>
+      <p class="sub rv d2">When the drugs stop working, the target sits <b>deep</b> inside the brain.</p>
+    </div>
+    <p class="ex alert rv d2">In Parkinson's, essential tremor and epilepsy, a small group of neurons deep in the brain fires in the wrong rhythm. Medicine helps many patients — but not all of them, and often not forever. Then the faulty circuit itself has to be reached.</p>
+  </div>
   <div class="dis-grid">
     <figure class="card dis rv d2" style="margin:0">
       <img src="assets/img/gowers_parkinson_1886.jpg" alt="Gowers' 1886 sketch of Parkinson's disease">
@@ -398,25 +455,28 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 2 · SOLUTION 01 → PROBLEM 02 — DBS, pinned ============ -->
-<div class="pinwrap" id="dbs" data-scene="dbs" data-steps="0,0.42,0.8">
+<div class="pinwrap" id="dbs" data-scene="dbs" data-steps="0,0.42,0.8" data-stage="s1">
   <div class="pin">
     <div class="inner">
       <div>
         <div class="txt">
-          <div class="st on" data-at="0">
+          <div class="st on" data-at="0" data-stage="s1">
             <div class="kicker">Solution · 01</div>
             <h2 class="big">Deep Brain Stimulation works.</h2>
             <p class="sub">Electrodes at the target. The tremor stops.</p>
+            <p class="ex">A surgeon places a thin wire right inside the faulty circuit. A pacemaker-like device in the chest sends it small, fast pulses that override the bad rhythm.</p>
           </div>
-          <div class="st" data-at="0.42">
+          <div class="st" data-at="0.42" data-stage="s1">
             <div class="kicker">Solution · 01</div>
             <h2 class="big">A few volts, right where it matters.</h2>
             <p class="sub">Parkinson's · tremor · dystonia · epilepsy — <b>in clinics since the 90s.</b></p>
+            <p class="ex">The contacts sit inside the target, so only a few millimetres of tissue around them are stimulated. That precision is why it works so well.</p>
           </div>
-          <div class="st" data-at="0.8">
+          <div class="st" data-at="0.8" data-stage="p2">
             <div class="kicker alert">Problem · 02</div>
             <h2 class="big">But it needs brain surgery.</h2>
             <div class="tags"><span class="tag alert">skull opening</span><span class="tag alert">infection · bleeding</span><span class="tag alert">hardware for life</span></div>
+            <p class="ex alert">A hole is drilled in the skull, the wire passes through healthy brain, and the hardware stays for life. So the next question is: can we reach the same deep spot <b>without opening the head?</b></p>
           </div>
         </div>
         <figure class="xray" id="xray" style="margin:0">
@@ -466,7 +526,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </div>
 
 <!-- ============ 3 · SOLUTION 02 — TI, pinned ============ -->
-<div class="pinwrap" id="ti" data-scene="ti" data-steps="0,0.36,0.72">
+<div class="pinwrap" id="ti" data-scene="ti" data-steps="0,0.36,0.72" data-stage="s2">
   <div class="pin">
     <div class="inner">
       <div class="txt">
@@ -474,16 +534,19 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
           <div class="kicker">Solution · 02</div>
           <h2 class="big">Temporal Interference.</h2>
           <p class="sub">Stimulate deep — <b>from the scalp.</b></p>
+          <p class="ex">Two pairs of electrodes are simply placed on the head — no surgery. The trick is in the two frequencies they use.</p>
         </div>
         <div class="st" data-at="0.36">
           <div class="kicker">Solution · 02</div>
           <h2 class="big">Two kHz fields. Neurons ignore each one.</h2>
           <p class="sub"><b>2000 Hz</b> from one pair, <b>2010 Hz</b> from the other.</p>
+          <p class="ex">A field that flips thousands of times per second is too fast for a neuron to follow, so each field on its own does almost nothing.</p>
         </div>
         <div class="st" data-at="0.72">
           <div class="kicker">Solution · 02</div>
           <h2 class="big">Where they meet, a 10 Hz beat is born.</h2>
           <p class="sub">Neurons follow the beat — <b>only where both fields overlap.</b></p>
+          <p class="ex">Two tones 10 Hz apart add up to one tone that swells and fades 10 times a second — like two guitar strings slightly out of tune. Neurons do follow that slow beat, and it is strongest where both fields are strong.</p>
         </div>
       </div>
       <div class="scene" id="tiScene">
@@ -535,10 +598,10 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </div>
 
 <!-- ============ 3b · TI in two equations ============ -->
-<section class="slide" id="ti-eq" data-step>
+<section class="slide" id="ti-eq" data-step data-stage="s2">
   <div class="two wide-l">
     <div>
-      <div class="kicker rv">Solution · 02 · in two lines</div>
+      <div class="kicker rv">Solution · 02 · the formula</div>
       <h2 class="mid rv d1">Two frequencies, one beat.</h2>
       <div class="eqs">
         <div class="eq rv d2"><span class="n">TI · 1</span>
@@ -558,6 +621,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
         </div>
       </div>
       <p class="sub rv d4">The <b>weaker</b> field sets the envelope. Nothing else.</p>
+      <p class="ex rv d4">E₁ and E₂ are how strong each pair's field is at one point in the head. The beat there is twice the weaker one — so it is big only where <b>both</b> fields are strong.</p>
     </div>
     <div class="scopes3 rv d2">
       <div class="row">
@@ -570,12 +634,13 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 4 · PROBLEM 03 — not focal ============ -->
-<section class="slide" id="focal" data-step>
+<section class="slide" id="focal" data-step data-stage="p3">
   <div class="two wide-l">
     <div>
       <div class="kicker alert rv">Problem · 03</div>
       <h2 class="big rv d1">The hotspot is wide.</h2>
       <p class="sub rv d2">≈ <b>30 mm</b> across a 70 mm phantom. The neighbours get stimulated too.</p>
+      <p class="ex alert rv d2">Both fields are fairly strong over a large region around the centre, so the beat is strong there too. The usual fix is more electrodes and more channels. We wanted to sharpen it by changing <b>only the waveform</b>.</p>
       <div class="tags rv d3">
         <span class="tag strike">more electrodes</span>
         <span class="tag strike">more channels</span>
@@ -591,7 +656,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 5 · SOLUTION 03 — PM-TI ============ -->
-<section class="slide" id="pmti" data-step>
+<section class="slide" id="pmti" data-step data-stage="s3">
   <div class="kicker rv">Solution · 03 · our work · ICEE 2026</div>
   <h2 class="mid rv d1">PM-TI: one carrier, opposite phase modulation.</h2>
   <div class="pmti-grid">
@@ -610,24 +675,27 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
           </mrow></math>
         </div>
       </div>
+      <p class="ex rv d3">Both electrode pairs now share <b>one frequency</b>. Their phases are pushed in opposite directions by φ(t), and the number <b>k</b> sets how hard. With k = 1 this is exactly classic TI. With k &gt; 1 the beat stays the same where the two fields are equal — at the target — and shrinks wherever they are not.</p>
     </div>
     <div class="rv d3">
       <div class="scope h3"><canvas id="scPen"></canvas>
         <div class="t"><b>envelope · E₁ ≠ E₂</b></div><div class="r" id="penR"></div>
       </div>
       <div class="imb"><span>E₂ / E₁</span><input type="range" id="imbRange" min="0" max="1" step="0.01" value="0.6" aria-label="field imbalance"><span class="iv" id="imbVal">0.60</span><button class="btn mini auto on" id="imbAuto" type="button" aria-pressed="true">auto</button></div>
-      <p class="sub" style="margin-top:1.2rem">Unequal fields get <b>penalised</b>. <b>k</b> turns the penalty up.<br>No new electrodes — a new waveform.</p>
+      <p class="note">The beat at a point where E₂ is weaker than E₁. At E₂/E₁ = 1 all three are equal; the lower it goes, the more k &gt; 1 cuts the beat.</p>
+      <p class="sub" style="margin-top:1rem">Unequal fields get <b>penalised</b>. <b>k</b> turns the penalty up.<br>No new electrodes — a new waveform.</p>
     </div>
   </div>
 </section>
 
 <!-- ============ 5b · the knob ============ -->
-<section class="slide" id="knob" data-step>
+<section class="slide" id="knob" data-step data-stage="s3">
   <div class="two wide-l">
     <div>
       <div class="kicker rv">Solution · 03 · one number to tune</div>
       <h2 class="big rv d1">Turn k up. The focus tightens.</h2>
       <p class="sub rv d2">Same electrodes. Same current. <b>Same peak.</b></p>
+      <p class="ex rv d2">k is just a number in the signal generator. Raising it from 1 to 3 shrinks the hotspot width (FWHM: where the beat is above half its peak) from about 30 mm to 9 mm, while the beat at the target stays as strong.</p>
       <div class="knob-nums rv d3">
         <div class="stat"><div class="v"><span id="kVal">1.00</span></div><div class="l">k · focusing parameter</div></div>
         <div class="stat sig"><div class="v"><span id="kFwhm">29.5</span><small>mm</small></div><div class="l">FWHM · along y = 0</div></div>
@@ -646,9 +714,12 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 6 · RESULTS — simulation ============ -->
-<section class="slide" id="results" data-step>
+<section class="slide" id="results" data-step data-stage="res">
   <div class="kicker rv">Results · simulation · 70 mm phantom</div>
-  <h2 class="mid rv d1">Same peak. A third of the width.</h2>
+  <div class="head2">
+    <h2 class="mid rv d1">Same peak. A third of the width.</h2>
+    <p class="ex rv d2">A finite-element model of the 70 mm salt-water phantom: same four electrodes, same current, only k changes. The width halves at k = 2 and drops by two thirds at k = 3.</p>
+  </div>
   <div class="maps3" style="margin-top:1.6rem">
     <div class="map k1 rv d1"><canvas id="mapR1" width="420" height="420"></canvas><div class="cap"><b>k = 1</b> · conventional TI</div></div>
     <div class="map k2 rv d2"><canvas id="mapR2" width="420" height="420"></canvas><div class="cap"><b>k = 2</b> · PM-TI</div></div>
@@ -665,9 +736,12 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 7 · LIVE SWEEP ============ -->
-<section class="slide" id="sweep" data-step>
+<section class="slide" id="sweep" data-step data-stage="res">
   <div class="kicker rv">Live · sweep along x · compare the envelope</div>
-  <h2 class="mid rv d1">Off-centre, the beat dies faster with k.</h2>
+  <div class="head2">
+    <h2 class="mid rv d1">Off-centre, the beat dies faster with k.</h2>
+    <p class="ex rv d2">A test point slides along the middle line. Each panel is the signal there, scaled to its own size so only the beat matters. At the centre all three beat fully; move away and k = 3 goes flat first.</p>
+  </div>
   <div class="sweep rv d2">
     <div class="col k1">
       <div class="map k1"><canvas class="swMap" data-k="1" width="360" height="360"></canvas></div>
@@ -694,9 +768,12 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 </section>
 
 <!-- ============ 8 · BENCH ============ -->
-<section class="slide" id="bench" data-step>
+<section class="slide" id="bench" data-step data-stage="res">
   <div class="kicker rv">Results · measurement</div>
-  <h2 class="mid rv d1">We built it. We measured it.</h2>
+  <div class="head2">
+    <h2 class="mid rv d1">We built it. We measured it.</h2>
+    <p class="ex rv d2">A 70 mm glass of salt water stands in for the head. An Arduino with two signal-generator chips makes the waveforms, two current sources drive the four electrodes, and an oscilloscope records the voltage at 37 points on a 10 mm grid — once for each k.</p>
+  </div>
   <div class="bench">
     <figure class="ph main rv wipe d1" style="margin:0">
       <img src="assets/img/bench_wide.jpg" alt="Bench test: saline phantom, probe, oscilloscope showing the 10 Hz beat">
@@ -704,21 +781,24 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
     </figure>
     <figure class="ph rv wipe d2" style="margin:0">
       <img src="assets/img/bench_probe.jpg" alt="Probe in the saline phantom">
-      <figcaption class="cap">probe · 10 mm pitch</figcaption>
+      <figcaption class="cap">probe · 10 mm grid</figcaption>
     </figure>
   </div>
   <div class="bench-facts rv d3">
     <div class="fact"><span>phantom</span><b>70 mm saline</b></div>
-    <div class="fact"><span>scan</span><b>7 × 7 · 49 points</b></div>
+    <div class="fact"><span>scan</span><b>37 points · 10 mm</b></div>
     <div class="fact"><span>carrier · beat</span><b>2005 Hz · 10 Hz</b></div>
     <div class="fact"><span>runs</span><b>k = 1 · 2 · 3</b></div>
   </div>
 </section>
 
 <!-- ============ 8b · SIM vs MEAS ============ -->
-<section class="slide" id="meas" data-step>
+<section class="slide" id="meas" data-step data-stage="res">
   <div class="kicker rv">Results · simulation vs. measurement</div>
-  <h2 class="mid rv d1">The phantom agrees.</h2>
+  <div class="head2">
+    <h2 class="mid rv d1">The phantom agrees.</h2>
+    <p class="ex rv d2">Top row: the computer model. Bottom row: the real phantom, measured point by point. Same shape, same trend — the higher k, the tighter the spot.</p>
+  </div>
   <div class="meas-wrap">
     <div class="meas-grid rv d2">
       <div></div>
@@ -743,8 +823,31 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   </div>
 </section>
 
-<!-- ============ 9 · CLOSE ============ -->
-<section class="slide close" id="end" data-step>
+<!-- ============ 9 · RECAP ============ -->
+<section class="slide" id="story" data-step data-stage="end">
+  <div class="kicker rv">The whole story · one screen</div>
+  <h2 class="mid rv d1">Three problems. Three answers.</h2>
+  <div class="story">
+    <div class="col rv d1">
+      <div class="sc p"><span>Problem · 01</span><b>The brain misfires</b><p>Deep circuits fire in the wrong rhythm, and medicine is not always enough.</p></div>
+      <div class="ar">↓</div>
+      <div class="sc"><span>Solution · 01</span><b>DBS</b><p>An electrode inside the target overrides the bad rhythm.</p></div>
+    </div>
+    <div class="col rv d2">
+      <div class="sc p"><span>Problem · 02</span><b>It needs surgery</b><p>The electrode goes through the skull and brain, and stays for life.</p></div>
+      <div class="ar">↓</div>
+      <div class="sc"><span>Solution · 02</span><b>TI</b><p>Two fast fields from the scalp; a slow beat where they meet.</p></div>
+    </div>
+    <div class="col rv d3">
+      <div class="sc p"><span>Problem · 03</span><b>The beat is wide</b><p>About 30 mm across — the neighbours are stimulated too.</p></div>
+      <div class="ar">↓</div>
+      <div class="sc ours"><span>Solution · 03 · ours</span><b>PM-TI</b><p>Same electrodes, a new waveform: k = 3 cuts the width by 69 % in simulation, and the bench agrees.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 · CLOSE ============ -->
+<section class="slide close" id="end" data-step data-stage="end">
   <div class="two" style="align-items:center; grid-template-columns:1.4fr .6fr">
     <div>
       <div class="kicker rv">PM-TI · phase-modulated temporal interference</div>
