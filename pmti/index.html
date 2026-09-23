@@ -357,17 +357,22 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .pinwrap{ height:auto; }
   .pin{ position:static; height:auto; overflow:visible; display:block; }
   .pin .inner{ display:flex; flex-direction:column; gap:0; padding:0 1.2rem 1.5rem; }
-  .pin .scene{ order:-1; position:sticky; top:54px; z-index:3; height:42vh; display:flex; justify-content:center; align-items:center;
+  .pin .scene{ order:-1; position:sticky; top:54px; z-index:3; height:40vh; height:40svh; display:flex; justify-content:center; align-items:center;
     padding:.8rem 0 .8rem; background:var(--bg); }
   .pin .scene::after{ content:""; position:absolute; left:0; right:0; top:100%; height:32px; pointer-events:none;
     background:linear-gradient(var(--bg), color-mix(in srgb, var(--bg) 0%, transparent)); }
   .pin .scene svg{ width:auto; height:100%; max-width:100%; }
   .pin .txt{ min-height:0; }
-  .pin .txt .st{ position:relative; inset:auto; transform:none; opacity:.25; pointer-events:auto; min-height:46vh;
+  .pin .txt .st{ position:relative; inset:auto; transform:none; opacity:.25; pointer-events:auto; min-height:42vh;
     display:flex; flex-direction:column; justify-content:center; padding:1.6rem 0; }
   .pin .txt .st.on{ opacity:1; }
   .pin .txt h2.big{ font-size:clamp(1.8rem, 7.4vw, 2.8rem); }
   .meas-wrap, .close-grid{ grid-template-columns:1fr; }
+  /* phones read it as an article: sections as tall as their content, quick reveals */
+  .slide{ min-height:0; padding:4.4rem 1.2rem 2.4rem; }
+  .hero{ min-height:100svh; }
+  .rv{ transform:translateY(12px); transition-duration:.45s; }
+  .rv.d1, .rv.d2, .rv.d3, .rv.d4, .rv.d5{ transition-delay:0s; }
   .story{ gap:.5rem; }
   .story .col + .col::before{ content:"↓"; text-align:center; font-family:var(--font-mono); font-size:.8rem; opacity:.5; line-height:1; }
   .qrcard{ max-width:260px; }
@@ -380,7 +385,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .meas-grid{ grid-template-columns:auto 1fr 1fr 1fr; }
 }
 @media (max-width: 560px){
-  .dis-grid, .maps3, .stats, .sweep, .scopes3 .row{ grid-template-columns:1fr; }
+  .dis-grid, .stats, .sweep, .scopes3 .row{ grid-template-columns:1fr; }
   .hero h1{ font-size:5.2rem; }
   math{ font-size:1.05rem; }
   .eq{ padding:1.6rem .7rem .7rem; }
@@ -388,6 +393,11 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .head2 h2.big, h2.big{ font-size:clamp(2rem, 8.6vw, 2.8rem); }
   .sub{ font-size:1.05rem; }
   /* bench: keep both photos side by side, drop the cramped captions */
+  .dis{ aspect-ratio:16/10; }
+  .dis img{ padding:1.8rem .8rem 2.6rem; }
+  .maps3{ grid-template-columns:repeat(3,1fr); gap:.5rem; }
+  .maps3 .map .cap{ font-size:.58rem; letter-spacing:.06em; }
+  .maps3 .map .cap b{ font-size:.9rem; display:block; }
   .bench .ph .cap{ font-size:.54rem; letter-spacing:.06em; padding:.4rem .5rem; }
   .bench .ph:not(.main) .cap{ display:none; }
   .bench-facts .fact b{ font-size:1.05rem; white-space:normal; }
@@ -396,7 +406,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .sweep .col{ display:contents; }
   .sweep .col .map{ grid-row:1; }
   .sweep .col.k1 .map{ grid-column:1; } .sweep .col.k2 .map{ grid-column:2; } .sweep .col.k3 .map{ grid-column:3; }
-  .sweep .col .scope{ grid-column:1 / -1; height:112px; }
+  .sweep .col .scope{ grid-column:1 / -1; height:128px; }
   .sweep .col .rd{ grid-column:1 / -1; margin-bottom:.4rem; }
   .sweep .col.k1 .scope{ grid-row:2; } .sweep .col.k1 .rd{ grid-row:3; }
   .sweep .col.k2 .scope{ grid-row:4; } .sweep .col.k2 .rd{ grid-row:5; }
@@ -404,6 +414,13 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .ctl{ flex-wrap:wrap; }
   /* scope readouts that would collide with the title move to the bottom edge */
   #penR, .rawline .r{ top:auto; bottom:.45rem; }
+  #scProf ~ .r{ display:none; }                 /* "peak change" — the paragraph above says it */
+  /* "Turn k up": title and text, then the map, then the numbers and the slider — so the map moves in view of the slider */
+  #knob .two > div:first-child{ display:contents; }
+  #knob .two{ gap:1rem; }
+  #knob .two > .rv:last-child{ order:1; }
+  #knob .knob-nums, #knob .kctl{ order:2; margin-top:0; }
+  #knob .map canvas{ max-width:300px; margin:0 auto; }
   .close .stats{ grid-template-columns:repeat(3,1fr); gap:.6rem; }
   .knob-nums{ gap:.8rem; }
   .stat{ padding:.8rem .6rem; }

@@ -13,7 +13,8 @@ const KCOL = { 1: '--k1', 2: '--k2', 3: '--k3' };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const phone = matchMedia('(max-width: 900px)');   // below this, pinned scenes are a sticky figure + scrolling text
 
-const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const cssCache = new Map();
+const css = (v) => { let c = cssCache.get(v); if (c == null) { c = getComputedStyle(document.documentElement).getPropertyValue(v).trim(); cssCache.set(v, c); } return c; };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -26,7 +27,7 @@ themeBtn.addEventListener('click', () => {
   const ink = !document.documentElement.classList.contains('ink');
   document.documentElement.classList.toggle('ink', ink);
   try { localStorage.setItem('hkk-theme', ink ? 'ink' : 'paper'); } catch (e) {}
-  invalidateAll();
+  cssCache.clear(); invalidateAll();
 });
 
 /* --------------------------------------------------------- field helpers */
@@ -174,9 +175,13 @@ function drawPixelMap(cv, m, norm) {
 }
 
 /* ------------------------------------------------- responsive scope canvas */
-function fitCanvas(cv) {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = cv.clientWidth || cv.parentElement.clientWidth, h = cv.clientHeight || cv.parentElement.clientHeight;
+// CSS sizes are cached: reading clientWidth right after a text update forced a layout on every frame
+const sizeCache = new WeakMap();
+function fitCanvas(cv, maxDpr) {
+  const dpr = Math.min(maxDpr || 2, window.devicePixelRatio || 1);
+  let sz = sizeCache.get(cv);
+  if (!sz || !sz[0]) { sz = [cv.clientWidth || cv.parentElement.clientWidth, cv.clientHeight || cv.parentElement.clientHeight]; sizeCache.set(cv, sz); }
+  const [w, h] = sz;
   if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
   const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w, h };
@@ -218,13 +223,14 @@ function drawBeat(ctx, w, h, a, b, k, T, opts) {
     ctx.closePath(); ctx.fill(); }
   // carrier (aliased on purpose: it is ~400 cycles wide — reads as a dense band)
   const col = opts.color || ecol;
-  ctx.lineWidth = .6; ctx.strokeStyle = col; ctx.globalAlpha = .38; ctx.beginPath();
-  const n = Math.round((xe - x0) * 4);
-  for (let i = 0; i <= n; i++) {
-    const x = x0 + (xe - x0) * i / n, t = (x - x0) / (x1 - x0) * T, v = sumT(a, b, k, t);
-    i ? ctx.lineTo(x, ym - v * sy) : ctx.moveTo(x, ym - v * sy);
-  }
-  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = col; ctx.globalAlpha = .38; ctx.beginPath();
+  { const m = Math.round(xe - x0), dt = T / (x1 - x0);
+    for (let i = 0; i < m; i++) {
+      let lo = Infinity, hi = -Infinity;
+      for (let s = 0; s <= 4; s++) { const v = sumT(a, b, k, (i + s / 4) * dt); if (v < lo) lo = v; if (v > hi) hi = v; }
+      ctx.rect(x0 + i, ym - hi * sy, 1, Math.max(.6, (hi - lo) * sy));
+    } }
+  ctx.fill(); ctx.globalAlpha = 1;
   // envelope
   ctx.lineWidth = 2.2; ctx.strokeStyle = ecol;
   for (const s of [1, -1]) {
@@ -243,14 +249,20 @@ function drawBeat(ctx, w, h, a, b, k, T, opts) {
 /* ------------------------------------------------------ animation registry */
 const anims = [];                 // {el, draw(t), visible}
 const io = new IntersectionObserver((es) => es.forEach(e => { const a = anims.find(x => x.el === e.target); if (a) a.visible = e.isIntersecting; }), { rootMargin: '80px' });
-function register(el, draw) { const a = { el, draw, visible: false, dirty: true }; anims.push(a); io.observe(el); return a; }
-let t0 = performance.now();
+function register(el, draw, still) { const a = { el, draw, still: !!still, visible: false, dirty: true }; anims.push(a); io.observe(el); return a; }
+let t0 = performance.now(), lastLive = 0, scrollBusy = 0;
+window.addEventListener('scroll', () => { scrollBusy = performance.now() + 160; }, { passive: true });
 function loop(now) {
-  const t = (now - t0) / 1000;
-  for (const a of anims) if (a.visible || a.dirty) { a.draw(t); a.dirty = false; }
   requestAnimationFrame(loop);
+  const t = (now - t0) / 1000;
+  const live = !phone.matches || (now > scrollBusy && now - lastLive > 30);
+  if (live) lastLive = now;
+  for (const a of anims) {
+    if (a.dirty) { a.draw(t); a.dirty = false; }
+    else if (live && a.visible && !a.still) a.draw(t);
+  }
 }
-function invalidateAll() { for (const a of anims) a.dirty = true; staticDraws.forEach(f => f()); }
+function invalidateAll() { $$('canvas').forEach(c => sizeCache.delete(c)); for (const a of anims) a.dirty = true; staticDraws.forEach(f => f()); }
 const staticDraws = [];
 let lastW = innerWidth;
 window.addEventListener('resize', () => { if (innerWidth !== lastW) { lastW = innerWidth; invalidateAll(); } buildSteps(); reveal(); });
@@ -261,10 +273,10 @@ window.addEventListener('resize', () => { if (innerWidth !== lastW) { lastW = in
 let pending = $$('.rv');
 function reveal() {
   if (!pending.length) return;
-  const vh = innerHeight;
+  const vh = innerHeight, lim = phone.matches ? .98 : .88;
   pending = pending.filter(el => {
     const r = el.getBoundingClientRect();
-    if (r.top < vh * .88 && r.bottom > vh * .02) { el.classList.add('in'); return false; }
+    if (r.top < vh * lim && r.bottom > vh * .02) { el.classList.add('in'); return false; }
     return true;
   });
 }
@@ -371,7 +383,9 @@ function makeScene(wrap, fn) {
   const phoneP = () => {
     const line = innerHeight * .72, pts = [];
     txt.forEach((el, i) => { const r = el.getBoundingClientRect(); pts.push([scrollY + r.top + r.height / 2 - line, mids[i]]); });
-    pts.unshift([pts[0][0] - innerHeight * .55, 0]); pts.push([pts[pts.length - 1][0] + innerHeight * .3, 1]);
+    // start drawing as soon as the figure scrolls into view, so it never arrives blank
+    pts.unshift([Math.min(scrollY + wrap.getBoundingClientRect().top - innerHeight * .9, pts[0][0] - 1), 0]);
+    pts.push([pts[pts.length - 1][0] + innerHeight * .3, 1]);
     const y = scrollY;
     if (y <= pts[0][0]) return 0;
     for (let i = 1; i < pts.length; i++) if (y <= pts[i][0]) { const [y0, p0] = pts[i - 1], [y1, p1] = pts[i]; return p0 + (p1 - p0) * (y - y0) / (y1 - y0); }
@@ -425,7 +439,7 @@ function makeScene(wrap, fn) {
 {
   const cv = $('#heroWave');
   register(cv, (t) => {
-    const { ctx, w, h } = fitCanvas(cv);
+    const { ctx, w, h } = fitCanvas(cv, phone.matches ? 1 : 2);
     ctx.clearRect(0, 0, w, h);
     const ym = h * .43, A = h * .2, n = Math.round(w / 2);
     const sig = css('--sig'), fg = css('--fg');   // plain hex in the stylesheet, so '+ alpha' works
@@ -536,7 +550,7 @@ function makeScene(wrap, fn) {
       ctx.fillText(`${pk.w.toFixed(1)} mm`, x1 - 4, y0 + 4 + (kk - 1) * 14);
     }
   };
-  staticDraws.push(drawProf); register(sc, drawProf);
+  staticDraws.push(drawProf); register(sc, drawProf, true);
 }
 
 /* ------------------------------------------------------------- sweep */
@@ -621,15 +635,20 @@ function makeScene(wrap, fn) {
     const v = m.centre.Ey_Vpm, n = v.length; let mx = 0; for (const q of v) mx = Math.max(mx, Math.abs(q));
     const x0 = 10, x1 = w - 10, y0 = 28, y1 = h - 8, ym = (y0 + y1) / 2, sy = (y1 - y0) / 2 / mx * .95;
     ctx.strokeStyle = css('--fg'); ctx.globalAlpha = .2; ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x1, ym); ctx.stroke(); ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#F2A138'; ctx.lineWidth = .8; ctx.beginPath();
-    for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * i / (n - 1); i ? ctx.lineTo(x, ym - v[i] * sy) : ctx.moveTo(x, ym - v[i] * sy); }
-    ctx.stroke();
+    ctx.fillStyle = '#F2A138'; ctx.beginPath();
+    const cols = Math.round(x1 - x0);
+    for (let c = 0; c < cols; c++) {
+      const i0 = Math.floor(c / cols * (n - 1)), i1 = Math.max(i0 + 1, Math.floor((c + 1) / cols * (n - 1)));
+      let lo = Infinity, hi = -Infinity; for (let i = i0; i <= i1; i++) { if (v[i] < lo) lo = v[i]; if (v[i] > hi) hi = v[i]; }
+      ctx.rect(x0 + c, ym - hi * sy, 1, Math.max(.8, (hi - lo) * sy));
+    }
+    ctx.fill();
   };
-  staticDraws.push(drawRaw); register(sc, drawRaw);
+  staticDraws.push(drawRaw); register(sc, drawRaw, true);
 }
 
 /* --------------------------------------------------------------- go */
 onScroll(); scenes.forEach(s => { s.p = -1; s.update(); });
-window.addEventListener('load', () => { onScroll(); setTimeout(onScroll, 400); });
+window.addEventListener('load', () => { $$('canvas').forEach(c => sizeCache.delete(c)); anims.forEach(a => { a.dirty = true; }); onScroll(); setTimeout(onScroll, 400); });
 requestAnimationFrame(loop);
 })();
