@@ -11,6 +11,7 @@ const R = G.R, NG = G.NG, SC = G.scale;
 const F1 = 2000, F2 = 2010, DF = 10, FC = 2005;
 const KCOL = { 1: '--k1', 2: '--k2', 3: '--k3' };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const phone = matchMedia('(max-width: 900px)');   // below this, pinned scenes are a sticky figure + scrolling text
 
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -251,7 +252,8 @@ function loop(now) {
 }
 function invalidateAll() { for (const a of anims) a.dirty = true; staticDraws.forEach(f => f()); }
 const staticDraws = [];
-window.addEventListener('resize', () => { invalidateAll(); buildSteps(); reveal(); });
+let lastW = innerWidth;
+window.addEventListener('resize', () => { if (innerWidth !== lastW) { lastW = innerWidth; invalidateAll(); } buildSteps(); reveal(); });
 
 /* ------------------------------------------------------------ reveal + nav */
 // reveal on scroll: a plain viewport test on every scroll frame (an IntersectionObserver never fired
@@ -315,7 +317,7 @@ let steps = [];
 function buildSteps() {
   steps = [];
   $$('[data-step]').forEach(el => steps.push(el.offsetTop));
-  $$('.pinwrap[data-scene]').forEach(w => (w.dataset.steps || '0').split(',').map(Number).forEach(f => steps.push(w.offsetTop + f * (w.offsetHeight - innerHeight))));
+  if (!phone.matches) $$('.pinwrap[data-scene]').forEach(w => (w.dataset.steps || '0').split(',').map(Number).forEach(f => steps.push(w.offsetTop + f * (w.offsetHeight - innerHeight))));
   steps.sort((a, b) => a - b);
 }
 buildSteps(); setTimeout(buildSteps, 600);
@@ -363,10 +365,22 @@ const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
 function makeScene(wrap, fn) {
   const txt = $$('.st', wrap);
   const ats = txt.map(s => parseFloat(s.dataset.at));
+  const mids = ats.map((a, i) => (a + (i + 1 < ats.length ? ats[i + 1] : 1)) / 2);
+  // phone: progress follows the text — each step is at the middle of its range when its centre crosses
+  // the reading line (below the sticky figure), 0 before the first step arrives, 1 after the last one leaves
+  const phoneP = () => {
+    const line = innerHeight * .72, pts = [];
+    txt.forEach((el, i) => { const r = el.getBoundingClientRect(); pts.push([scrollY + r.top + r.height / 2 - line, mids[i]]); });
+    pts.unshift([pts[0][0] - innerHeight * .55, 0]); pts.push([pts[pts.length - 1][0] + innerHeight * .3, 1]);
+    const y = scrollY;
+    if (y <= pts[0][0]) return 0;
+    for (let i = 1; i < pts.length; i++) if (y <= pts[i][0]) { const [y0, p0] = pts[i - 1], [y1, p1] = pts[i]; return p0 + (p1 - p0) * (y - y0) / (y1 - y0); }
+    return 1;
+  };
   const s = {
     wrap, p: -1,
     update() {
-      const p = clamp((scrollY - wrap.offsetTop) / (wrap.offsetHeight - innerHeight), 0, 1);
+      const p = phone.matches ? phoneP() : clamp((scrollY - wrap.offsetTop) / (wrap.offsetHeight - innerHeight), 0, 1);
       if (Math.abs(p - this.p) < 0.0005) return; this.p = p;
       let on = 0; ats.forEach((a, i) => { if (p >= a) on = i; });
       txt.forEach((el, i) => el.classList.toggle('on', i === on));
@@ -384,11 +398,11 @@ function makeScene(wrap, fn) {
   const ipgPath = $('#ipg path');
   makeScene(w, (p) => {
     setDraw(head, seg(p, 0, .16)); setDraw(sh, seg(p, .12, .22)); setDraw(brain, seg(p, .08, .26)); setDraw(sul, seg(p, .2, .3));
-    const t = seg(p, .22, .32); tRing.setAttribute('opacity', t); tDot.setAttribute('opacity', t); tLbl.setAttribute('opacity', t);
-    setDraw(lead, seg(p, .4, .56)); contacts.setAttribute('opacity', seg(p, .55, .6));
+    const t = seg(p, .22, .32); tRing.style.opacity = t; tDot.style.opacity = t; tLbl.style.opacity = t;
+    setDraw(lead, seg(p, .4, .56)); contacts.style.opacity = seg(p, .55, .6);
     xray.classList.toggle('on', p >= .46);
-    const g = seg(p, .62, .76); setDraw(ipgPath, g); ipg.setAttribute('opacity', g);
-    burr.setAttribute('opacity', seg(p, .78, .86));
+    const g = seg(p, .62, .76); setDraw(ipgPath, g); ipg.style.opacity = g;
+    burr.style.opacity = seg(p, .78, .86);
     tRing.setAttribute('r', 14 + 3 * Math.sin(p * 40));
   });
 }
@@ -399,9 +413,9 @@ function makeScene(wrap, fn) {
   const f1 = $$('#f1 path'), f2 = $$('#f2 path'), el1 = $('#el1'), el2 = $('#el2'), hot = $('#hotspot'), beat = $('#tiBeat');
   const sc = makeScene(w, (p) => {
     setDraw(sk, seg(p, 0, .18)); setDraw(hd, seg(p, .14, .2)); setDraw(br, seg(p, .06, .24)); setDraw(fi, seg(p, .18, .28));
-    el1.setAttribute('opacity', seg(p, .3, .36)); f1.forEach((q, i) => setDraw(q, seg(p, .32 + i * .03, .48 + i * .03)));
-    el2.setAttribute('opacity', seg(p, .42, .48)); f2.forEach((q, i) => setDraw(q, seg(p, .44 + i * .03, .6 + i * .03)));
-    hot.setAttribute('opacity', seg(p, .66, .8)); beat.setAttribute('opacity', seg(p, .74, .82));
+    el1.style.opacity = seg(p, .3, .36); f1.forEach((q, i) => setDraw(q, seg(p, .32 + i * .03, .48 + i * .03)));
+    el2.style.opacity = seg(p, .42, .48); f2.forEach((q, i) => setDraw(q, seg(p, .44 + i * .03, .6 + i * .03)));
+    hot.style.opacity = seg(p, .66, .8); beat.style.opacity = seg(p, .74, .82);
   });
   // hotspot breathing
   register($('#tiScene'), (t) => { const s = 1 + .07 * Math.sin(2 * Math.PI * 1.2 * t); hot.setAttribute('transform', `scale(${s} ${1 / s * s})`); });

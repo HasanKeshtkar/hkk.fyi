@@ -36,7 +36,7 @@ html.ink{ --bg:var(--ink); --fg:var(--paper); --k1:#5B86F0; --k2:#E15AA6; --k3:#
 html{ scroll-behavior:smooth; overflow-x:hidden; }
 @media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto; } }
 body{
-  margin:0; background:var(--bg); color:var(--fg);
+  margin:0; background:var(--bg); color:var(--fg); overflow-x:clip; touch-action:manipulation;
   font-family:var(--font-sans); font-size:17px; line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
@@ -197,6 +197,11 @@ math[display="block"]{ margin:.35rem 0; }
 .two{ display:grid; grid-template-columns:1fr 1fr; gap:2.4rem; align-items:center; }
 .two.wide-r{ grid-template-columns:.9fr 1.1fr; }
 .two.wide-l{ grid-template-columns:1.1fr .9fr; }
+.close-grid{ align-items:center; grid-template-columns:1.4fr .6fr; }
+/* grid children may shrink below their content (a wide equation must not widen the page) */
+.two > *, .pmti-grid > *, .head2 > *, .meas-wrap > *, .scopes3 .row > *, .pin .inner > *{ min-width:0; }
+.eq{ overflow-x:auto; }
+.mrow{ display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:.2rem 1.1rem; margin:.35rem 0; }
 
 /* waveform panels */
 .scope{ position:relative; border:1.5px solid color-mix(in srgb, var(--fg) 30%, transparent); border-radius:6px; background:color-mix(in srgb, var(--bg) 96%, var(--fg)); overflow:hidden; }
@@ -346,16 +351,31 @@ math[display="block"]{ margin:.35rem 0; }
 footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-family:var(--font-mono); font-size:.64rem; letter-spacing:.06em; opacity:.6; line-height:1.8; border-top:1px solid color-mix(in srgb, var(--fg) 18%, transparent); }
 
 /* ================= responsive ================= */
+@media (hover: none){ .kbd{ display:none; } }
 @media (max-width: 900px){
+  /* pinned scenes become "sticky figure on top, text scrolls underneath" */
+  .pinwrap{ height:auto; }
+  .pin{ position:static; height:auto; overflow:visible; display:block; }
+  .pin .inner{ display:flex; flex-direction:column; gap:0; padding:0 1.2rem 1.5rem; }
+  .pin .scene{ order:-1; position:sticky; top:54px; z-index:3; height:42vh; display:flex; justify-content:center; align-items:center;
+    padding:.8rem 0 .8rem; background:var(--bg); }
+  .pin .scene::after{ content:""; position:absolute; left:0; right:0; top:100%; height:32px; pointer-events:none;
+    background:linear-gradient(var(--bg), color-mix(in srgb, var(--bg) 0%, transparent)); }
+  .pin .scene svg{ width:auto; height:100%; max-width:100%; }
+  .pin .txt{ min-height:0; }
+  .pin .txt .st{ position:relative; inset:auto; transform:none; opacity:.25; pointer-events:auto; min-height:46vh;
+    display:flex; flex-direction:column; justify-content:center; padding:1.6rem 0; }
+  .pin .txt .st.on{ opacity:1; }
+  .pin .txt h2.big{ font-size:clamp(1.8rem, 7.4vw, 2.8rem); }
+  .meas-wrap, .close-grid{ grid-template-columns:1fr; }
+  .story{ gap:.5rem; }
+  .story .col + .col::before{ content:"↓"; text-align:center; font-family:var(--font-mono); font-size:.8rem; opacity:.5; line-height:1; }
+  .qrcard{ max-width:260px; }
   .pin .inner, .two, .two.wide-r, .two.wide-l, .pmti-grid{ grid-template-columns:1fr; }
   .bench-facts{ grid-template-columns:1fr 1fr; }
-  .pinwrap{ height:260vh; }
-  .pin .txt{ min-height:19rem; }
   .head2, .story{ grid-template-columns:1fr; }
   .dis-grid, .maps3, .stats, .sweep{ grid-template-columns:1fr 1fr; }
-  .xray{ display:none; }                       /* no room next to the text in a pinned scene */
-  .pin .inner{ gap:1rem; padding-top:4.6rem; }
-  .pin .scene svg{ max-height:38vh; }
+  .xray{ display:none; }                       /* no room beside the text in a pinned scene */
   .nav{ display:none; }
   .meas-grid{ grid-template-columns:auto 1fr 1fr 1fr; }
 }
@@ -363,7 +383,30 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .dis-grid, .maps3, .stats, .sweep, .scopes3 .row{ grid-template-columns:1fr; }
   .hero h1{ font-size:5.2rem; }
   math{ font-size:1.05rem; }
-  .pin .txt{ min-height:22.5rem; }
+  .eq{ padding:1.6rem .7rem .7rem; }
+  h2.mid{ font-size:clamp(1.7rem, 7.4vw, 2.4rem); }
+  .head2 h2.big, h2.big{ font-size:clamp(2rem, 8.6vw, 2.8rem); }
+  .sub{ font-size:1.05rem; }
+  /* bench: keep both photos side by side, drop the cramped captions */
+  .bench .ph .cap{ font-size:.54rem; letter-spacing:.06em; padding:.4rem .5rem; }
+  .bench .ph:not(.main) .cap{ display:none; }
+  .bench-facts .fact b{ font-size:1.05rem; white-space:normal; }
+  /* sweep: the three maps side by side, the three scopes stacked under them */
+  .sweep{ grid-template-columns:repeat(3,1fr); gap:.5rem .6rem; }
+  .sweep .col{ display:contents; }
+  .sweep .col .map{ grid-row:1; }
+  .sweep .col.k1 .map{ grid-column:1; } .sweep .col.k2 .map{ grid-column:2; } .sweep .col.k3 .map{ grid-column:3; }
+  .sweep .col .scope{ grid-column:1 / -1; height:112px; }
+  .sweep .col .rd{ grid-column:1 / -1; margin-bottom:.4rem; }
+  .sweep .col.k1 .scope{ grid-row:2; } .sweep .col.k1 .rd{ grid-row:3; }
+  .sweep .col.k2 .scope{ grid-row:4; } .sweep .col.k2 .rd{ grid-row:5; }
+  .sweep .col.k3 .scope{ grid-row:6; } .sweep .col.k3 .rd{ grid-row:7; }
+  .ctl{ flex-wrap:wrap; }
+  /* scope readouts that would collide with the title move to the bottom edge */
+  #penR, .rawline .r{ top:auto; bottom:.45rem; }
+  .close .stats{ grid-template-columns:repeat(3,1fr); gap:.6rem; }
+  .knob-nums{ gap:.8rem; }
+  .stat{ padding:.8rem .6rem; }
 }
 </style>
 </head>
@@ -415,14 +458,14 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   <div class="kicker rv">B.Sc. final project · University of Tehran · ICEE 2026</div>
   <h1 class="rv d1">PM<span class="dash">-</span>TI</h1>
   <p class="sub rv d2">Sharper deep-brain stimulation.<br>No surgery. No new hardware.</p>
-  <p class="ex rv d3">My B.Sc. project, told as a chain: a problem, its answer, the new problem that answer brings — until the last answer, which is ours. Scroll, or use the arrow keys.</p>
+  <p class="ex rv d3">My B.Sc. project, told as a chain: a problem, its answer, the new problem that answer brings — until the last answer, which is ours. Scroll to follow it<span class="kbd">, or use the arrow keys</span>.</p>
   <div class="meta rv d3">
     <div>Student<b>Hassan Keshtkar</b></div>
     <div>Supervisor<b>Dr. Hoda Ameri</b></div>
     <div>School<b>ECE · University of Tehran</b></div>
     <div>Paper<b>ICEE 2026</b></div>
   </div>
-  <div class="cue"><i></i> scroll · or press →</div>
+  <div class="cue"><i></i> scroll<span class="kbd"> · or press →</span></div>
 </section>
 
 <!-- ============ 1 · PROBLEM 01 — the disease ============ -->
@@ -605,13 +648,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
       <h2 class="mid rv d1">Two frequencies, one beat.</h2>
       <div class="eqs">
         <div class="eq rv d2"><span class="n">TI · 1</span>
-          <math display="block"><mrow>
-            <msub><mi>s</mi><mn>1</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>1</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mn>1</mn></msub><mi>t</mi><mo stretchy="false">)</mo>
-            <mo>,</mo><mspace width="1.2em"/>
-            <msub><mi>s</mi><mn>2</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>2</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mn>2</mn></msub><mi>t</mi><mo stretchy="false">)</mo>
-            <mo>,</mo><mspace width="1.2em"/>
-            <msub><mi>ω</mi><mn>2</mn></msub><mo>=</mo><msub><mi>ω</mi><mn>1</mn></msub><mo>+</mo><mi>Δ</mi><mi>ω</mi>
-          </mrow></math>
+          <div class="mrow"><math displaystyle="true"><mrow><msub><mi>s</mi><mn>1</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>1</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mn>1</mn></msub><mi>t</mi><mo stretchy="false">)</mo><mo>,</mo></mrow></math><math displaystyle="true"><mrow><msub><mi>s</mi><mn>2</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>2</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mn>2</mn></msub><mi>t</mi><mo stretchy="false">)</mo><mo>,</mo></mrow></math><math displaystyle="true"><mrow><msub><mi>ω</mi><mn>2</mn></msub><mo>=</mo><msub><mi>ω</mi><mn>1</mn></msub><mo>+</mo><mi>Δ</mi><mi>ω</mi></mrow></math></div>
         </div>
         <div class="eq rv d3"><span class="n">TI · 2 · envelope</span>
           <math display="block"><mrow>
@@ -663,16 +700,8 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
     <div>
       <div class="eqs" style="margin-top:.6rem">
         <div class="eq rv d2"><span class="n">PM-TI · 1</span>
-          <math display="block"><mrow>
-            <msub><mi>s</mi><mn>1</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>1</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>c</mi></msub><mi>t</mi><mo>+</mo><mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo stretchy="false">)</mo>
-            <mo>,</mo><mspace width="1em"/>
-            <msub><mi>s</mi><mn>2</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>2</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>c</mi></msub><mi>t</mi><mo>−</mo><mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo stretchy="false">)</mo>
-          </mrow></math>
-          <math display="block"><mrow>
-            <mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><mi>arccos</mi><mo>&#x2061;</mo><mrow><mo>(</mo><mfrac><mrow><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>m</mi></msub><mi>t</mi><mo stretchy="false">)</mo></mrow><mi>k</mi></mfrac><mo>)</mo></mrow>
-            <mo>,</mo><mspace width="1em"/><mi>k</mi><mo>≥</mo><mn>1</mn>
-            <mo>,</mo><mspace width="1em"/><msub><mi>ω</mi><mi>m</mi></msub><mo>≪</mo><msub><mi>ω</mi><mi>c</mi></msub>
-          </mrow></math>
+          <div class="mrow"><math displaystyle="true"><mrow><msub><mi>s</mi><mn>1</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>1</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>c</mi></msub><mi>t</mi><mo>+</mo><mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo stretchy="false">)</mo><mo>,</mo></mrow></math><math displaystyle="true"><mrow><msub><mi>s</mi><mn>2</mn></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>E</mi><mn>2</mn></msub><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>c</mi></msub><mi>t</mi><mo>−</mo><mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo stretchy="false">)</mo></mrow></math></div>
+          <div class="mrow"><math displaystyle="true"><mrow><mi>φ</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo><mo>=</mo><mi>arccos</mi><mo>&#x2061;</mo><mrow><mo>(</mo><mfrac><mrow><mi>cos</mi><mo>&#x2061;</mo><mo stretchy="false">(</mo><msub><mi>ω</mi><mi>m</mi></msub><mi>t</mi><mo stretchy="false">)</mo></mrow><mi>k</mi></mfrac><mo>)</mo></mrow><mo>,</mo></mrow></math><math displaystyle="true"><mrow><mi>k</mi><mo>≥</mo><mn>1</mn><mo>,</mo></mrow></math><math displaystyle="true"><mrow><msub><mi>ω</mi><mi>m</mi></msub><mo>≪</mo><msub><mi>ω</mi><mi>c</mi></msub></mrow></math></div>
         </div>
       </div>
       <p class="ex rv d3">Both electrode pairs now share <b>one frequency</b>. Their phases are pushed in opposite directions by φ(t), and the number <b>k</b> sets how hard. With k = 1 this is exactly classic TI. With k &gt; 1 the beat stays the same where the two fields are equal — at the target — and shrinks wherever they are not.</p>
@@ -848,7 +877,7 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
 
 <!-- ============ 10 · CLOSE ============ -->
 <section class="slide close" id="end" data-step data-stage="end">
-  <div class="two" style="align-items:center; grid-template-columns:1.4fr .6fr">
+  <div class="two close-grid">
     <div>
       <div class="kicker rv">PM-TI · phase-modulated temporal interference</div>
       <h2 class="big rv d1">Sharper. Non-invasive.<br>Software-only.</h2>
