@@ -98,11 +98,11 @@ html:not(.ink) .theme-ink{ display:none; }
 }
 .slide.full{ max-width:none; padding-left:0; padding-right:0; }
 .kicker{
-  font-family:var(--font-mono); font-size:.8rem; letter-spacing:.18em; text-transform:uppercase;
-  color:var(--sig); margin:0 0 1.1rem; display:flex; align-items:center; gap:.8rem;
+  font-family:var(--font-mono); font-size:.98rem; font-weight:500; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--e1); margin:0 0 1.1rem; display:flex; align-items:center; gap:.8rem;
 }
-.kicker::before{ content:""; width:34px; height:2px; background:var(--sig); }
-.kicker.alert{ color:var(--alert); } .kicker.alert::before{ background:var(--alert); }
+.kicker::before{ content:""; flex:none; align-self:flex-start; margin-top:calc(.75em - 1.5px); width:38px; height:3px; background:currentColor; }
+.kicker.alert{ color:var(--alert); }
 h1,h2,h3{ margin:0; font-weight:700; letter-spacing:-.02em; line-height:1.02; }
 h2.big{ font-size:clamp(2.3rem, 6vw, 5.2rem); max-width:16ch; }
 h2.mid{ font-size:clamp(1.9rem, 4.2vw, 3.4rem); max-width:22ch; }
@@ -325,7 +325,7 @@ math[display="block"]{ margin:.35rem 0; }
 .story .col{ display:grid; gap:.5rem; align-content:start; }
 .story .sc{ padding:1rem 1.1rem 1.1rem; border:1.5px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top:3px solid var(--sig); border-radius:6px; background:color-mix(in srgb, var(--bg) 96%, var(--fg)); }
 .story .sc.p{ border-top-color:var(--alert); }
-.story .sc span{ display:block; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--sig); }
+.story .sc span{ display:block; font-family:var(--font-mono); font-size:.76rem; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color:var(--e1); }
 .story .sc.p span{ color:var(--alert); }
 .story .sc b{ display:block; font-size:1.3rem; letter-spacing:-.01em; margin:.3rem 0 .25rem; }
 .story .sc p{ margin:0; font-size:.95rem; line-height:1.5; opacity:.8; }
@@ -388,6 +388,8 @@ footer{ max-width:var(--maxw); margin:0 auto; padding:2rem 1.2rem 3rem; font-fam
   .dis-grid, .stats, .sweep, .scopes3 .row{ grid-template-columns:1fr; }
   .hero h1{ font-size:5.2rem; }
   math{ font-size:1.05rem; }
+  .kicker{ font-size:.84rem; letter-spacing:.11em; gap:.6rem; }
+  .kicker::before{ width:26px; }
   .eq{ padding:1.6rem .7rem .7rem; }
   h2.mid{ font-size:clamp(1.7rem, 7.4vw, 2.4rem); }
   .head2 h2.big, h2.big{ font-size:clamp(2rem, 8.6vw, 2.8rem); }
