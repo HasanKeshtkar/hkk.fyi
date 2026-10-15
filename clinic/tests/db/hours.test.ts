@@ -162,7 +162,7 @@ describe('schedule service', () => {
 
   it('creates a missing weekday row', async () => {
     await pool.query('delete from weekly_schedule where weekday = 2');
-    const tue = await setWeeklyDay(db, doctor, 2, { isOpen: true, startTime: '10:00', endTime: '24:00' }, 1);
+    const tue = await setWeeklyDay(db, doctor, 2, { isOpen: true, startTime: '10:00', endTime: '24:00' }, null);
     expect(tue).toMatchObject({ weekday: 2, isOpen: true, startTime: '10:00', endTime: '24:00', version: 1, updatedBy: doctor.id });
     expect((await auditRows('weekly_schedule'))[0]).toMatchObject({ action: 'create', before: null });
   });
@@ -234,6 +234,43 @@ describe('schedule service', () => {
     const gone = await upsertOverride(db, secretary, SAT, { isOpen: false, note: 'x' }, 2).catch((e: unknown) => e);
     expect(gone).toBeInstanceOf(ScheduleConflictError);
     expect((gone as ScheduleConflictError).current).toBeNull();
+  });
+
+  it('a re-created override never reuses a removed one’s version (no silent overwrite from an old screen)', async () => {
+    const seenByDoctor = await upsertOverride(db, doctor, SAT, { isOpen: false, note: 'تعطیل' }, null);
+    await deleteOverride(db, secretary, SAT, seenByDoctor.version);
+    const recreated = await upsertOverride(db, secretary, SAT, { isOpen: true, startTime: '09:00', endTime: '13:00' }, null);
+    expect(recreated.version).not.toBe(seenByDoctor.version);
+
+    const edit = await upsertOverride(db, doctor, SAT, { isOpen: false, note: 'ویرایش' }, seenByDoctor.version).catch(
+      (e: unknown) => e,
+    );
+    expect(edit).toBeInstanceOf(ScheduleConflictError);
+    const del = await deleteOverride(db, doctor, SAT, seenByDoctor.version).catch((e: unknown) => e);
+    expect(del).toBeInstanceOf(ScheduleConflictError);
+    expect(await getDaySchedule(db, SAT)).toMatchObject({ isOpen: true, startTime: '09:00', source: 'override' });
+  });
+
+  it('two first-time writes of a missing weekday row: one wins, the other gets a conflict', async () => {
+    await pool.query('delete from weekly_schedule where weekday = 5');
+    const results = await Promise.allSettled([
+      setWeeklyDay(db, doctor, 5, { isOpen: true, startTime: '09:00', endTime: '12:00' }, null),
+      setWeeklyDay(db, secretary, 5, { isOpen: true, startTime: '16:00', endTime: '20:00' }, null),
+    ]);
+    const ok = results.filter((r) => r.status === 'fulfilled');
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(ok).toHaveLength(1);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]!.reason).toBeInstanceOf(ScheduleConflictError);
+    expect((await auditRows('weekly_schedule')).map((r) => r.action)).toEqual(['create']);
+
+    // A version for a row that does not exist is stale too.
+    await pool.query('delete from weekly_schedule where weekday = 4');
+    const ghost = await setWeeklyDay(db, doctor, 4, { isOpen: true, startTime: '09:00', endTime: '12:00' }, 42).catch(
+      (e: unknown) => e,
+    );
+    expect(ghost).toBeInstanceOf(ScheduleConflictError);
+    expect((ghost as ScheduleConflictError).current).toBeNull();
   });
 
   it('turns line breaks and tabs in a note into spaces', async () => {

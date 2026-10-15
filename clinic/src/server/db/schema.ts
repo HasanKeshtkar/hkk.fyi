@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  pgSequence,
   pgTable,
   smallint,
   text,
@@ -111,6 +112,11 @@ export const weeklySchedule = pgTable(
   ],
 );
 
+// Override versions come from one sequence and are never reused, not even after a delete and
+// re-create of the same date: otherwise a screen still holding "version 1" of a removed override
+// would match the new one and silently overwrite it.
+export const dateOverrideVersionSeq = pgSequence('date_overrides_version_seq');
+
 // A per-date exception: closed (holiday/leave) or open with different hours. Takes precedence over weekly_schedule.
 export const dateOverrides = pgTable(
   'date_overrides',
@@ -120,7 +126,9 @@ export const dateOverrides = pgTable(
     startTime: time('start_time'),
     endTime: time('end_time'),
     note: text('note'),
-    version: integer('version').notNull().default(1),
+    version: integer('version')
+      .notNull()
+      .default(sql`nextval('date_overrides_version_seq')`),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },

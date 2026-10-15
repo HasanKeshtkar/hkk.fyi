@@ -112,12 +112,15 @@ export const WeeklyDayParams = z.object({
     .transform(Number),
 });
 
-/** `version`: the version of the row as loaded; a stale one gets 409 schedule_conflict. */
+/**
+ * `version`: the version of the row as loaded (null if that weekday had no row);
+ * a stale one gets 409 schedule_conflict.
+ */
 export const WeeklyDayBody = z.object({
   isOpen: z.boolean(),
   startTime,
   endTime,
-  version,
+  version: version.nullable(),
 });
 
 export const OverrideParams = z.object({ date: isoDate });

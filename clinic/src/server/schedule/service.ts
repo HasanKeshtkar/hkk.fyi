@@ -1,4 +1,4 @@
-import { asc, eq, gte } from 'drizzle-orm';
+import { asc, eq, gte, sql } from 'drizzle-orm';
 import {
   resolveDaySchedule,
   type DateOverrideRecord,
@@ -153,7 +153,8 @@ async function runScheduleWrite<T>(write: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Sets one weekday's hours if the row is still at `expectedVersion` (the version the caller loaded).
+ * Sets one weekday's hours if the row is still at `expectedVersion`: the version the caller loaded,
+ * or null if the caller saw no row for that weekday (the seed creates all seven, so normally never).
  * Asking for the hours that are already saved always succeeds without a change.
  * Existing appointments are never touched. Audited.
  */
@@ -162,7 +163,7 @@ export async function setWeeklyDay(
   actor: Actor,
   weekday: number,
   input: HoursInput,
-  expectedVersion: number,
+  expectedVersion: number | null,
 ): Promise<WeeklyDayRecord> {
   if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new ScheduleValidationError('weekday');
   validHours(input.startTime, input.endTime);
@@ -181,7 +182,7 @@ export async function setWeeklyDay(
       ) {
         return before;
       }
-      if (before && before.version !== expectedVersion) throw new ScheduleConflictError(before);
+      if ((before?.version ?? null) !== expectedVersion) throw new ScheduleConflictError(before);
       const [row] = before
         ? await tx
             .update(weeklySchedule)
@@ -191,8 +192,15 @@ export async function setWeeklyDay(
         : await tx
             .insert(weeklySchedule)
             .values({ weekday, ...values, updatedBy: actor.id })
+            .onConflictDoNothing()
             .returning();
-      const after = weeklyFromRow(row!);
+      if (!row) {
+        // The weekday row was missing (seed always creates all seven) and someone else created it
+        // just now: the caller never saw that row, so this is a conflict, not a retry.
+        const [current] = await tx.select().from(weeklySchedule).where(eq(weeklySchedule.weekday, weekday));
+        throw new ScheduleConflictError(current ? weeklyFromRow(current) : null);
+      }
+      const after = weeklyFromRow(row);
       await tx.insert(auditLog).values({
         userId: actor.id,
         entity: 'weekly_schedule',
@@ -209,6 +217,7 @@ export async function setWeeklyDay(
 /**
  * Closes a date, or opens it with its own hours, overriding the weekly hours.
  * `expectedVersion` is the version of the override the caller saw, or null if it saw none.
+ * Versions are opaque: unique and increasing, not consecutive.
  * Audited.
  */
 export async function upsertOverride(
@@ -249,7 +258,7 @@ export async function upsertOverride(
       const [row] = before
         ? await tx
             .update(dateOverrides)
-            .set({ ...values, version: before.version + 1, updatedBy: actor.id, updatedAt: new Date() })
+            .set({ ...values, version: sql`nextval('date_overrides_version_seq')`, updatedBy: actor.id, updatedAt: new Date() })
             .where(eq(dateOverrides.date, date))
             .returning()
         : await tx

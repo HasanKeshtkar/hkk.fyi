@@ -15,6 +15,13 @@
       "when": 1792089178048,
       "tag": "0001_schedule_version",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792090130296,
+      "tag": "0002_override_version_sequence",
+      "breakpoints": true
     }
   ]
 }
