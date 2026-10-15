@@ -1,9 +1,12 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, ne } from 'drizzle-orm';
 import { normalizePatientName } from '../../shared/patient-name.js';
 import { normalizeIranMobile } from '../../shared/phone.js';
-import type { Db } from '../db/client.js';
+import { checkSlotAgainstHours, type HoursRejection } from '../../shared/schedule.js';
+import { clinicDateOf } from '../../shared/time.js';
+import type { Db, Queryable } from '../db/client.js';
 import { PG_DEADLOCK, PG_SERIALIZATION_FAILURE, pgErrorOf, sanitizeDbError } from '../db/errors.js';
 import { appointments, auditLog, type Appointment } from '../db/schema.js';
+import { getDaySchedule } from '../schedule/service.js';
 
 /** Base class of the expected, user-facing outcomes. Messages never contain patient data. */
 export abstract class AppointmentError extends Error {}
@@ -49,6 +52,13 @@ export class AppointmentCancelledError extends AppointmentError {
   constructor(current: Appointment) {
     super('appointment cancelled');
     attachRow(this, 'current', current);
+  }
+}
+
+/** The slot is not inside the working hours of its day (or the day is closed). */
+export class OutsideHoursError extends AppointmentError {
+  constructor(readonly reason: HoursRejection) {
+    super(reason);
   }
 }
 
@@ -106,6 +116,22 @@ function validPhone(phone: string): string {
   return p;
 }
 
+/** Live (not cancelled) appointments with from <= start_at < to, earliest first. */
+export function listActiveBetween(db: Queryable, from: Date, to: Date): Promise<Appointment[]> {
+  return db
+    .select()
+    .from(appointments)
+    .where(and(gte(appointments.startAt, from), lt(appointments.startAt, to), ne(appointments.status, 'cancelled')))
+    .orderBy(asc(appointments.startAt));
+}
+
+/** Server-side guard: a new or moved appointment must fall inside its day's working hours. */
+async function assertWithinHours(tx: Queryable, startAt: Date): Promise<void> {
+  const day = await getDaySchedule(tx, clinicDateOf(startAt));
+  const rejection = checkSlotAgainstHours(startAt, day);
+  if (rejection) throw new OutsideHoursError(rejection);
+}
+
 export async function findActiveAt(db: Db, startAt: Date): Promise<Appointment | null> {
   const [row] = await db
     .select()
@@ -148,6 +174,7 @@ export async function createAppointment(db: Db, actor: Actor, input: NewAppointm
     db,
     () =>
       db.transaction(async (tx) => {
+        await assertWithinHours(tx, values.startAt);
         const [row] = await tx.insert(appointments).values(values).returning();
         if (!row) throw new Error('insert returned no row');
         await tx.insert(auditLog).values({
@@ -200,6 +227,9 @@ async function changeAppointment(
 
         const patch = changedFields(before, requested);
         if (Object.keys(patch).length === 0) return before; // nothing to change: no version bump, no audit row
+        // Only a move is checked against the hours: editing the name/phone of an appointment
+        // that the hours no longer cover must stay possible.
+        if (patch.startAt) await assertWithinHours(tx, patch.startAt);
         const [after] = await tx
           .update(appointments)
           .set({ ...patch, version: before.version + 1, updatedBy: actor.id, updatedAt: new Date() })

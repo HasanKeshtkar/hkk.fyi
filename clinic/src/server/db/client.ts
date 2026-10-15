@@ -4,6 +4,8 @@ import * as schema from './schema.js';
 
 export type Db = NodePgDatabase<typeof schema>;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+/** Anything that can run a query: the pool-backed db or an open transaction. */
+export type Queryable = Db | Tx;
 
 export function createPool(connectionString: string, max = 10): pg.Pool {
   const pool = new pg.Pool({ connectionString, max });

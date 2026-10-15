@@ -1,0 +1,86 @@
+import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { sql } from 'drizzle-orm';
+import { appointmentRoutes } from './appointments/routes.js';
+import { authRoutes, setSessionCookie } from './auth/routes.js';
+import { resolveSession } from './auth/sessions.js';
+import type { Config } from './config.js';
+import type { Db } from './db/client.js';
+import type { User } from './db/schema.js';
+import { errorHandler, HttpError } from './http/errors.js';
+import { scheduleRoutes } from './schedule/routes.js';
+
+declare module 'fastify' {
+  interface FastifyContextConfig {
+    /** reachable without a session (login, logout, health) */
+    public?: boolean;
+  }
+  interface FastifyRequest {
+    user: User | null;
+  }
+}
+
+export interface AppDeps {
+  db: Db;
+  config: Config;
+  /** Override the logger (tests capture output through a stream). */
+  logger?: FastifyServerOptions['logger'];
+}
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** Request logs: method, path, status, timing. No headers (cookies), no bodies, no error messages. */
+export function loggerOptions(level: string): Exclude<FastifyServerOptions['logger'], boolean | undefined> {
+  return {
+    level,
+    serializers: {
+      req: (req: { method: string; url: string; ip?: string }) => ({ method: req.method, url: req.url, ip: req.ip }),
+      res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+      // Never the message or stack: they can quote request bodies or query parameters.
+      err: ((err: { name?: string; code?: string }) => ({ type: err.name, code: err.code })) as never,
+    },
+  };
+}
+
+export async function buildApp({ db, config, logger }: AppDeps): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: logger ?? loggerOptions(config.logLevel),
+    // Trust exactly N proxy hops (Liara's router), so request.ip is the phone, not a spoofable header value.
+    trustProxy: (_address: string, hop: number) => hop < config.trustProxyHops,
+    bodyLimit: 16 * 1024,
+  });
+
+  await app.register(cookie);
+  await app.register(rateLimit, { global: false });
+  app.setErrorHandler(errorHandler);
+  app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
+  app.decorateRequest('user', null);
+
+  // CSRF: a state-changing API call must come from one of our own origins. Browsers always send
+  // Origin on cross-site and on same-origin non-GET fetches; a missing Origin is refused.
+  app.addHook('onRequest', async (req) => {
+    if (!req.url.startsWith('/api/') || SAFE_METHODS.has(req.method)) return;
+    const origin = req.headers.origin;
+    if (!origin || !config.origins.includes(origin)) throw new HttpError(403, { error: 'forbidden' });
+  });
+
+  app.addHook('preHandler', async (req, reply) => {
+    if (!req.url.startsWith('/api/') || req.routeOptions.config?.public) return;
+    const token = req.cookies[config.cookieName];
+    const session = await resolveSession(db, token);
+    if (!session) throw new HttpError(401, { error: 'unauthorized' });
+    req.user = session.user;
+    if (session.refreshed && token) setSessionCookie(reply, config, token, session.expiresAt);
+  });
+
+  app.get('/healthz', { config: { public: true } }, async () => {
+    await db.execute(sql`select 1`);
+    return { ok: true };
+  });
+
+  authRoutes(app, { db, config });
+  appointmentRoutes(app, { db });
+  scheduleRoutes(app, { db });
+  return app;
+}
