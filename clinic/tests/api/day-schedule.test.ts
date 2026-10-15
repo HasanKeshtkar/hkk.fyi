@@ -99,7 +99,7 @@ describe('GET /api/day', () => {
 
   it('after the hours shrink, the appointment stays and is flagged', async () => {
     const late = (await book(SAT, '18:30')).json();
-    const put = await call(app, sec, 'PUT', '/api/schedule/weekly/6', { isOpen: true, startTime: '14:00', endTime: '18:00' });
+    const put = await call(app, sec, 'PUT', '/api/schedule/weekly/6', { isOpen: true, startTime: '14:00', endTime: '18:00', version: 1 });
     expect(put.statusCode).toBe(200);
     const d = await day(SAT);
     expect(d.slots).toHaveLength(8);
@@ -108,7 +108,7 @@ describe('GET /api/day', () => {
   });
 
   it('reflects a date override and its note', async () => {
-    await call(app, doc, 'PUT', `/api/schedule/overrides/${SAT}`, { isOpen: false, note: 'تعطیل رسمی' });
+    await call(app, doc, 'PUT', `/api/schedule/overrides/${SAT}`, { isOpen: false, note: 'تعطیل رسمی', version: null });
     const d = await day(SAT);
     expect(d.schedule).toMatchObject({ isOpen: false, source: 'override', note: 'تعطیل رسمی' });
   });
@@ -132,47 +132,66 @@ describe('schedule API (both roles may edit)', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.weekly).toHaveLength(7);
-    expect(body.weekly.find((w: { weekday: number }) => w.weekday === 1)).toEqual({
+    expect(body.weekly.find((w: { weekday: number }) => w.weekday === 1)).toMatchObject({
       weekday: 1,
       isOpen: true,
       startTime: '08:00',
       endTime: '12:00',
+      version: 1,
     });
     expect(body.overrides.map((o: { date: string }) => o.date)).toEqual([today, addDays(today, 30)]);
   });
 
   it('PUT weekly as the secretary, with audit', async () => {
-    const res = await call(app, sec, 'PUT', '/api/schedule/weekly/4', { isOpen: true, startTime: '09:00', endTime: '12:30' });
+    const res = await call(app, sec, 'PUT', '/api/schedule/weekly/4', { isOpen: true, startTime: '09:00', endTime: '12:30', version: 1 });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ weekday: 4, isOpen: true, startTime: '09:00', endTime: '12:30' });
+    expect(res.json()).toMatchObject({ weekday: 4, isOpen: true, startTime: '09:00', endTime: '12:30', version: 2 });
     const { rows } = await pool.query(`select u.role from audit_log a join users u on u.id = a.user_id where a.entity = 'weekly_schedule'`);
     expect(rows).toEqual([{ role: 'secretary' }]);
   });
 
   it.each([
-    ['/api/schedule/weekly/7', { isOpen: true, startTime: '09:00', endTime: '12:00' }, 'weekday'],
-    ['/api/schedule/weekly/1', { isOpen: true, startTime: '09:15', endTime: '12:00' }, 'startTime'],
-    ['/api/schedule/weekly/1', { isOpen: true, startTime: '12:00', endTime: '09:00' }, 'endTime'],
-    ['/api/schedule/weekly/1', { isOpen: 'yes', startTime: '09:00', endTime: '12:00' }, 'isOpen'],
+    ['/api/schedule/weekly/7', { isOpen: true, startTime: '09:00', endTime: '12:00', version: 1 }, 'weekday'],
+    ['/api/schedule/weekly/', { isOpen: true, startTime: '09:00', endTime: '12:00', version: 1 }, 'weekday'],
+    ['/api/schedule/weekly/0x6', { isOpen: true, startTime: '09:00', endTime: '12:00', version: 1 }, 'weekday'],
+    ['/api/schedule/weekly/1', { isOpen: true, startTime: '09:00', endTime: '12:00' }, 'version'],
+    ['/api/schedule/weekly/1', { isOpen: true, startTime: '09:15', endTime: '12:00', version: 1 }, 'startTime'],
+    ['/api/schedule/weekly/1', { isOpen: true, startTime: '12:00', endTime: '09:00', version: 1 }, 'endTime'],
+    ['/api/schedule/weekly/1', { isOpen: 'yes', startTime: '09:00', endTime: '12:00', version: 1 }, 'isOpen'],
   ])('PUT %s %j → 400 (%s)', async (url, body, field) => {
     const res = await call(app, doc, 'PUT', url, body);
     expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({ error: 'validation', field });
   });
 
+  it('two people editing the same weekday: the stale save gets 409 with the saved hours and who saved them', async () => {
+    const ok = await call(app, sec, 'PUT', '/api/schedule/weekly/6', { isOpen: true, startTime: '14:00', endTime: '18:00', version: 1 });
+    expect(ok.statusCode).toBe(200);
+    const stale = await call(app, doc, 'PUT', '/api/schedule/weekly/6', { isOpen: true, startTime: '15:00', endTime: '19:00', version: 1 });
+    expect(stale.statusCode).toBe(409);
+    const body = stale.json();
+    expect(body.error).toBe('schedule_conflict');
+    expect(body.currentSchedule).toMatchObject({ weekday: 6, endTime: '18:00', version: 2 });
+    const me = (await call(app, doc, 'GET', '/api/me')).json();
+    expect(me.users.find((u: { id: string }) => u.id === body.currentSchedule.updatedBy).role).toBe('secretary');
+    expect((await book(SAT, '18:30')).statusCode).toBe(422); // the 18:00 close still holds
+  });
+
   it('override: create, change, delete, and 404 when already gone', async () => {
     const url = `/api/schedule/overrides/${THU}`;
-    const open = await call(app, doc, 'PUT', url, { isOpen: true, startTime: '09:00', endTime: '13:00', note: 'جبرانی' });
+    const open = await call(app, doc, 'PUT', url, { isOpen: true, startTime: '09:00', endTime: '13:00', note: 'جبرانی', version: null });
     expect(open.statusCode).toBe(200);
-    expect(open.json()).toEqual({ date: THU, isOpen: true, startTime: '09:00', endTime: '13:00', note: 'جبرانی' });
+    expect(open.json()).toMatchObject({ date: THU, isOpen: true, startTime: '09:00', endTime: '13:00', note: 'جبرانی', version: 1 });
     expect((await book(THU, '09:00')).statusCode).toBe(201);
 
-    const closed = await call(app, sec, 'PUT', url, { isOpen: false, startTime: null, endTime: null, note: null });
-    expect(closed.json()).toEqual({ date: THU, isOpen: false, startTime: null, endTime: null, note: null });
+    const closed = await call(app, sec, 'PUT', url, { isOpen: false, startTime: null, endTime: null, note: null, version: 1 });
+    expect(closed.json()).toMatchObject({ date: THU, isOpen: false, startTime: null, endTime: null, note: null, version: 2 });
     const d = await day(THU);
     expect(d.appointments[0].withinHours).toBe(false); // the 09:00 booking survives the closure
 
-    expect((await call(app, doc, 'DELETE', url)).statusCode).toBe(204);
-    expect((await call(app, doc, 'DELETE', url)).statusCode).toBe(404);
+    expect((await call(app, doc, 'DELETE', `${url}?version=1`)).statusCode).toBe(409);
+    expect((await call(app, doc, 'DELETE', url)).statusCode).toBe(400); // version is required
+    expect((await call(app, doc, 'DELETE', `${url}?version=2`)).statusCode).toBe(204);
+    expect((await call(app, doc, 'DELETE', `${url}?version=2`)).statusCode).toBe(404);
   });
 });

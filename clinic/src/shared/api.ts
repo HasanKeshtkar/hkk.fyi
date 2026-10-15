@@ -1,6 +1,6 @@
 // Request schemas and response shapes shared by the server and the web client.
 import { z } from 'zod';
-import type { DaySchedule, WeeklyDay, DateOverride } from './schedule.js';
+import type { DateOverrideRecord, DaySchedule, WeeklyDayRecord } from './schedule.js';
 import { isHalfHourTime, isIsoDate } from './time.js';
 
 export type Role = 'doctor' | 'secretary';
@@ -42,8 +42,8 @@ export interface DayResponse {
 }
 
 export interface ScheduleResponse {
-  weekly: WeeklyDay[];
-  overrides: DateOverride[];
+  weekly: WeeklyDayRecord[];
+  overrides: DateOverrideRecord[];
 }
 
 export type ApiErrorCode =
@@ -55,6 +55,7 @@ export type ApiErrorCode =
   | 'slot_taken'
   | 'version_conflict'
   | 'cancelled'
+  | 'schedule_conflict'
   | 'day_closed'
   | 'outside_hours'
   | 'rate_limited'
@@ -68,6 +69,8 @@ export interface ApiError {
   existing?: AppointmentDto | null;
   /** version_conflict / cancelled: the latest saved appointment */
   current?: AppointmentDto;
+  /** schedule_conflict: the hours saved now (null: the override was removed meanwhile) */
+  currentSchedule?: WeeklyDayRecord | DateOverrideRecord | null;
 }
 
 const isoDate = z.string().refine(isIsoDate, 'invalid date');
@@ -102,21 +105,37 @@ export const CancelAppointmentBody = z.object({ version });
 
 export const DayQuery = z.object({ date: isoDate });
 
-export const WeeklyDayParams = z.object({ weekday: z.coerce.number().int().min(0).max(6) });
+export const WeeklyDayParams = z.object({
+  weekday: z
+    .string()
+    .regex(/^[0-6]$/)
+    .transform(Number),
+});
 
+/** `version`: the version of the row as loaded; a stale one gets 409 schedule_conflict. */
 export const WeeklyDayBody = z.object({
   isOpen: z.boolean(),
   startTime,
   endTime,
+  version,
 });
 
 export const OverrideParams = z.object({ date: isoDate });
 
+/** `version`: the override's version as loaded, or null when there was no override for that date. */
 export const OverrideBody = z.object({
   isOpen: z.boolean(),
   startTime: startTime.nullish(),
   endTime: endTime.nullish(),
   note: z.string().max(400).nullish(),
+  version: version.nullable(),
+});
+
+export const DeleteOverrideQuery = z.object({
+  version: z
+    .string()
+    .regex(/^[1-9]\d{0,9}$/)
+    .transform(Number),
 });
 
 export const IdParams = z.object({ id: z.string().max(100) });

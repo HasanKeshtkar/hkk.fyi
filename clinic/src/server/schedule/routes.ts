@@ -1,12 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  DeleteOverrideQuery,
   OverrideBody,
   OverrideParams,
   WeeklyDayBody,
   WeeklyDayParams,
   type ScheduleResponse,
 } from '../../shared/api.js';
-import type { DateOverride, WeeklyDay } from '../../shared/schedule.js';
+import type { DateOverrideRecord, WeeklyDayRecord } from '../../shared/schedule.js';
 import { clinicToday } from '../../shared/time.js';
 import type { Db } from '../db/client.js';
 import { deleteOverride, getWeekly, listOverrides, setWeeklyDay, upsertOverride } from './service.js';
@@ -18,21 +19,22 @@ export function scheduleRoutes(app: FastifyInstance, { db }: { db: Db }): void {
     return { weekly, overrides };
   });
 
-  app.put('/api/schedule/weekly/:weekday', async (req): Promise<WeeklyDay> => {
+  app.put('/api/schedule/weekly/:weekday', async (req): Promise<WeeklyDayRecord> => {
     const { weekday } = WeeklyDayParams.parse(req.params);
-    const body = WeeklyDayBody.parse(req.body);
-    return setWeeklyDay(db, req.user!, weekday, body);
+    const { version, ...hours } = WeeklyDayBody.parse(req.body);
+    return setWeeklyDay(db, req.user!, weekday, hours, version);
   });
 
-  app.put('/api/schedule/overrides/:date', async (req): Promise<DateOverride> => {
+  app.put('/api/schedule/overrides/:date', async (req): Promise<DateOverrideRecord> => {
     const { date } = OverrideParams.parse(req.params);
-    const body = OverrideBody.parse(req.body);
-    return upsertOverride(db, req.user!, date, body);
+    const { version, ...override } = OverrideBody.parse(req.body);
+    return upsertOverride(db, req.user!, date, override, version);
   });
 
   app.delete('/api/schedule/overrides/:date', async (req, reply) => {
     const { date } = OverrideParams.parse(req.params);
-    await deleteOverride(db, req.user!, date);
+    const { version } = DeleteOverrideQuery.parse(req.query);
+    await deleteOverride(db, req.user!, date, version);
     void reply.status(204);
   });
 }

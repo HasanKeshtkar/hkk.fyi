@@ -15,6 +15,19 @@ export interface DateOverride {
   note: string | null;
 }
 
+/** Stored rows as the API returns them: `version` must be sent back with an edit. */
+export interface WeeklyDayRecord extends WeeklyDay {
+  version: number;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
+export interface DateOverrideRecord extends DateOverride {
+  version: number;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
 /** The working hours that actually apply on one date. */
 export interface DaySchedule {
   date: IsoDate;

@@ -1,6 +1,6 @@
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyServerOptions } from 'fastify';
 import { sql } from 'drizzle-orm';
 import { appointmentRoutes } from './appointments/routes.js';
 import { authRoutes, setSessionCookie } from './auth/routes.js';
@@ -49,6 +49,12 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
     // Trust exactly N proxy hops (Liara's router), so request.ip is the phone, not a spoofable header value.
     trustProxy: (_address: string, hop: number) => hop < config.trustProxyHops,
     bodyLimit: 16 * 1024,
+    // Malformed URLs and similar router-level failures: same JSON shape as every other error,
+    // without echoing the URL back.
+    frameworkErrors: (err, _req, reply) => {
+      const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 400;
+      void (reply as FastifyReply).status(status).send({ error: 'bad_request' });
+    },
   });
 
   await app.register(cookie);
@@ -57,16 +63,20 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
   app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
   app.decorateRequest('user', null);
 
-  // CSRF: a state-changing API call must come from one of our own origins. Browsers always send
-  // Origin on cross-site and on same-origin non-GET fetches; a missing Origin is refused.
+  // Both guards decide from the matched route, never from the raw URL: the router decodes
+  // percent-escapes and absolute-form targets, so '/%61pi/day' still runs the /api/day handler.
+
+  // CSRF: every state-changing request, whatever its path, must come from one of our own origins.
+  // Browsers always send Origin on cross-site and on same-origin non-GET fetches; a missing Origin is refused.
   app.addHook('onRequest', async (req) => {
-    if (!req.url.startsWith('/api/') || SAFE_METHODS.has(req.method)) return;
+    if (SAFE_METHODS.has(req.method)) return;
     const origin = req.headers.origin;
     if (!origin || !config.origins.includes(origin)) throw new HttpError(403, { error: 'forbidden' });
   });
 
+  // Auth: deny by default. Only routes marked `config: { public: true }` run without a session.
   app.addHook('preHandler', async (req, reply) => {
-    if (!req.url.startsWith('/api/') || req.routeOptions.config?.public) return;
+    if (req.routeOptions.config?.public || req.is404) return;
     const token = req.cookies[config.cookieName];
     const session = await resolveSession(db, token);
     if (!session) throw new HttpError(401, { error: 'unauthorized' });

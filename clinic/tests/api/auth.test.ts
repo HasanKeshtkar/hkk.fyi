@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
+import { connect } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openTestDb, resetData } from '../helpers/db.js';
@@ -160,5 +162,74 @@ describe('CSRF guard on state-changing calls', () => {
     const cookie = await login(app, 'doctor');
     const res = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('guards cannot be skipped by spelling the path differently', () => {
+  // The router decodes percent-escapes, so these all reach the /api handlers.
+  const sneaky = ['/%61pi/day?date=2026-10-17', '/ap%69/day?date=2026-10-17', '/%61pi/schedule', '/%61pi/me', '/api/d%61y?date=2026-10-17'];
+
+  it.each(sneaky)('GET %s without a session → 401', async (url) => {
+    const res = await app.inject({ method: 'GET', url });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: 'unauthorized' });
+  });
+
+  it('a percent-encoded write from a foreign origin is refused by the CSRF guard', async () => {
+    const cookie = await login(app, 'doctor');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/%61pi/auth/logout',
+      headers: { cookie, origin: 'https://evil.example' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect((await call(app, cookie, 'GET', '/api/me')).statusCode).toBe(200); // session survived
+  });
+
+  it('an absolute-form request target over a real socket is still checked', async () => {
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address() as AddressInfo;
+    const raw = await new Promise<string>((resolve, reject) => {
+      const sock = connect(port, '127.0.0.1', () => {
+        sock.write(`GET http://clinic.test/api/day?date=2026-10-17 HTTP/1.1\r\nHost: clinic.test\r\nConnection: close\r\n\r\n`);
+      });
+      let data = '';
+      sock.on('data', (d) => (data += d.toString()));
+      sock.on('end', () => resolve(data));
+      sock.on('error', reject);
+    });
+    expect(raw.split('\r\n')[0]).toBe('HTTP/1.1 401 Unauthorized');
+  });
+
+  it('a malformed URL gets the API error shape, without echoing the URL', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/%zz' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'bad_request' });
+  });
+
+  it('unknown paths are 404, not a reason to skip auth on known ones', async () => {
+    expect((await app.inject({ method: 'GET', url: '/api/nope' })).statusCode).toBe(404);
+  });
+});
+
+describe('rate limit behind the proxy', () => {
+  it('keys on the address the proxy saw, so a spoofed X-Forwarded-For does not reset the count', async () => {
+    const proxied = (await makeApp(db, { trustProxyHops: 1 })).app;
+    try {
+      const codes: number[] = [];
+      for (let i = 0; i < 7; i++) {
+        const res = await proxied.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          remoteAddress: '10.0.0.1', // Liara's router
+          headers: { origin: TEST_ORIGIN, 'x-forwarded-for': `6.6.6.${i}, 203.0.113.7` }, // forged, real
+          payload: { role: 'doctor', password: 'nope' },
+        });
+        codes.push(res.statusCode);
+      }
+      expect(codes).toEqual([401, 401, 401, 401, 401, 429, 429]);
+    } finally {
+      await proxied.close();
+    }
   });
 });

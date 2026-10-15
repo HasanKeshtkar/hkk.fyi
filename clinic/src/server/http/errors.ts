@@ -10,7 +10,7 @@ import {
   VersionConflictError,
 } from '../appointments/service.js';
 import { DatabaseError } from '../db/errors.js';
-import { OverrideNotFoundError, ScheduleValidationError } from '../schedule/service.js';
+import { OverrideNotFoundError, ScheduleConflictError, ScheduleValidationError } from '../schedule/service.js';
 import { appointmentDto } from './dto.js';
 
 export class HttpError extends Error {
@@ -42,6 +42,9 @@ function toResponse(err: unknown): { status: number; body: ApiError } | null {
   }
   if (err instanceof AppointmentNotFoundError || err instanceof OverrideNotFoundError) {
     return { status: 404, body: { error: 'not_found' } };
+  }
+  if (err instanceof ScheduleConflictError) {
+    return { status: 409, body: { error: 'schedule_conflict', currentSchedule: err.current } };
   }
   if (err instanceof OutsideHoursError) return { status: 422, body: { error: err.reason } };
   return null;

@@ -95,11 +95,14 @@ export const weeklySchedule = pgTable(
     isOpen: boolean('is_open').notNull(),
     startTime: time('start_time').notNull(),
     endTime: time('end_time').notNull(),
+    // Optimistic concurrency, as for appointments: an edit made from a stale screen is refused.
+    version: integer('version').notNull().default(1),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
     check('weekly_schedule_weekday_range', sql`weekday between 0 and 6`),
+    check('weekly_schedule_version_positive', sql`version >= 1`),
     check('weekly_schedule_time_order', sql`start_time < end_time`),
     check(
       'weekly_schedule_half_hour',
@@ -117,10 +120,12 @@ export const dateOverrides = pgTable(
     startTime: time('start_time'),
     endTime: time('end_time'),
     note: text('note'),
+    version: integer('version').notNull().default(1),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
+    check('date_overrides_version_positive', sql`version >= 1`),
     check(
       'date_overrides_hours_match_open',
       sql`(is_open and start_time is not null and end_time is not null and start_time < end_time)
