@@ -15,6 +15,8 @@ assets/site.js        hero wave, scroll-rippled grid, pluckable rules, scroll
                       reveal, theme toggle
 assets/fold.js        <details> open as a wave (home page + essays)
 projects/<name>/      each interactive project, fully self-contained
+clinic/               clinic appointment app — a separate Node service deployed
+                      on Liara, not part of this static site (see clinic/README.md)
 CNAME                 custom domain for GitHub Pages (hkk.fyi)
 ```
 
