@@ -95,7 +95,9 @@ jobs:
             for (const k of ["SEED_DOCTOR_PASSWORD", "SEED_SECRETARY_PASSWORD"]) if (process.env[k]) s[k] = process.env[k];
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/secrets.json", JSON.stringify(s));
           '
-          npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --var "DEPLOY_ID:$GITHUB_SHA"
+          # A new id for every run and re-run: the server re-checks the passwords once per id, and
+          # "Re-run all jobs" (same commit) is how a changed password is applied.
+          npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --var "DEPLOY_ID:$GITHUB_SHA.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
           rm -f "$RUNNER_TEMP/secrets.json"
       - name: Is it up?
         if: steps.cf.outputs.ready == 'true'
