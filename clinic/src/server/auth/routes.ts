@@ -8,7 +8,8 @@ import { users } from '../db/schema.js';
 import { userDto } from '../http/dto.js';
 import { HttpError } from '../http/errors.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { createSession, deleteSession } from './sessions.js';
+import type { Realtime } from '../realtime.js';
+import { createSession, deleteSession, hashToken } from './sessions.js';
 
 export function setSessionCookie(reply: FastifyReply, config: Config, token: string, expiresAt: Date): void {
   void reply.setCookie(config.cookieName, token, {
@@ -25,7 +26,7 @@ async function allUsers(db: Db): Promise<UserDto[]> {
   return rows.map(userDto);
 }
 
-export function authRoutes(app: FastifyInstance, { db, config }: { db: Db; config: Config }): void {
+export function authRoutes(app: FastifyInstance, { db, config, realtime }: { db: Db; config: Config; realtime: Realtime }): void {
   // Verifying against a throwaway hash when the role has no user keeps the response time the same.
   let dummyHash: Promise<string> | undefined;
   const dummy = () => (dummyHash ??= hashPassword(randomBytes(16).toString('hex')));
@@ -50,7 +51,9 @@ export function authRoutes(app: FastifyInstance, { db, config }: { db: Db; confi
   );
 
   app.post('/api/auth/logout', { config: { public: true } }, async (req, reply) => {
-    await deleteSession(db, req.cookies[config.cookieName]);
+    const token = req.cookies[config.cookieName];
+    await deleteSession(db, token);
+    if (token) realtime.disconnectSession(hashToken(token));
     void reply.clearCookie(config.cookieName, {
       path: '/',
       httpOnly: true,

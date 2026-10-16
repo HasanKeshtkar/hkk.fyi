@@ -8,11 +8,13 @@ export const SESSION_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const REFRESH_AFTER_MS = 24 * 60 * 60 * 1000;
 const TOKEN_FORMAT = /^[A-Za-z0-9_-]{43}$/; // 32 random bytes, base64url
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
 export interface ResolvedSession {
+  /** the stored id (hash of the token) */
+  id: string;
   user: User;
   expiresAt: Date;
   /** true when the expiry was just extended, so the cookie should be re-sent */
@@ -37,11 +39,11 @@ export async function resolveSession(db: Db, token: string | undefined, now = ne
   if (!row) return null;
 
   if (now.getTime() - row.lastSeenAt.getTime() < REFRESH_AFTER_MS) {
-    return { user: row.user, expiresAt: row.expiresAt, refreshed: false };
+    return { id, user: row.user, expiresAt: row.expiresAt, refreshed: false };
   }
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
   await db.update(sessions).set({ lastSeenAt: now, expiresAt }).where(eq(sessions.id, id));
-  return { user: row.user, expiresAt, refreshed: true };
+  return { id, user: row.user, expiresAt, refreshed: true };
 }
 
 export async function deleteSession(db: Db, token: string | undefined): Promise<void> {

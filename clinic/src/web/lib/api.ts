@@ -1,21 +1,16 @@
 import type {
   ApiError,
+  ApiResult,
   AppointmentDto,
   DayResponse,
   MeResponse,
+  NotificationsResponse,
   ScheduleResponse,
 } from '../../shared/api';
 import type { DateOverrideRecord, WeeklyDayRecord } from '../../shared/schedule';
 import { connection } from './connection';
 
-/**
- * The outcome of an API call. `network` means the request may or may not have reached the
- * server: for a write, the caller must treat the result as unknown and re-read the data.
- */
-export type ApiResult<T> =
-  | { ok: true; status: number; data: T }
-  | { ok: false; kind: 'http'; status: number; error: ApiError }
-  | { ok: false; kind: 'network' };
+export type { ApiResult };
 
 /** Hook for the session layer: called on any 401 so the app can send the user to the login screen. */
 let onUnauthorized: (() => void) | null = null;
@@ -76,4 +71,8 @@ export const api = {
   ) => request<DateOverrideRecord>('PUT', `/api/schedule/overrides/${date}`, body),
   deleteOverride: (date: string, version: number) =>
     request<void>('DELETE', `/api/schedule/overrides/${date}?version=${version}`),
+
+  notifications: () => request<NotificationsResponse>('GET', '/api/notifications'),
+  markNotificationsRead: (body: { all: true } | { ids: string[] }) =>
+    request<{ ids: string[] }>('POST', '/api/notifications/read', body),
 };

@@ -10,6 +10,8 @@ import type { Db } from './db/client.js';
 import type { User } from './db/schema.js';
 import { errorHandler, HttpError } from './http/errors.js';
 import { securityHeaders, webRoutes } from './http/web.js';
+import { notificationRoutes } from './notifications/routes.js';
+import { attachRealtime, type Realtime } from './realtime.js';
 import { scheduleRoutes } from './schedule/routes.js';
 
 declare module 'fastify' {
@@ -85,14 +87,18 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
     if (session.refreshed && token) setSessionCookie(reply, config, token, session.expiresAt);
   });
 
+  const realtime: Realtime = attachRealtime(app, { db, config });
+  app.addHook('onClose', () => realtime.close());
+
   app.get('/healthz', { config: { public: true } }, async () => {
     await db.execute(sql`select 1`);
     return { ok: true };
   });
 
-  authRoutes(app, { db, config });
-  appointmentRoutes(app, { db });
-  scheduleRoutes(app, { db });
+  authRoutes(app, { db, config, realtime });
+  appointmentRoutes(app, { db, realtime });
+  scheduleRoutes(app, { db, realtime });
+  notificationRoutes(app, { db, realtime });
   if (config.webRoot) await webRoutes(app, config.webRoot);
   else app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
   return app;

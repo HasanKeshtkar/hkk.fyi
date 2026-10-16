@@ -195,3 +195,4 @@ export type User = typeof users.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type WeeklyScheduleRow = typeof weeklySchedule.$inferSelect;
 export type DateOverrideRow = typeof dateOverrides.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;

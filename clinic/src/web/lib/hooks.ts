@@ -16,14 +16,3 @@ export function useNow(everyMs = 30_000): number {
   }, [everyMs]);
   return now;
 }
-
-/** Runs `fn` whenever the app comes back to the foreground. */
-export function useOnForeground(fn: () => void): void {
-  useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') fn();
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, [fn]);
-}

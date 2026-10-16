@@ -76,19 +76,27 @@ test('closing one date with a note, then removing it', async ({ page }) => {
   await expect(page.locator('[data-slot]')).toHaveCount(10);
 });
 
-test('saving hours from a stale screen shows what the other person saved', async ({ browser, page }) => {
+test('the other person’s hours change arrives live; an unsaved edit is kept, warned and refused', async ({ browser, page }) => {
   await page.goto('/settings/');
   const doctorCtx = await contextAs(browser, 'doctor');
   const doctor = await doctorCtx.newPage();
   await doctor.goto('/settings/');
-  await weekRow(doctor, 6).getByLabel('شنبه: ساعت پایان').selectOption('17:00');
-  await weekRow(doctor, 6).getByRole('button', { name: 'ذخیره' }).click();
-  await expect(doctor.getByText('ساعت شنبه ذخیره شد')).toBeVisible();
 
+  // Sunday, untouched here: simply follows the doctor's save.
+  await weekRow(doctor, 0).getByLabel('یکشنبه: ساعت پایان').selectOption('18:00');
+  await weekRow(doctor, 0).getByRole('button', { name: 'ذخیره' }).click();
+  await expect(weekRow(page, 0).getByLabel('یکشنبه: ساعت پایان')).toHaveValue('18:00');
+
+  // Saturday, being edited here when the doctor saves.
   const sat = weekRow(page, 6);
   await sat.getByLabel('شنبه: ساعت شروع').selectOption('15:00');
+  await weekRow(doctor, 6).getByLabel('شنبه: ساعت پایان').selectOption('17:00');
+  await weekRow(doctor, 6).getByRole('button', { name: 'ذخیره' }).click();
+  await expect(sat.getByText(`همین الان توسط ${E2E_NAMES.doctor} تغییر کرد`)).toBeVisible();
+  await expect(sat.getByLabel('شنبه: ساعت شروع')).toHaveValue('15:00');
   await sat.getByRole('button', { name: 'ذخیره' }).click();
   await expect(sat.getByText(`همین الان توسط ${E2E_NAMES.doctor} تغییر کرده است`)).toBeVisible();
   await expect(sat.getByLabel('شنبه: ساعت پایان')).toHaveValue('17:00');
+  await expect(sat.getByLabel('شنبه: ساعت شروع')).toHaveValue('14:00');
   await doctorCtx.close();
 });

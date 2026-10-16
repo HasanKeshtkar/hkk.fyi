@@ -29,6 +29,44 @@ export interface DayAppointmentDto extends AppointmentDto {
   withinHours: boolean;
 }
 
+export type NotificationType = 'created' | 'updated' | 'cancelled';
+
+export interface NotificationAppointment {
+  startAt: string;
+  patientName: string;
+  patientPhone: string;
+}
+
+export interface NotificationPayload {
+  /** who made the change */
+  by: string;
+  before: NotificationAppointment | null;
+  after: NotificationAppointment;
+}
+
+export interface NotificationDto {
+  id: string;
+  type: NotificationType;
+  appointmentId: string;
+  payload: NotificationPayload;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export interface NotificationsResponse {
+  items: NotificationDto[];
+  /** all unread, even beyond the listed items */
+  count: number;
+}
+
+/** Realtime events (socket.io), server → client. */
+export interface ServerEvents {
+  appointment: (e: { appointment: AppointmentDto; action: 'create' | 'update' | 'cancel'; by: string }) => void;
+  schedule: (e: { by: string }) => void;
+  notification: (n: NotificationDto) => void;
+  'notifications:read': (e: { ids: string[] }) => void;
+}
+
 export interface MeResponse {
   user: UserDto;
   users: UserDto[];
@@ -61,6 +99,15 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'bad_request'
   | 'server_error';
+
+/**
+ * The outcome of an API call as the web client sees it. `network` means the request may or may
+ * not have reached the server: for a write, the caller must treat the result as unknown.
+ */
+export type ApiResult<T> =
+  | { ok: true; status: number; data: T }
+  | { ok: false; kind: 'http'; status: number; error: ApiError }
+  | { ok: false; kind: 'network' };
 
 export interface ApiError {
   error: ApiErrorCode;
@@ -142,3 +189,8 @@ export const DeleteOverrideQuery = z.object({
 });
 
 export const IdParams = z.object({ id: z.string().max(100) });
+
+export const MarkReadBody = z.union([
+  z.object({ all: z.literal(true) }),
+  z.object({ ids: z.array(z.uuid()).min(1).max(200) }),
+]);

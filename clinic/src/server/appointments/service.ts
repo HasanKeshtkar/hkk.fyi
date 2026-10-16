@@ -5,7 +5,8 @@ import { checkSlotAgainstHours, type HoursRejection } from '../../shared/schedul
 import { clinicDateOf } from '../../shared/time.js';
 import type { Db, Queryable } from '../db/client.js';
 import { PG_DEADLOCK, PG_SERIALIZATION_FAILURE, pgErrorOf, sanitizeDbError } from '../db/errors.js';
-import { appointments, auditLog, type Appointment } from '../db/schema.js';
+import { appointments, auditLog, type Appointment, type Notification } from '../db/schema.js';
+import { recordNotification } from '../notifications/service.js';
 import { getDaySchedule } from '../schedule/service.js';
 
 /** Base class of the expected, user-facing outcomes. Messages never contain patient data. */
@@ -64,6 +65,13 @@ export class OutsideHoursError extends AppointmentError {
 
 export interface Actor {
   id: string;
+  /** the doctor's changes are announced to the secretary */
+  role?: string;
+}
+
+/** Called after a write has committed. */
+export interface WriteHooks {
+  onNotification?: (n: Notification) => void;
 }
 
 export interface NewAppointment {
@@ -162,7 +170,12 @@ async function runWrite<T>(db: Db, write: () => Promise<T>, targetSlot: () => Da
   }
 }
 
-export async function createAppointment(db: Db, actor: Actor, input: NewAppointment): Promise<Appointment> {
+export async function createAppointment(
+  db: Db,
+  actor: Actor,
+  input: NewAppointment,
+  hooks: WriteHooks = {},
+): Promise<Appointment> {
   const values = {
     startAt: validStartAt(input.startAt),
     patientName: validName(input.patientName),
@@ -170,7 +183,8 @@ export async function createAppointment(db: Db, actor: Actor, input: NewAppointm
     createdBy: actor.id,
     updatedBy: actor.id,
   };
-  return runWrite(
+  let notification: Notification | null = null;
+  const created = await runWrite(
     db,
     () =>
       db.transaction(async (tx) => {
@@ -185,10 +199,13 @@ export async function createAppointment(db: Db, actor: Actor, input: NewAppointm
           before: null,
           after: snapshot(row),
         });
+        notification = await recordNotification(tx, actor, 'created', null, row);
         return row;
       }),
     () => values.startAt,
   );
+  if (notification) hooks.onNotification?.(notification);
+  return created;
 }
 
 type AppointmentPatch = Partial<Pick<Appointment, 'startAt' | 'patientName' | 'patientPhone' | 'status'>>;
@@ -214,9 +231,11 @@ async function changeAppointment(
   expectedVersion: number,
   action: 'update' | 'cancel',
   requested: AppointmentPatch,
+  hooks: WriteHooks,
 ): Promise<Appointment> {
   if (!UUID.test(id)) throw new AppointmentNotFoundError();
-  return runWrite(
+  let notification: Notification | null = null;
+  const changed = await runWrite(
     db,
     () =>
       db.transaction(async (tx) => {
@@ -245,10 +264,13 @@ async function changeAppointment(
           before: snapshot(before),
           after: snapshot(after),
         });
+        notification = await recordNotification(tx, actor, action === 'cancel' ? 'cancelled' : 'updated', before, after);
         return after;
       }),
     () => requested.startAt,
   );
+  if (notification) hooks.onNotification?.(notification);
+  return changed;
 }
 
 /** Edits name/phone and/or moves the appointment to another slot. */
@@ -258,14 +280,21 @@ export async function updateAppointment(
   id: string,
   expectedVersion: number,
   changes: AppointmentChanges,
+  hooks: WriteHooks = {},
 ): Promise<Appointment> {
   const patch: AppointmentPatch = {};
   if (changes.startAt !== undefined) patch.startAt = validStartAt(changes.startAt);
   if (changes.patientName !== undefined) patch.patientName = validName(changes.patientName);
   if (changes.patientPhone !== undefined) patch.patientPhone = validPhone(changes.patientPhone);
-  return changeAppointment(db, actor, id, expectedVersion, 'update', patch);
+  return changeAppointment(db, actor, id, expectedVersion, 'update', patch, hooks);
 }
 
-export async function cancelAppointment(db: Db, actor: Actor, id: string, expectedVersion: number): Promise<Appointment> {
-  return changeAppointment(db, actor, id, expectedVersion, 'cancel', { status: 'cancelled' });
+export async function cancelAppointment(
+  db: Db,
+  actor: Actor,
+  id: string,
+  expectedVersion: number,
+  hooks: WriteHooks = {},
+): Promise<Appointment> {
+  return changeAppointment(db, actor, id, expectedVersion, 'cancel', { status: 'cancelled' }, hooks);
 }

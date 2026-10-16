@@ -147,7 +147,7 @@ test.describe('two people at once', () => {
     await secCtx.close();
   });
 
-  test('an edit made on a stale screen shows the fresh data and who changed it', async ({ browser }) => {
+  test('a change by the other person reaches an open sheet live', async ({ browser }) => {
     const doctorCtx = await contextAs(browser, 'doctor');
     const secCtx = await contextAs(browser, 'secretary');
     const doctor = await doctorCtx.newPage();
@@ -155,18 +155,29 @@ test.describe('two people at once', () => {
     await openDay(sec, SAT);
     await book(sec, SAT, '17:00', 'نام اول', '09121234567');
     await openDay(doctor, SAT);
+    const secRow = sec.locator(`[data-slot="${slotIso(SAT, '17:00')}"]`);
+    const docRow = doctor.locator(`[data-slot="${slotIso(SAT, '17:00')}"]`);
 
-    await sec.locator(`[data-slot="${slotIso(SAT, '17:00')}"]`).getByRole('button').click(); // stale form open
-    await doctor.locator(`[data-slot="${slotIso(SAT, '17:00')}"]`).getByRole('button').click();
+    // Not typing: the sheet simply takes the new data and says so.
+    await secRow.getByRole('button').click();
+    await docRow.getByRole('button').click();
     await doctor.getByLabel('نام بیمار').fill('نام دکتر');
     await doctor.getByRole('button', { name: 'ذخیره تغییرات' }).click();
-    await expect(slot(doctor, SAT, '17:00')).toContainText('نام دکتر');
+    await expect(sec.locator('.alert[role="alert"]')).toContainText(`توسط ${E2E_NAMES.doctor} به‌روز شد`);
+    await expect(sec.getByLabel('نام بیمار')).toHaveValue('نام دکتر');
 
+    // Typing: what she typed is kept, she is warned, and saving is refused with the fresh data.
     await sec.getByLabel('نام بیمار').fill('نام منشی');
+    await docRow.getByRole('button').click();
+    await doctor.getByLabel('شماره موبایل').fill('09350000000');
+    await doctor.getByRole('button', { name: 'ذخیره تغییرات' }).click();
+    await expect(sec.locator('.alert[role="alert"]')).toContainText(`توسط ${E2E_NAMES.doctor} تغییر کرده است`);
+    await expect(sec.getByLabel('نام بیمار')).toHaveValue('نام منشی');
     await sec.getByRole('button', { name: 'ذخیره تغییرات' }).click();
-    await expect(sec.locator('.alert[role="alert"]')).toContainText(`این نوبت همین الان توسط ${E2E_NAMES.doctor} تغییر کرده است`);
-    await expect(sec.getByLabel('نام بیمار')).toHaveValue('نام دکتر'); // fresh data in the form
-    await expect(slot(sec, SAT, '17:00')).toContainText('نام دکتر'); // and in the list
+    await expect(sec.locator('.alert[role="alert"]')).toContainText('اطلاعات جدید نمایش داده شد');
+    await expect(sec.getByLabel('نام بیمار')).toHaveValue('نام دکتر');
+    await expect(sec.getByLabel('شماره موبایل')).toHaveValue('09350000000');
+    await expect(slot(sec, SAT, '17:00')).toContainText('نام دکتر');
     await doctorCtx.close();
     await secCtx.close();
   });

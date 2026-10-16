@@ -9,10 +9,11 @@ import { api } from '../lib/api';
 import { connection } from '../lib/connection';
 import { DayStore } from '../lib/day-store';
 import { jalaliLongLabel, phoneLabel, timeLabel, wallTimeLabel } from '../lib/format';
-import { useConnection, useNow, useOnForeground } from '../lib/hooks';
+import { useConnection, useNow } from '../lib/hooks';
 import { AppointmentSheet, type SheetTarget } from './AppointmentSheet';
 import { ConnectionPill, OfflineBanner } from './ConnectionPill';
 import { JalaliCalendar } from './JalaliCalendar';
+import { NotificationBell } from './Notifications';
 import { afterOverlayClosed, BottomSheet } from './Overlays';
 import { IconCalendar, IconChevronLeft, IconChevronRight, IconPlus, IconSettings, IconWarning } from './icons';
 
@@ -49,10 +50,19 @@ export function DayScreen() {
     void store.setDate(date);
   }, [store, date]);
 
-  // Re-read the whole day whenever we may have missed something.
+  // Re-read the whole day whenever we may have missed something (every (re)connect and every
+  // return to the foreground); in between, apply each change the server pushes.
   const refresh = useCallback(() => void store.refresh(), [store]);
-  useEffect(() => connection.onReconnect(refresh), [refresh]);
-  useOnForeground(refresh);
+  useEffect(
+    () =>
+      connection.onResync(async () => {
+        await store.refresh();
+        return store.getView().error === null;
+      }),
+    [store],
+  );
+  useEffect(() => connection.on('appointment', (e) => store.applyAppointment(e.appointment)), [store]);
+  useEffect(() => connection.on('schedule', () => void store.refresh()), [store]);
 
   const goTo = (d: IsoDate) => router.replace(d === clinicToday() ? '/' : `/?d=${d}`, { scroll: false });
 
@@ -65,6 +75,7 @@ export function DayScreen() {
       <header className="topbar">
         <ConnectionPill />
         <span className="topbar-title">نوبت‌ها</span>
+        <NotificationBell />
         <Link href="/settings/" className="icon-btn" aria-label="تنظیمات ساعت کاری">
           <IconSettings />
         </Link>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { MeResponse, UserDto } from '../../shared/api';
 import { api, setUnauthorizedHandler } from './api';
+import { NotificationCenter } from '../components/Notifications';
 import { showToast } from '../components/Toasts';
 import { connection } from './connection';
 
@@ -26,23 +27,32 @@ export function RequireSession({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [state, setState] = useState<MeResponse | 'loading' | 'offline'>('loading');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     const res = await api.me();
-    if (res.ok) setState(res.data);
-    else if (res.kind === 'http' && res.status === 401) router.replace('/login/');
+    if (res.ok) {
+      setState(res.data);
+      return true;
+    }
+    if (res.kind === 'http' && res.status === 401) router.replace('/login/');
     else setState((s) => (s === 'loading' ? 'offline' : s));
+    return false;
   }, [router]);
 
   useEffect(() => {
-    connection.start();
     setUnauthorizedHandler(() => router.replace('/login/'));
     void load();
-    const off = connection.onReconnect(() => void load());
+    const off = connection.onResync(load);
     return () => {
       off();
       setUnauthorizedHandler(null);
     };
   }, [load, router]);
+
+  // The realtime channel opens once we know who is signed in.
+  const signedIn = typeof state === 'object';
+  useEffect(() => {
+    if (signedIn) connection.start(() => router.replace('/login/'));
+  }, [signedIn, router]);
 
   const value = useMemo<SessionValue | null>(() => {
     if (state === 'loading' || state === 'offline') return null;
@@ -52,6 +62,7 @@ export function RequireSession({ children }: { children: ReactNode }) {
       logout: async () => {
         const res = await api.logout();
         if (res.ok || (res.kind === 'http' && res.status === 401)) {
+          connection.stop();
           router.replace('/login/');
           return;
         }
@@ -70,5 +81,10 @@ export function RequireSession({ children }: { children: ReactNode }) {
         </button>
       </div>
     );
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>
+      {value?.me.role === 'secretary' ? <NotificationCenter /> : null}
+      {children}
+    </SessionContext.Provider>
+  );
 }

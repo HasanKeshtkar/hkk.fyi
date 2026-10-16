@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { DayResponse } from '../../shared/api';
 import { addDays, SLOT_MS, type IsoDate } from '../../shared/time';
 import { api } from '../lib/api';
+import { connection } from '../lib/connection';
 import { jalaliLongLabel, timeLabel } from '../lib/format';
 import { genericMessage } from '../lib/messages';
 import { JalaliCalendar } from './JalaliCalendar';
@@ -44,6 +45,17 @@ export function SlotPicker(props: {
       live = false;
     };
   }, [date, reload]);
+
+  // Someone else may book a slot while she is choosing: keep the list current.
+  useEffect(() => {
+    const again = () => setReload((n) => n + 1);
+    const offA = connection.on('appointment', again);
+    const offS = connection.on('schedule', again);
+    return () => {
+      offA();
+      offS();
+    };
+  }, []);
 
   const now = Date.now();
   const taken = new Set(day?.appointments.map((a) => a.startAt));

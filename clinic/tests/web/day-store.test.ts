@@ -1,10 +1,9 @@
 // The client-side merge rules: newer versions win, nothing stale comes back, and changes that
 // arrive while a full reload is in flight are not lost.
 import { describe, expect, it } from 'vitest';
-import type { AppointmentDto, DayResponse } from '../../src/shared/api';
+import type { ApiResult, AppointmentDto, DayResponse } from '../../src/shared/api';
 import { resolveDaySchedule, slotStarts } from '../../src/shared/schedule';
 import { instantAt } from '../../src/shared/time';
-import type { ApiResult } from '../../src/web/lib/api';
 import { DayStore } from '../../src/web/lib/day-store';
 
 const SAT = '2026-10-17';

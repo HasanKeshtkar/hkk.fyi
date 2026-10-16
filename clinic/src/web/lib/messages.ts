@@ -1,5 +1,6 @@
-import type { ApiError, UserDto } from '../../shared/api';
-import type { ApiResult } from './api';
+import type { ApiError, ApiResult, NotificationDto, UserDto } from '../../shared/api';
+import { clinicDateOf } from '../../shared/time';
+import { jalaliLongLabel, timeLabel } from './format';
 
 export function userName(users: readonly UserDto[], id: string | null | undefined): string {
   const u = users.find((x) => x.id === id);
@@ -44,4 +45,18 @@ export function messageFor(error: ApiError): string {
     default:
       return 'خطایی در سرور رخ داد. دوباره امتحان کنید.';
   }
+}
+
+const when = (startAt: string) => `${jalaliLongLabel(clinicDateOf(new Date(startAt)))}، ساعت ${timeLabel(startAt)}`;
+
+/** "دکتر کشتکار: نوبت جدید" + "مریم احمدی — شنبه ۹ آبان ۱۴۰۵، ساعت ۱۴:۰۰" */
+export function describeNotification(n: NotificationDto, users: readonly UserDto[]): { title: string; body: string } {
+  const by = userName(users, n.payload.by);
+  const { before, after } = n.payload;
+  if (n.type === 'created') return { title: `${by}: نوبت جدید`, body: `${after.patientName} — ${when(after.startAt)}` };
+  if (n.type === 'cancelled') return { title: `${by}: لغو نوبت`, body: `${after.patientName} — ${when(after.startAt)}` };
+  if (before && before.startAt !== after.startAt) {
+    return { title: `${by}: جابه‌جایی نوبت`, body: `${after.patientName} — از ${when(before.startAt)} به ${when(after.startAt)}` };
+  }
+  return { title: `${by}: ویرایش نوبت`, body: `${after.patientName} — ${when(after.startAt)}` };
 }

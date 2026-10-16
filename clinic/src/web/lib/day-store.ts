@@ -11,10 +11,9 @@
 //   - Changes that arrive while a snapshot request is in flight are buffered and replayed on
 //     top of the snapshot, so a change committed after the snapshot was read is not lost.
 //   - A response for a superseded request (the user changed day meanwhile) is dropped.
-import type { AppointmentDto, DayAppointmentDto, DayResponse } from '../../shared/api';
+import type { ApiResult, AppointmentDto, DayAppointmentDto, DayResponse } from '../../shared/api';
 import { checkSlotAgainstHours } from '../../shared/schedule';
 import { clinicDateOf } from '../../shared/time';
-import type { ApiResult } from './api';
 
 export interface DayView {
   date: string;

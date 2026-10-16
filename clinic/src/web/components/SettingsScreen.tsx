@@ -8,11 +8,12 @@ import { clinicToday, minutesOf, wallTimeOf, type IsoDate } from '../../shared/t
 import { api, type ApiResult } from '../lib/api';
 import { connection } from '../lib/connection';
 import { fa, jalaliLongLabel, WEEK_ORDER, WEEKDAY_NAMES, wallTimeLabel } from '../lib/format';
-import { useConnection, useOnForeground } from '../lib/hooks';
+import { useConnection } from '../lib/hooks';
 import { genericMessage, messageFor, userName } from '../lib/messages';
 import { useSession } from '../lib/session';
 import { ConnectionPill, OfflineBanner } from './ConnectionPill';
 import { JalaliCalendar } from './JalaliCalendar';
+import { NotificationBell } from './Notifications';
 import { BottomSheet, ConfirmDialog } from './Overlays';
 import { showToast } from './Toasts';
 import { IconChevronRight, IconLogout, IconPlus, IconTrash } from './icons';
@@ -312,10 +313,10 @@ export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
 
   const loadSeq = useRef(0);
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     const seq = ++loadSeq.current;
     const res: ApiResult<{ weekly: WeeklyDayRecord[]; overrides: DateOverrideRecord[] }> = await api.schedule();
-    if (seq !== loadSeq.current) return; // a newer re-read is under way
+    if (seq !== loadSeq.current) return true; // a newer re-read is under way
     if (res.ok) {
       // Keep each row object when nothing changed, and never let an older copy replace a newer one.
       setWeekly((prev) =>
@@ -326,16 +327,17 @@ export function SettingsScreen() {
       );
       setOverrides(res.data.overrides);
       setError(null);
-    } else {
-      setError(genericMessage(res));
+      return true;
     }
+    setError(genericMessage(res));
+    return false;
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
-  useEffect(() => connection.onReconnect(() => void load()), [load]);
-  useOnForeground(useCallback(() => void load(), [load]));
+  useEffect(() => connection.onResync(load), [load]);
+  useEffect(() => connection.on('schedule', () => void load()), [load]);
 
   const upsertLocal = (o: DateOverrideRecord) =>
     setOverrides((list) => [...list.filter((x) => x.date !== o.date), o].sort((a, b) => a.date.localeCompare(b.date)));
@@ -371,6 +373,7 @@ export function SettingsScreen() {
           <IconChevronRight />
         </Link>
         <span className="topbar-title">ساعت کاری</span>
+        <NotificationBell />
         <ConnectionPill />
       </header>
       <OfflineBanner />
