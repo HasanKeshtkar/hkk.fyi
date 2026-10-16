@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Role } from '../../shared/api';
 import { api } from '../../web/lib/api';
+import { connection } from '../../web/lib/connection';
+import { notificationStore } from '../../web/lib/notifications';
 import { genericMessage } from '../../web/lib/messages';
 
 export default function LoginPage() {
@@ -42,6 +44,9 @@ export default function LoginPage() {
     const res = await api.login(role, password);
     setBusy(false);
     if (res.ok) {
+      // A new session: nothing of a previous one (its live channel, its notifications) carries over.
+      connection.stop();
+      notificationStore.clear();
       router.replace('/');
       return;
     }

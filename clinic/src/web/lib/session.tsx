@@ -7,6 +7,7 @@ import { api, setUnauthorizedHandler } from './api';
 import { NotificationCenter } from '../components/Notifications';
 import { showToast } from '../components/Toasts';
 import { connection } from './connection';
+import { notificationStore } from './notifications';
 
 interface SessionValue {
   me: UserDto;
@@ -28,9 +29,10 @@ export function RequireSession({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MeResponse | 'loading' | 'offline'>('loading');
 
   // The session is gone: close its realtime channel too (it must not keep hearing patient data,
-  // nor be reused by whoever signs in next), then go to the login screen.
+  // nor be reused by whoever signs in next), forget its notifications, then go to the login screen.
   const signedOut = useCallback(() => {
     connection.stop();
+    notificationStore.clear();
     router.replace('/login/');
   }, [router]);
 

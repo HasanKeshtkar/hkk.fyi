@@ -19,8 +19,8 @@ function useNotifications() {
 }
 
 /**
- * Mounted once for a signed-in secretary: keeps the unread list in step with the server and
- * announces each new change by the doctor with a chime, a vibration and a message.
+ * Mounted on every screen of a signed-in secretary: keeps the unread list in step with the server
+ * and announces each new change by the doctor with a chime, a vibration and a message.
  */
 export function NotificationCenter() {
   const { users } = useSession();
@@ -31,19 +31,15 @@ export function NotificationCenter() {
   useEffect(() => {
     unlockSoundOnFirstTouch();
     void notificationStore.load();
-    const offs = [
-      connection.onResync(() => notificationStore.load()),
-      connection.on('notification', (n) => {
-        if (!notificationStore.add(n)) return;
-        const { title, body } = describeNotification(n, usersRef.current);
-        chime();
-        showToast(`${title} — ${body}`, 'info', 7000);
-      }),
-      connection.on('notifications:read', (e) => notificationStore.removeRead(e.ids)),
-    ];
+    const off = connection.onResync(() => notificationStore.load());
+    notificationStore.setAnnouncer((n) => {
+      const { title, body } = describeNotification(n, usersRef.current);
+      chime();
+      showToast(`${title} — ${body}`, 'info', 7000);
+    });
     return () => {
-      offs.forEach((off) => off());
-      notificationStore.clear();
+      off();
+      notificationStore.setAnnouncer(null);
     };
   }, []);
 

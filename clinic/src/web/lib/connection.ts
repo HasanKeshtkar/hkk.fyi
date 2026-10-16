@@ -33,6 +33,7 @@ class Connection {
   private onUnauthorized: (() => void) | null = null;
   private windowHooked = false;
   private lastForcedRecheck = 0;
+  private recheckTimer: ReturnType<typeof setTimeout> | null = null;
 
   get(): ConnectionStatus {
     return this.status;
@@ -111,6 +112,8 @@ class Connection {
   stop(): void {
     this.resyncRun++;
     if (this.retryTimer) clearTimeout(this.retryTimer);
+    if (this.recheckTimer) clearTimeout(this.recheckTimer);
+    this.recheckTimer = null;
     this.socket?.disconnect();
     this.socket = null;
     this.set('connecting');
@@ -119,12 +122,26 @@ class Connection {
   /** An API call failed for lack of a connection: writes stop until the channel is confirmed. */
   reportNetworkFailure(): void {
     if (this.status === 'online') this.set(this.networkDown() ? 'offline' : 'connecting');
-    // A fetch failed while the socket still looked fine: re-check it (not in a tight loop).
-    const now = Date.now();
-    if (this.socket?.connected && now - this.lastForcedRecheck >= FORCED_RECHECK_MIN_MS) {
-      this.lastForcedRecheck = now;
+    this.scheduleRecheck();
+  }
+
+  /**
+   * A fetch failed while the socket still looked fine: reconnect it, which re-reads everything
+   * and turns the status back to 'online'. At most once per FORCED_RECHECK_MIN_MS; a later one
+   * is postponed, never dropped (nothing else would lift the status while the socket stays up).
+   */
+  private scheduleRecheck(): void {
+    if (!this.socket?.connected || this.recheckTimer) return;
+    const run = () => {
+      this.recheckTimer = null;
+      // Not needed if the socket dropped (it reconnects and re-reads by itself) or is back online.
+      if (!this.socket?.connected || this.status === 'online') return;
+      this.lastForcedRecheck = Date.now();
       this.socket.disconnect().connect();
-    }
+    };
+    const wait = this.lastForcedRecheck + FORCED_RECHECK_MIN_MS - Date.now();
+    if (wait <= 0) run();
+    else this.recheckTimer = setTimeout(run, wait);
   }
 
   reportReachable(): void {
@@ -136,7 +153,15 @@ class Connection {
     const run = ++this.resyncRun;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.set('connecting');
-    const results = await Promise.all([...this.resyncs].map(async (fn) => (await fn()) !== false));
+    const results = await Promise.all(
+      [...this.resyncs].map(async (fn) => {
+        try {
+          return (await fn()) !== false;
+        } catch {
+          return false; // a screen that failed to re-read is retried like any other failure
+        }
+      }),
+    );
     if (run !== this.resyncRun || !this.socket?.connected) return; // superseded or dropped meanwhile
     if (results.every(Boolean)) {
       this.set('online');

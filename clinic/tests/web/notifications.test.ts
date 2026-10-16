@@ -78,13 +78,59 @@ describe('notificationStore', () => {
     expect(view()).toEqual({ ids: ['new'], count: 1 });
   });
 
-  it('a read applied while the list is re-read is not undone by the older answer', async () => {
+  it('a read applied while the list is re-read sends it back for a fresh read (the answer may predate it)', async () => {
     await loadWith([note('a'), note('b')]);
     const p = store.load();
     store.removeRead(['a']);
     calls.list[1]!.resolve(ok({ items: [note('a'), note('b')], count: 2 }));
-    await p;
+    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.list).toHaveLength(3); // read again
+    calls.list[2]!.resolve(ok({ items: [note('b')], count: 1 }));
+    await expect(p).resolves.toBe(true);
     expect(view()).toEqual({ ids: ['b'], count: 1 });
+  });
+
+  it('more than 50 unread: “mark all read” during a re-read ends at zero, not at the unlisted remainder', async () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => note(`n${i}`));
+    await loadWith(fifty, 60);
+    const p = store.load();
+    const m = store.markRead('all');
+    calls.read[0]!.resolve(ok({ ids: [...fifty.map((n) => n.id), ...Array.from({ length: 10 }, (_, i) => `x${i}`)] }));
+    await m;
+    expect(view().count).toBe(0);
+    calls.list[1]!.resolve(ok({ items: fifty, count: 60 })); // taken before the mark-all
+    await new Promise((r) => setTimeout(r, 0));
+    calls.list[2]!.resolve(ok({ items: [], count: 0 }));
+    await expect(p).resolves.toBe(true);
+    expect(view()).toEqual({ ids: [], count: 0 });
+  });
+
+  it('a read that a newer list already reflects is not counted down again', async () => {
+    await loadWith([note('a'), note('b')]);
+    await loadWith([note('b')]); // read on the other phone; its event comes late
+    store.removeRead(['a']);
+    expect(view()).toEqual({ ids: ['b'], count: 1 });
+  });
+
+  it('signing out during a re-read ends it (false) instead of failing', async () => {
+    const p = store.load();
+    store.clear();
+    calls.list[0]!.resolve(ok({ items: [note('a')], count: 1 }));
+    await expect(p).resolves.toBe(false);
+    expect(view()).toEqual({ ids: [], count: 0 });
+  });
+
+  it('a live notification is announced once: at once, or as soon as a screen can announce it', async () => {
+    const heard: string[] = [];
+    store.add(note('while-switching')); // no screen mounted
+    store.add(note('read-before-shown'));
+    store.removeRead(['read-before-shown']);
+    store.setAnnouncer((n) => heard.push(n.id));
+    store.add(note('live'));
+    store.add(note('live')); // duplicate
+    expect(heard).toEqual(['while-switching', 'live']);
+    store.setAnnouncer(null);
   });
 
   it('a superseded re-read resolves with the newer one’s outcome', async () => {

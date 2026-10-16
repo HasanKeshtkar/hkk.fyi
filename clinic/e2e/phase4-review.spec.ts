@@ -124,3 +124,53 @@ test('when the server rejects the session, the phone closes its live channel and
   expect(opened.at(-1)!.closed).toBe(false);
   await ctx.close();
 });
+
+test('two failed requests a moment apart: the connection is re-checked again and comes back online', async ({ browser }) => {
+  const secCtx = await contextAs(browser, 'secretary');
+  const sec = await secCtx.newPage();
+  let failNext = 0;
+  await sec.route('**/api/day**', (route) => {
+    if (failNext > 0) {
+      failNext--;
+      return route.abort('connectionreset');
+    }
+    return route.continue();
+  });
+  let sockets = 0;
+  sec.on('websocket', () => sockets++);
+  await openDay(sec, SAT);
+  expect(sockets).toBe(1);
+  failNext = 1;
+  await sec.getByRole('button', { name: 'روز بعد' }).click();
+  await expect.poll(() => sockets).toBe(2); // the first failure re-checks the connection at once
+  await expect(sec.getByTestId('connection')).toHaveText('آنلاین');
+  failNext = 1; // again, within the 5 s between forced re-checks
+  await sec.getByRole('button', { name: 'روز قبل' }).click();
+  await expect(sec.getByTestId('connection')).toHaveText('در حال اتصال');
+  await expect(sec.getByTestId('connection')).toHaveText('آنلاین', { timeout: 10_000 });
+  expect(sockets).toBe(3); // the second re-check was postponed, not dropped
+  await secCtx.close();
+});
+
+test('a change by the doctor while the secretary moves to another screen is still announced', async ({ browser }) => {
+  const doctorCtx = await contextAs(browser, 'doctor');
+  const secCtx = await contextAs(browser, 'secretary');
+  const doctor = await doctorCtx.newPage();
+  const sec = await secCtx.newPage();
+  await doctor.goto('/');
+  await openDay(sec, SAT);
+  let slowMe = false;
+  await sec.route('**/api/me', async (route) => {
+    if (slowMe) await new Promise((r) => setTimeout(r, 1500)); // the next screen takes a moment to start
+    await route.continue();
+  });
+  slowMe = true;
+  await sec.getByRole('link', { name: 'تنظیمات ساعت کاری' }).click();
+  await bookAs(doctor, '17:00', 'در حین جابه‌جایی صفحه');
+  await expect(sec.locator('.toast')).toContainText('نوبت جدید — در حین جابه‌جایی صفحه', { timeout: 7000 });
+  await expect(sec).toHaveURL(/\/settings\/$/);
+  await expect(sec.getByTestId('bell')).toContainText('۱');
+  await expect(sec.getByTestId('connection')).toHaveText('آنلاین');
+  await doctorCtx.close();
+  await secCtx.close();
+});
