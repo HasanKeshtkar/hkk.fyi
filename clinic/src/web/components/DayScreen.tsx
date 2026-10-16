@@ -13,7 +13,7 @@ import { useConnection, useNow, useOnForeground } from '../lib/hooks';
 import { AppointmentSheet, type SheetTarget } from './AppointmentSheet';
 import { ConnectionPill, OfflineBanner } from './ConnectionPill';
 import { JalaliCalendar } from './JalaliCalendar';
-import { BottomSheet } from './Overlays';
+import { afterOverlayClosed, BottomSheet } from './Overlays';
 import { IconCalendar, IconChevronLeft, IconChevronRight, IconPlus, IconSettings, IconWarning } from './icons';
 
 type Row =
@@ -150,8 +150,8 @@ export function DayScreen() {
                     {nowBadge}
                     <span className="slot-time">{timeLabel(row.startAt)}</span>
                     <span className="slot-empty-label">
-                      <IconPlus />
-                      خالی
+                      {online ? <IconPlus /> : null}
+                      {online ? 'خالی' : 'خالی — بدون اتصال'}
                     </span>
                   </button>
                 </li>
@@ -194,8 +194,9 @@ export function DayScreen() {
           <JalaliCalendar
             value={date}
             onPick={(d) => {
+              // Navigate once the calendar has handed its Back-button history entry back.
+              afterOverlayClosed(() => goTo(d));
               setCalendarOpen(false);
-              goTo(d);
             }}
           />
         </BottomSheet>

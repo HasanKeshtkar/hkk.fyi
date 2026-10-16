@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ApiError } from '../../shared/api';
 import type { DateOverrideRecord, WeeklyDayRecord } from '../../shared/schedule';
 import { clinicToday, minutesOf, wallTimeOf, type IsoDate } from '../../shared/time';
@@ -48,13 +48,27 @@ function WeekRow(props: { saved: WeeklyDayRecord; onSaved: (r: WeeklyDayRecord) 
   const { users } = useSession();
   const online = useConnection() === 'online';
   const [draft, setDraft] = useState(props.saved);
+  // The version the draft was started from: a save sends it, so a change made meanwhile by the
+  // other person is never overwritten silently (the server answers 409 instead).
+  const [base, setBase] = useState(props.saved);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'error' | 'warn'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: 'error' | 'warn' | 'info'; text: string } | null>(null);
 
-  useEffect(() => setDraft(props.saved), [props.saved]);
+  const dirty = draft.isOpen !== base.isOpen || draft.startTime !== base.startTime || draft.endTime !== base.endTime;
 
-  const dirty =
-    draft.isOpen !== props.saved.isOpen || draft.startTime !== props.saved.startTime || draft.endTime !== props.saved.endTime;
+  useEffect(() => {
+    if (props.saved.version === base.version) return;
+    if (dirty) {
+      setMessage({
+        tone: 'warn',
+        text: `ساعت این روز همین الان توسط ${userName(users, props.saved.updatedBy)} تغییر کرد. با «ذخیره»، تغییر شما رد می‌شود و مقدار جدید نمایش داده می‌شود.`,
+      });
+      return;
+    }
+    setDraft(props.saved);
+    setBase(props.saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.saved.version]);
   const invalid = draft.isOpen && minutesOf(draft.endTime) <= minutesOf(draft.startTime);
 
   async function save() {
@@ -64,16 +78,21 @@ function WeekRow(props: { saved: WeeklyDayRecord; onSaved: (r: WeeklyDayRecord) 
       isOpen: draft.isOpen,
       startTime: draft.startTime,
       endTime: draft.endTime,
-      version: props.saved.version,
+      version: base.version || null,
     });
     setBusy(false);
     if (res.ok) {
+      setDraft(res.data);
+      setBase(res.data);
       props.onSaved(res.data);
       showToast(`ساعت ${WEEKDAY_NAMES[draft.weekday]} ذخیره شد`);
       return;
     }
     if (res.kind === 'http' && res.error.error === 'schedule_conflict' && res.error.currentSchedule) {
-      props.onSaved(res.error.currentSchedule as WeeklyDayRecord);
+      const current = res.error.currentSchedule as WeeklyDayRecord;
+      setDraft(current);
+      setBase(current);
+      props.onSaved(current);
       setMessage({ tone: 'warn', text: conflictText(users, res.error, `ساعت ${WEEKDAY_NAMES[draft.weekday]}`) });
       return;
     }
@@ -123,7 +142,7 @@ function WeekRow(props: { saved: WeeklyDayRecord; onSaved: (r: WeeklyDayRecord) 
           <button type="button" className="btn btn-primary" disabled={!online || busy || invalid} onClick={() => void save()}>
             {busy ? 'در حال ذخیره…' : 'ذخیره'}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => setDraft(props.saved)}>
+          <button type="button" className="btn btn-secondary" onClick={() => setDraft(base)}>
             انصراف
           </button>
         </div>
@@ -141,6 +160,7 @@ function OverrideSheet(props: {
   initial: DateOverrideRecord | null;
   existing: DateOverrideRecord[];
   onSaved: (o: DateOverrideRecord) => void;
+  onRemoved: (date: IsoDate) => void;
   onClose: () => void;
 }) {
   const { users } = useSession();
@@ -153,6 +173,9 @@ function OverrideSheet(props: {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'error' | 'warn'; text: string } | null>(null);
   const [calendar, setCalendar] = useState(!props.initial);
+  // The override version this form is based on (null: there was none). Refreshes of the list
+  // behind the sheet must not move it, or a save would overwrite a change made meanwhile.
+  const [baseVersion, setBaseVersion] = useState<number | null>(props.initial?.version ?? null);
 
   const current = props.existing.find((o) => o.date === date) ?? null;
   const invalid = isOpen && minutesOf(endTime) <= minutesOf(startTime);
@@ -165,7 +188,7 @@ function OverrideSheet(props: {
       startTime: isOpen ? startTime : null,
       endTime: isOpen ? endTime : null,
       note: note.trim() || null,
-      version: current?.version ?? null,
+      version: baseVersion,
     });
     setBusy(false);
     if (res.ok) {
@@ -178,12 +201,18 @@ function OverrideSheet(props: {
       const cs = res.error.currentSchedule as DateOverrideRecord | null | undefined;
       if (cs) {
         props.onSaved(cs);
+        setBaseVersion(cs.version);
         setIsOpen(cs.isOpen);
         setStartTime(cs.startTime ?? '09:00');
         setEndTime(cs.endTime ?? '13:00');
         setNote(cs.note ?? '');
+        setMessage({ tone: 'warn', text: conflictText(users, res.error, `تنظیم ${jalaliLongLabel(date)}`) });
+      } else {
+        // Removed by the other person meanwhile: the next save creates it again.
+        props.onRemoved(date);
+        setBaseVersion(null);
+        setMessage({ tone: 'warn', text: `تنظیم ${jalaliLongLabel(date)} همین الان توسط کاربر دیگر حذف شد. اگر هنوز لازم است، دوباره «ذخیره» را بزنید.` });
       }
-      setMessage({ tone: 'warn', text: conflictText(users, res.error, `تنظیم ${jalaliLongLabel(date)}`) });
       return;
     }
     setMessage({ tone: 'error', text: res.kind === 'http' ? messageFor(res.error) : genericMessage(res) });
@@ -201,6 +230,7 @@ function OverrideSheet(props: {
               setDate(d);
               setCalendar(false);
               const ex = props.existing.find((o) => o.date === d);
+              setBaseVersion(ex?.version ?? null);
               if (ex) {
                 setIsOpen(ex.isOpen);
                 setStartTime(ex.startTime ?? '09:00');
@@ -218,6 +248,12 @@ function OverrideSheet(props: {
           </button>
         </div>
       )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (online && !busy && !invalid) void save();
+        }}
+      >
       {current && !props.initial ? (
         <div className="alert alert-info">برای این روز قبلاً «{overrideSummary(current)}» ثبت شده؛ با ذخیره، جایگزین می‌شود.</div>
       ) : null}
@@ -251,14 +287,16 @@ function OverrideSheet(props: {
           maxLength={200}
           placeholder="مثلاً: تعطیل رسمی"
           value={note}
+          enterKeyHint="done"
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
       <div className="sheet-actions">
-        <button type="button" className="btn btn-primary" disabled={!online || busy || invalid} onClick={() => void save()}>
+        <button type="submit" className="btn btn-primary" disabled={!online || busy || invalid}>
           {busy ? 'در حال ذخیره…' : 'ذخیره'}
         </button>
       </div>
+      </form>
     </BottomSheet>
   );
 }
@@ -273,10 +311,19 @@ export function SettingsScreen() {
   const [removing, setRemoving] = useState<DateOverrideRecord | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     const res: ApiResult<{ weekly: WeeklyDayRecord[]; overrides: DateOverrideRecord[] }> = await api.schedule();
+    if (seq !== loadSeq.current) return; // a newer re-read is under way
     if (res.ok) {
-      setWeekly(res.data.weekly);
+      // Keep each row object when nothing changed, and never let an older copy replace a newer one.
+      setWeekly((prev) =>
+        res.data.weekly.map((w) => {
+          const p = prev?.find((x) => x.weekday === w.weekday);
+          return p && p.version >= w.version ? p : w;
+        }),
+      );
       setOverrides(res.data.overrides);
       setError(null);
     } else {
@@ -390,7 +437,7 @@ export function SettingsScreen() {
           <p className="card-sub" style={{ marginBottom: 8 }}>
             وارد شده با نام «{me.name}» ({me.role === 'doctor' ? 'دکتر' : 'منشی'})
           </p>
-          <button type="button" className="btn btn-secondary" onClick={() => void logout()}>
+          <button type="button" className="btn btn-secondary" disabled={!online} onClick={() => void logout()}>
             <IconLogout />
             خروج از حساب
           </button>
@@ -399,7 +446,13 @@ export function SettingsScreen() {
       </div>
 
       {editing ? (
-        <OverrideSheet initial={editing.initial} existing={overrides} onSaved={upsertLocal} onClose={() => setEditing(null)} />
+        <OverrideSheet
+          initial={editing.initial}
+          existing={overrides}
+          onSaved={upsertLocal}
+          onRemoved={(d) => setOverrides((list) => list.filter((x) => x.date !== d))}
+          onClose={() => setEditing(null)}
+        />
       ) : null}
       {removing ? (
         <ConfirmDialog

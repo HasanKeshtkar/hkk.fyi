@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import type { AppointmentDto } from '../../shared/api';
 import { normalizePatientName } from '../../shared/patient-name';
 import { normalizeIranMobile } from '../../shared/phone';
@@ -26,8 +26,9 @@ type Alert = { tone: 'error' | 'warn' | 'info'; text: string } | null;
  * landing first (409): the screen then shows the fresh data and says who changed it.
  */
 export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; onClose: () => void }) {
-  const { users } = useSession();
+  const { users, me } = useSession();
   const online = useConnection() === 'online';
+  const view$ = useSyncExternalStore(props.store.subscribe, props.store.getView, props.store.getView);
   const [appt, setAppt] = useState<AppointmentDto | null>(props.target.kind === 'edit' ? props.target.appointment : null);
   const [startAt, setStartAt] = useState(props.target.kind === 'create' ? props.target.startAt : props.target.appointment.startAt);
   const [name, setName] = useState(appt?.patientName ?? '');
@@ -42,6 +43,47 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   const isCreate = props.target.kind === 'create';
   const canWrite = online && !busy && !closedForGood;
+  const savedRef = useRef(false); // our own write succeeded: the store echoes it, ignore that
+
+  // While a save is in flight the sheet stays open, so its outcome (or error) is always seen
+  // and a late success cannot close a sheet opened afterwards.
+  const close = () => {
+    if (!busy) props.onClose();
+  };
+
+  // Keep the open sheet in step with the list: a refresh or (phase 4) a realtime change may
+  // bring a newer version of this appointment, or a booking into the slot being filled.
+  const liveAppt = appt ? (view$.data?.appointments.find((a) => a.id === appt.id) ?? null) : null;
+  const liveTaker = isCreate ? (view$.data?.appointments.find((a) => a.startAt === startAt) ?? null) : null;
+  const dirty = appt !== null && (name !== appt.patientName || phone !== appt.patientPhone);
+  useEffect(() => {
+    if (savedRef.current || busy || !appt || !liveAppt || liveAppt.version <= appt.version) return;
+    if (dirty) {
+      // Keep what she typed; saving will be refused with the fresh data (409) and explain.
+      setAlert({
+        tone: 'warn',
+        text: `این نوبت همین الان توسط ${userName(users, liveAppt.updatedBy)} تغییر کرده است. قبل از ذخیره، اطلاعات را بررسی کنید.`,
+      });
+    } else {
+      adoptCurrent(liveAppt);
+      setAlert({ tone: 'info', text: `این نوبت همین الان توسط ${userName(users, liveAppt.updatedBy)} به‌روز شد.` });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveAppt?.version]);
+  const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
+  useEffect(() => {
+    if (savedRef.current || busy || !vanished) return;
+    setAlert({ tone: 'warn', text: 'این نوبت همین الان توسط کاربر دیگر جابه‌جا یا لغو شد. فهرست را بررسی کنید.' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vanished]);
+  useEffect(() => {
+    if (savedRef.current || busy || !liveTaker) return;
+    setAlert({
+      tone: 'error',
+      text: `این ساعت همین الان توسط ${userName(users, liveTaker.updatedBy)} برای «${liveTaker.patientName}» رزرو شد. ساعت دیگری انتخاب کنید.`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTaker?.id]);
 
   function adoptCurrent(current: AppointmentDto) {
     props.store.applyAppointment(current);
@@ -54,6 +96,8 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   /** Common handling of a failed write. */
   function onFailure(res: Exclude<ApiResult<unknown>, { ok: true }>) {
+    // Hide the keyboard so the message and the buttons under it are on screen.
+    (document.activeElement as HTMLElement | null)?.blur?.();
     if (res.kind === 'network') {
       setAlert({
         tone: 'warn',
@@ -125,7 +169,19 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     try {
       if (isCreate) {
         const res = await api.createAppointment({ startAt, patientName: v.name, patientPhone: v.phone });
-        if (!res.ok) return onFailure(res);
+        if (!res.ok) {
+          // A retry after a lost response finds her own booking in the slot: that is a success.
+          const held = res.kind === 'http' && res.error.error === 'slot_taken' ? res.error.existing : null;
+          if (held && held.createdBy === me.id && held.patientName === v.name && held.patientPhone === v.phone) {
+            savedRef.current = true;
+            props.store.applyAppointment(held);
+            showToast('نوبت ثبت شده است');
+            props.onClose();
+            return;
+          }
+          return onFailure(res);
+        }
+        savedRef.current = true;
         props.store.applyAppointment(res.data);
         showToast('نوبت ثبت شد');
         props.onClose();
@@ -137,6 +193,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
           patientPhone: v.phone,
         });
         if (!res.ok) return onFailure(res);
+        savedRef.current = true;
         props.store.applyAppointment(res.data);
         showToast('تغییرات ذخیره شد');
         props.onClose();
@@ -153,6 +210,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
       const res = await api.cancelAppointment(appt.id, appt.version);
       setConfirm(null);
       if (!res.ok) return onFailure(res);
+      savedRef.current = true;
       props.store.applyAppointment(res.data);
       showToast('نوبت لغو شد');
       props.onClose();
@@ -169,6 +227,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
       setConfirm(null);
       setView('form');
       if (!res.ok) return onFailure(res);
+      savedRef.current = true;
       props.store.applyAppointment(res.data);
       showToast(`نوبت به ${jalaliLongLabel(clinicDateOf(new Date(to)))} ساعت ${timeLabel(to)} منتقل شد`);
       props.onClose();
@@ -182,7 +241,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   if (view === 'pick') {
     return (
-      <BottomSheet title={isCreate ? 'انتخاب ساعت دیگر' : 'تغییر ساعت نوبت'} subtitle={appt?.patientName} onClose={props.onClose}>
+      <BottomSheet title={isCreate ? 'انتخاب ساعت دیگر' : 'تغییر ساعت نوبت'} subtitle={appt?.patientName} onClose={close}>
         <SlotPicker
           initialDate={clinicDateOf(new Date(startAt))}
           disabled={!canWrite}
@@ -212,7 +271,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   }
 
   return (
-    <BottomSheet title={title} subtitle={when} onClose={props.onClose}>
+    <BottomSheet title={title} subtitle={when} onClose={close}>
       {!online ? (
         <div className="alert alert-warn">اتصال برقرار نیست؛ تا وصل شدن، ذخیره و تغییر ممکن نیست.</div>
       ) : null}

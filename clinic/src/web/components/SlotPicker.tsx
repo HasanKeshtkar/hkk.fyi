@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DayResponse } from '../../shared/api';
 import { addDays, SLOT_MS, type IsoDate } from '../../shared/time';
 import { api } from '../lib/api';
@@ -26,18 +26,24 @@ export function SlotPicker(props: {
   const [picked, setPicked] = useState<string | null>(null);
   const [calendar, setCalendar] = useState(false);
 
-  const load = useCallback(async (d: IsoDate) => {
+  const [reload, setReload] = useState(0);
+
+  // Answers can come back out of order when the user steps through days quickly: only the
+  // answer for the date on screen is used.
+  useEffect(() => {
+    let live = true;
     setDay(null);
     setError(null);
     setPicked(null);
-    const res = await api.day(d);
-    if (res.ok) setDay(res.data);
-    else setError(genericMessage(res));
-  }, []);
-
-  useEffect(() => {
-    void load(date);
-  }, [date, load]);
+    void api.day(date).then((res) => {
+      if (!live) return;
+      if (res.ok) setDay(res.data);
+      else setError(genericMessage(res));
+    });
+    return () => {
+      live = false;
+    };
+  }, [date, reload]);
 
   const now = Date.now();
   const taken = new Set(day?.appointments.map((a) => a.startAt));
@@ -68,7 +74,14 @@ export function SlotPicker(props: {
           />
         </div>
       ) : null}
-      {error ? <div className="alert alert-error">{error}</div> : null}
+      {error ? (
+        <div className="alert alert-error">
+          {error}{' '}
+          <button type="button" className="link-btn" onClick={() => setReload((n) => n + 1)}>
+            دوباره
+          </button>
+        </div>
+      ) : null}
       {!day && !error ? <div className="skeleton" style={{ marginBottom: 12 }} /> : null}
       {day && !day.schedule.isOpen ? <p className="empty-note">این روز تعطیل است.</p> : null}
       {day && day.schedule.isOpen && free.length === 0 ? <p className="empty-note">ساعت خالی در این روز نیست.</p> : null}

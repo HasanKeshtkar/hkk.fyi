@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { MeResponse, UserDto } from '../../shared/api';
 import { api, setUnauthorizedHandler } from './api';
+import { showToast } from '../components/Toasts';
 import { connection } from './connection';
 
 interface SessionValue {
@@ -49,8 +50,12 @@ export function RequireSession({ children }: { children: ReactNode }) {
       me: state.user,
       users: state.users,
       logout: async () => {
-        await api.logout();
-        router.replace('/login/');
+        const res = await api.logout();
+        if (res.ok || (res.kind === 'http' && res.status === 401)) {
+          router.replace('/login/');
+          return;
+        }
+        showToast('خروج انجام نشد؛ اتصال برقرار نیست. دوباره امتحان کنید.', 'error');
       },
     };
   }, [state, router]);
