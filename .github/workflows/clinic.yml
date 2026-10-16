@@ -72,11 +72,23 @@ jobs:
       - name: Deploy to Cloudflare
         if: steps.cf.outputs.ready == 'true'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TOKEN_SECRET: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           SEED_DOCTOR_PASSWORD: ${{ secrets.SEED_DOCTOR_PASSWORD }}
           SEED_SECRETARY_PASSWORD: ${{ secrets.SEED_SECRETARY_PASSWORD }}
         run: |
           umask 077
+          # Just the token, even if the secret was pasted with spaces, extra lines or the
+          # "Authorization: Bearer" test command around it. The value itself is never printed.
+          CLOUDFLARE_API_TOKEN=$(node -e '
+            const found = [...new Set(process.env.TOKEN_SECRET.match(/[A-Za-z0-9_-]{40,}/g) ?? [])];
+            if (found.length !== 1) {
+              console.error(`::error::The CLOUDFLARE_API_TOKEN secret should hold only the Cloudflare API token, on one line (found ${found.length} token-like values). Paste it again in Settings > Secrets and variables > Actions.`);
+              process.exit(1);
+            }
+            process.stdout.write(found[0]);
+          ')
+          echo "::add-mask::$CLOUDFLARE_API_TOKEN"
+          export CLOUDFLARE_API_TOKEN
           # The two passwords go up as Worker secrets (never in a file in the repository or a log).
           node -e '
             const s = {};
