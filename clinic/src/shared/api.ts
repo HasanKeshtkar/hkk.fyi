@@ -73,9 +73,17 @@ export interface BackupsResponse {
   latest: BackupInfo | null;
   /** no daily backup for more than a day and a half: something is wrong */
   stale: boolean;
+  /** every backup kept, newest first (daily ones and the copies taken before each restore) */
+  items: BackupInfo[];
 }
 
-/** Realtime events (socket.io), server → client. */
+export interface RestoreResponse {
+  restored: string;
+  /** the data as it was just before the restore */
+  safetyBackup: string;
+}
+
+/** Realtime events (WebSocket /api/live), server → client. */
 export interface ServerEvents {
   appointment: (e: { appointment: AppointmentDto; action: 'create' | 'update' | 'cancel'; by: string }) => void;
   schedule: (e: { by: string }) => void;

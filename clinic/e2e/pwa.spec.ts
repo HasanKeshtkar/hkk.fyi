@@ -70,7 +70,7 @@ test('offline, the installed app still opens and says it cannot connect; it keep
     return urls;
   });
   expect(saved.length).toBeGreaterThan(3);
-  expect(saved.filter((u) => u.includes('/api/') || u.includes('/socket.io/'))).toEqual([]);
+  expect(saved.filter((u) => u.includes('/api/'))).toEqual([]);
 
   // Back online: one tap and everything is live again.
   await context.setOffline(false);

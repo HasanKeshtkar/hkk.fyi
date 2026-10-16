@@ -1,4 +1,5 @@
-# Tests for the clinic app (clinic/). The static site itself has no build or tests.
+# The clinic app (clinic/): tests on every push; a push that passes them goes live on Cloudflare.
+# The static site itself has no build or tests.
 name: clinic
 
 on:
@@ -13,22 +14,6 @@ jobs:
     defaults:
       run:
         working-directory: clinic
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: clinic_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/clinic_test
-      E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/clinic_e2e_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,10 +23,13 @@ jobs:
           cache-dependency-path: clinic/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
       - run: npm run build:web
+      # The app runs on the real Workers runtime (wrangler dev) for both test suites.
+      - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+      # The Worker bundles and its configuration is valid.
+      - run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -49,86 +37,60 @@ jobs:
           path: clinic/test-results/
           retention-days: 7
 
-  # The production image, run the way Liara runs it (as root, backup disk mounted): it starts,
-  # serves the app, and can back up and restore with the PostgreSQL tools it ships.
-  image:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: clinic_image_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker build -t clinic clinic
-      - name: Start the container
-        run: |
-          mkdir -p "$RUNNER_TEMP/backups"
-          docker run -d --name app --network host \
-            -v "$RUNNER_TEMP/backups:/app/backups" \
-            -e DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/clinic_image_test \
-            -e APP_ORIGIN=http://localhost:3000 \
-            -e BACKUP_DIR=/app/backups \
-            clinic
-          for i in $(seq 1 30); do curl -fsS localhost:3000/healthz && break; sleep 1; done
-          curl -fsS localhost:3000/healthz
-      - name: Smoke test
-        run: |
-          set -ex
-          curl -fsS localhost:3000/ | grep -q '<html'
-          curl -fsS localhost:3000/manifest.webmanifest | grep -q '"start_url": "/"'
-          curl -fsS localhost:3000/sw.js | grep -q 'const PRECACHE = \["/"'
-          # The server runs as the unprivileged user, not root.
-          docker exec app sh -c 'ps -o user,args | grep "[d]ist/server.mjs"' | grep -q '^node'
-          docker exec app pg_dump --version
-          docker exec app bash -c 'echo bash ok'   # `liara app shell` opens /bin/bash
-          docker exec -e SEED_DOCTOR_PASSWORD=doctor-pass-123 -e SEED_SECRETARY_PASSWORD=secretary-pass-123 app node dist/seed.mjs
-          docker exec -u node app node dist/backup.mjs
-          # The folder is the app user's alone (chmod 700): look from inside the container.
-          FILE=$(docker exec app ls /app/backups | grep '^clinic-.*\.dump$' | head -1)
-          test -n "$FILE"
-          docker exec -u node app psql postgres://postgres:postgres@127.0.0.1:5432/clinic_image_test -c "delete from weekly_schedule"
-          docker exec -u node app node dist/restore.mjs "/app/backups/$FILE" --yes
-          test "$(docker exec app psql postgres://postgres:postgres@127.0.0.1:5432/clinic_image_test -Atc 'select count(*) from weekly_schedule')" = 7
-          docker exec app ls -l /app/backups
-          docker exec app ls /app/backups | grep -q '^pre-restore-'
-      - if: always()
-        run: docker logs app
-
-  # Every push that passes all checks goes live on Liara, once Liara is connected: the app's name
-  # in clinic/liara.json ("app") and an API token in the repository secret LIARA_API_TOKEN.
+  # Needs the repository secrets CLOUDFLARE_API_TOKEN, SEED_DOCTOR_PASSWORD and
+  # SEED_SECRETARY_PASSWORD (see clinic/README.md). Until the token is there, it does nothing.
   deploy:
-    needs: [test, image]
+    needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    concurrency: liara-deploy
+    concurrency:
+      group: cloudflare-deploy
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: clinic
     steps:
       - uses: actions/checkout@v4
-      - name: Is Liara connected?
-        id: liara
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clinic/package-lock.json
+      - name: Is Cloudflare connected?
+        id: cf
         env:
-          LIARA_API_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          APP=$(node -p "require('./liara.json').app ?? ''")
-          if [ -z "$LIARA_API_TOKEN" ] || [ -z "$APP" ]; then
-            echo "Liara is not connected yet (secret LIARA_API_TOKEN and \"app\" in liara.json): nothing to deploy."
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "Cloudflare is not connected yet (no CLOUDFLARE_API_TOKEN secret): nothing to deploy."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Deploy to Liara
-        if: steps.liara.outputs.ready == 'true'
+      - if: steps.cf.outputs.ready == 'true'
+        run: npm ci && npm run build:web
+      - name: Deploy to Cloudflare
+        if: steps.cf.outputs.ready == 'true'
         env:
-          LIARA_API_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
-        run: npx --yes @liara/cli@9.5.1 deploy --api-token "$LIARA_API_TOKEN" --no-app-logs --message "${GITHUB_SHA::7}"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SEED_DOCTOR_PASSWORD: ${{ secrets.SEED_DOCTOR_PASSWORD }}
+          SEED_SECRETARY_PASSWORD: ${{ secrets.SEED_SECRETARY_PASSWORD }}
+        run: |
+          umask 077
+          # The two passwords go up as Worker secrets (never in a file in the repository or a log).
+          node -e '
+            const s = {};
+            for (const k of ["SEED_DOCTOR_PASSWORD", "SEED_SECRETARY_PASSWORD"]) if (process.env[k]) s[k] = process.env[k];
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/secrets.json", JSON.stringify(s));
+          '
+          npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --var "DEPLOY_ID:$GITHUB_SHA"
+          rm -f "$RUNNER_TEMP/secrets.json"
+      - name: Is it up?
+        if: steps.cf.outputs.ready == 'true'
+        run: |
+          ORIGIN=$(node -e 'const t = require("fs").readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, ""); console.log(JSON.parse(t).vars.APP_ORIGIN.split(",")[0])')
+          for i in $(seq 1 30); do
+            if curl -fsS "$ORIGIN/healthz"; then echo; echo "live at $ORIGIN"; exit 0; fi
+            sleep 10
+          done
+          echo "::warning::$ORIGIN does not answer yet (a new domain's certificate can take a few minutes)."

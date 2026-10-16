@@ -73,7 +73,7 @@ test('a phone refused while the database was briefly down reconnects by itself o
   const secCtx = await contextAs(browser, 'secretary');
   const sec = await secCtx.newPage();
   const sockets: { close: () => Promise<void> }[] = [];
-  await sec.routeWebSocket(/\/socket\.io\//, (ws) => {
+  await sec.routeWebSocket(/\/api\/live/, (ws) => {
     ws.connectToServer();
     sockets.push(ws);
   });
@@ -108,13 +108,13 @@ test('when the server rejects the session, the phone closes its live channel and
     await page.getByRole('button', { name: 'ورود' }).click();
     await expect(page.getByTestId('connection')).toHaveText('آنلاین');
   };
-  const since = (await query('select now() as t')).rows[0].t;
+  const since = Date.now();
   await page.goto('/');
   await signIn();
   expect(opened).toHaveLength(1);
 
   // This phone's session is revoked (only this one: the stored test sessions are older).
-  await query('delete from sessions where created_at >= $1', [since]);
+  await query('delete from sessions where created_at >= ?', [since]);
   await page.getByRole('button', { name: 'روز بعد' }).click(); // any request now gets 401
   await page.waitForURL('**/login/');
   await expect.poll(() => opened[0]!.closed).toBe(true);

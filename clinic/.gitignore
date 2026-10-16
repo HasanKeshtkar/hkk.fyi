@@ -6,6 +6,8 @@ coverage/
 .env
 .env.*
 !.env.example
+.dev.vars
+.wrangler/
 *.dump
 backups/
 next-env.d.ts
@@ -13,3 +15,4 @@ next-env.d.ts
 test-results/
 playwright-report/
 e2e/.auth/
+src/worker/worker-configuration.d.ts

@@ -1,39 +1,36 @@
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import pg from 'pg';
-import { DEFAULT_WEEKLY_SCHEDULE } from '../src/server/db/defaults';
 import { addDays, clinicToday, instantAt, weekdayOf, type IsoDate } from '../src/shared/time';
-import { E2E_DATABASE_URL } from './env';
+import { E2E_ORIGIN } from './env';
 
 export const AUTH = { doctor: 'e2e/.auth/doctor.json', secretary: 'e2e/.auth/secretary.json' } as const;
 
-let pool: pg.Pool | null = null;
-function db(): pg.Pool {
-  pool ??= new pg.Pool({ connectionString: E2E_DATABASE_URL, max: 2 });
-  return pool;
+async function testApi<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${E2E_ORIGIN}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: E2E_ORIGIN },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as T;
 }
 
-/** Clears appointments and exceptions and restores the default hours (sessions are kept). */
+/** Clears appointments, hours, notifications, backups (test-only route; accounts and sessions are kept). */
 export async function resetData(): Promise<void> {
-  await db().query('truncate notifications, audit_log, appointments, date_overrides restart identity cascade');
-  await db().query('delete from weekly_schedule');
-  for (const w of DEFAULT_WEEKLY_SCHEDULE) {
-    await db().query('insert into weekly_schedule (weekday, is_open, start_time, end_time) values ($1, $2, $3, $4)', [
-      w.weekday,
-      w.isOpen,
-      w.startTime,
-      w.endTime,
-    ]);
-  }
+  await testApi('/api/test/reset', { keepSessions: true });
 }
 
-/** A direct query on the test database. */
-export async function query(text: string, params: unknown[] = []): Promise<pg.QueryResult> {
-  return db().query(text, params);
+/** A direct query on the app's database (test-only route). Parameters are `?`. */
+export async function query(text: string, params: unknown[] = []): Promise<{ rows: any[] }> {
+  return testApi('/api/test/sql', { query: text, params });
+}
+
+/** A backup now, as the daily one would be (test-only route). */
+export async function backupNow(): Promise<string> {
+  return (await testApi<{ name: string }>('/api/test/backup', {})).name;
 }
 
 export async function closeDb(): Promise<void> {
-  await pool?.end();
-  pool = null;
+  // Nothing to close: the tests talk to the app over HTTP.
 }
 
 /** The next date (from tomorrow on) that falls on `weekday` (0 = Sunday … 6 = Saturday). */

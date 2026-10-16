@@ -4,6 +4,7 @@ import type {
   AppointmentDto,
   BackupsResponse,
   DayResponse,
+  RestoreResponse,
   MeResponse,
   NotificationsResponse,
   ScheduleResponse,
@@ -75,6 +76,8 @@ export const api = {
 
   notifications: () => request<NotificationsResponse>('GET', '/api/notifications'),
   backups: () => request<BackupsResponse>('GET', '/api/backups'),
+  restoreBackup: (name: string) =>
+    request<RestoreResponse>('POST', `/api/backups/${encodeURIComponent(name)}/restore`, {}),
   markNotificationsRead: (body: { all: true } | { ids: string[] }) =>
     request<{ ids: string[] }>('POST', '/api/notifications/read', body),
 };

@@ -29,10 +29,10 @@ export default defineConfig({
     { name: 'app', testMatch: /.*\.spec\.ts/, dependencies: ['setup'] },
   ],
   webServer: {
-    command: 'npx tsx e2e/serve.ts',
+    command: 'node e2e/serve.mjs',
     url: `${E2E_ORIGIN}/healthz`,
     reuseExistingServer: false,
-    timeout: 60_000,
+    timeout: 120_000,
     stdout: 'pipe',
   },
 });

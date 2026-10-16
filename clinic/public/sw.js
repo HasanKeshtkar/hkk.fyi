@@ -1,8 +1,8 @@
 // Service worker: lets the installed app open, and say it is offline, without a network. Nothing more.
 //   - Pages: network first, so a new version shows at once; the saved copy is used only offline.
 //   - Build files (/_next/static/, named by content hash): saved copy first.
-//   - Data (/api/) and the live channel (/socket.io/) never pass through here and are never saved:
-//     no patient data is ever stored on the phone.
+//   - Data and the live channel (/api/…) never pass through here and are never saved: no patient
+//     data is ever stored on the phone.
 // The build id and the file list below are filled in by scripts/finalize-sw.mjs after `next build`.
 const BUILD = '__BUILD__';
 const PRECACHE = __PRECACHE__;
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) return;
+  if (url.pathname.startsWith('/api/')) return;
   if (request.mode === 'navigate') event.respondWith(page(request, url));
   else if (url.pathname.startsWith('/_next/static/')) event.respondWith(savedFirst(request));
   else event.respondWith(networkFirst(request));

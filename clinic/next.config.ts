@@ -7,7 +7,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const config: NextConfig = {
   output: isDev ? undefined : 'export',
   trailingSlash: true,
-  // `next dev` proxies the API to the Fastify server on :3000 (npm run dev). The API has no
+  // `next dev` proxies the API to `wrangler dev` on :8787 (npm run dev). The API has no
   // trailing slashes, so dev must not redirect /api/me to /api/me/.
   skipTrailingSlashRedirect: isDev,
   poweredByHeader: false,
@@ -17,7 +17,7 @@ const config: NextConfig = {
   ...(isDev
     ? {
         async rewrites() {
-          return [{ source: '/api/:path*', destination: 'http://127.0.0.1:3000/api/:path*' }];
+          return [{ source: '/api/:path*', destination: 'http://127.0.0.1:8787/api/:path*' }];
         },
       }
     : {}),

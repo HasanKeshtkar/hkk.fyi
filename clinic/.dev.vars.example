@@ -1,0 +1,4 @@
+# Local settings for `npm run dev` (wrangler dev). Copy to .dev.vars (gitignored).
+APP_ORIGIN=http://localhost:8787
+SEED_DOCTOR_PASSWORD=doctor-pass-local
+SEED_SECRETARY_PASSWORD=secretary-pass-local

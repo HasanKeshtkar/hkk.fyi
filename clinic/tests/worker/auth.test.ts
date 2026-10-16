@@ -1,0 +1,124 @@
+// Sign-in, sessions, and the guards every request passes: CSRF origin check, deny by default,
+// the login rate limit, and the security headers.
+import { beforeEach, describe, expect, it } from 'vitest';
+import { call, login, ORIGIN, PASSWORDS, reset, sql } from '../helpers/worker';
+
+beforeEach(async () => {
+  await reset();
+});
+
+describe('login', () => {
+  it('signs in with a long-lived, locked-down session cookie', async () => {
+    const res = await call(null, 'POST', '/api/auth/login', { role: 'secretary', password: PASSWORDS.secretary });
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({ role: 'secretary', name: 'منشی تست' });
+    expect(res.body.users.map((u: { role: string }) => u.role)).toEqual(['doctor', 'secretary']);
+    expect(JSON.stringify(res.body)).not.toContain('pbkdf2');
+    const cookie = res.headers.get('set-cookie')!;
+    expect(cookie).toMatch(/^__Host-sid=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=1555(1999|2000)$/); // 180 days
+    // Only the token's hash is stored.
+    const token = cookie.split(';')[0]!.split('=')[1]!;
+    const stored = await sql<{ id: string }>('SELECT id FROM sessions');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]!.id).not.toBe(token);
+    expect(stored[0]!.id).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('refuses a wrong password, and gives no hint which part was wrong', async () => {
+    const res = await call(null, 'POST', '/api/auth/login', { role: 'doctor', password: 'wrong-password' });
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'invalid_credentials' });
+    expect(res.headers.get('set-cookie')).toBeNull();
+    const bad = await call(null, 'POST', '/api/auth/login', { role: 'nurse', password: 'x' });
+    expect(bad.status).toBe(400);
+  });
+
+  it('limits login attempts per address (5 per 15 minutes)', async () => {
+    for (let i = 0; i < 5; i++) {
+      expect((await call(null, 'POST', '/api/auth/login', { role: 'doctor', password: 'nope' })).status).toBe(401);
+    }
+    const res = await call(null, 'POST', '/api/auth/login', { role: 'doctor', password: PASSWORDS.doctor });
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({ error: 'rate_limited' });
+  });
+
+  it('logout ends the session', async () => {
+    const cookie = await login('doctor');
+    expect((await call(cookie, 'GET', '/api/me')).status).toBe(200);
+    const out = await call(cookie, 'POST', '/api/auth/logout', {});
+    expect(out.status).toBe(200);
+    expect(out.headers.get('set-cookie')).toMatch(/^__Host-sid=; .*Max-Age=0$/);
+    expect((await call(cookie, 'GET', '/api/me')).status).toBe(401);
+  });
+
+  it('a session in daily use slides forward and the cookie is re-sent; an expired one is refused', async () => {
+    const cookie = await login('secretary');
+    expect((await call(cookie, 'GET', '/api/me')).headers.get('set-cookie')).toBeNull(); // used today: nothing to do
+    await sql('UPDATE sessions SET last_seen_at = last_seen_at - 2 * 86400000');
+    const res = await call(cookie, 'GET', '/api/me');
+    expect(res.headers.get('set-cookie')).toMatch(/Max-Age=1555\d{4}$/);
+    await sql('UPDATE sessions SET expires_at = ?', Date.now() - 1000);
+    expect((await call(cookie, 'GET', '/api/me')).status).toBe(401);
+  });
+});
+
+describe('guards', () => {
+  it('every API route needs a session (deny by default), including encoded paths', async () => {
+    for (const [method, path] of [
+      ['GET', '/api/me'],
+      ['GET', '/api/day?date=2026-10-17'],
+      ['GET', '/api/schedule'],
+      ['GET', '/api/notifications'],
+      ['GET', '/api/backups'],
+      ['POST', '/api/appointments'],
+      ['PATCH', '/api/appointments/00000000-0000-4000-8000-000000000000'],
+      ['PUT', '/api/schedule/weekly/6'],
+    ] as const) {
+      expect((await call(null, method, path, method === 'GET' ? undefined : {})).status, `${method} ${path}`).toBe(401);
+    }
+    expect((await call(null, 'GET', '/%61pi/me')).status).not.toBe(200);
+  });
+
+  it('state-changing requests must come from our own origin (CSRF)', async () => {
+    const cookie = await login('doctor');
+    const body = { startAt: '2026-10-17T10:30:00.000Z', patientName: 'x', patientPhone: '09121234567' };
+    expect((await call(cookie, 'POST', '/api/appointments', body, null)).status).toBe(403);
+    expect((await call(cookie, 'POST', '/api/appointments', body, 'https://evil.example')).status).toBe(403);
+    expect((await call(null, 'POST', '/api/auth/login', { role: 'doctor', password: PASSWORDS.doctor }, 'https://evil.example')).status).toBe(403);
+    expect((await call(cookie, 'POST', '/api/appointments', body, ORIGIN)).status).toBe(201);
+  });
+
+  it('malformed requests get a plain 400 without echoing anything back', async () => {
+    const cookie = await login('doctor');
+    const res = await fetch(`${ORIGIN}/api/appointments`, {
+      method: 'POST',
+      headers: { origin: ORIGIN, cookie, 'content-type': 'application/json' },
+      body: '{"patientName": "مریم احمدی", broken',
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).not.toContain('مریم');
+  });
+
+  it('a huge body is refused without being held in memory; the server keeps working', async () => {
+    const huge = 'a'.repeat(5_000_000);
+    const res = await fetch(`${ORIGIN}/api/auth/login`, { method: 'POST', headers: { origin: ORIGIN }, body: huge });
+    expect(res.status).toBe(413);
+    // Turned away before the body is read (no session): still answered cleanly.
+    const anon = await fetch(`${ORIGIN}/api/appointments`, { method: 'POST', headers: { origin: ORIGIN }, body: huge });
+    expect(anon.status).toBe(401);
+    expect((await call(null, 'POST', '/api/auth/login', { role: 'doctor', password: PASSWORDS.doctor })).status).toBe(200);
+  });
+
+  it('every response carries the security headers; the API is never cached', async () => {
+    for (const path of ['/api/me', '/healthz', '/', '/login/', '/manifest.webmanifest']) {
+      const res = await call(null, 'GET', path);
+      const h = res.headers;
+      expect(h.get('content-security-policy'), path).toContain("default-src 'self'");
+      expect(h.get('x-content-type-options'), path).toBe('nosniff');
+      expect(h.get('x-frame-options'), path).toBe('DENY');
+      expect(h.get('referrer-policy'), path).toBe('no-referrer');
+    }
+    expect((await call(null, 'GET', '/api/me')).headers.get('cache-control')).toBe('no-store');
+    expect((await call(null, 'GET', '/')).headers.get('cache-control')).toBe('no-cache');
+  });
+});

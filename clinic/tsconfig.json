@@ -20,15 +20,11 @@
     "noEmit": true
   },
   "include": [
-    "src/server",
     "src/shared",
-    "scripts",
-    "tests/db",
-    "tests/api",
+    "tests/worker",
     "tests/shared",
     "tests/helpers",
-    "tests/global-setup.ts",
-    "drizzle.config.ts",
+    "tests/worker-setup.ts",
     "vitest.config.ts"
   ]
 }

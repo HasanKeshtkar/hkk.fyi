@@ -91,7 +91,7 @@ test.describe('as the secretary', () => {
     await expect(page.getByText('نوبت ثبت شده است')).toBeVisible();
     await expect(slot(page, SAT, '16:00')).toContainText('زهرا کریمی');
     await expect(page.getByText(/رزرو شد\. ساعت دیگری انتخاب کنید/)).toHaveCount(0);
-    expect((await query("select count(*)::int as n from appointments where status <> 'cancelled'")).rows[0].n).toBe(1);
+    expect((await query("select count(*) as n from appointments where status <> 'cancelled'")).rows[0].n).toBe(1);
   });
 
   test('the phone number on the call button keeps its digit order', async ({ page }) => {

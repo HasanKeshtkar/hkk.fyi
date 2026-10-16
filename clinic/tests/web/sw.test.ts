@@ -134,7 +134,7 @@ describe('service worker', () => {
     fetched = [];
     expect(await request('/api/day?date=2026-10-17')).toBeNull();
     expect(await request('/api/backups/clinic-2026-10-16_0300.dump', { mode: 'navigate' })).toBeNull();
-    expect(await request('/socket.io/?EIO=4&transport=websocket')).toBeNull();
+    expect(await request('/api/live')).toBeNull();
     expect(await request('/api/appointments', { method: 'POST' })).toBeNull();
     expect(await request('https://cdn.example.com/x.js')).toBeNull();
     expect(fetched).toEqual([]);
