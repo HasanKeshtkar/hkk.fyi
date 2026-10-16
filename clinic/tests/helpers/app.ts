@@ -1,6 +1,6 @@
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import type pg from 'pg';
-import { buildApp, loggerOptions } from '../../src/server/app.js';
+import { buildApp, loggerOptions, type AppDeps } from '../../src/server/app.js';
 import { hashPassword } from '../../src/server/auth/password.js';
 import type { Config } from '../../src/server/config.js';
 import type { Db } from '../../src/server/db/client.js';
@@ -30,9 +30,14 @@ export interface TestApp {
   logs: string[];
 }
 
-export async function makeApp(db: Db, config: Partial<Config> = {}): Promise<TestApp> {
+export async function makeApp(
+  db: Db,
+  config: Partial<Config> = {},
+  deps: Pick<AppDeps, 'socketSessionCheckMs'> = {},
+): Promise<TestApp> {
   const logs: string[] = [];
   const app = await buildApp({
+    ...deps,
     db,
     config: testConfig(config),
     logger: { ...loggerOptions('info'), stream: { write: (line: string) => void logs.push(line) } },

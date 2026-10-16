@@ -29,6 +29,8 @@ export interface AppDeps {
   config: Config;
   /** Override the logger (tests capture output through a stream). */
   logger?: FastifyServerOptions['logger'];
+  /** How often open sockets are re-checked against the sessions table (tests shorten it). */
+  socketSessionCheckMs?: number;
 }
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -46,7 +48,7 @@ export function loggerOptions(level: string): Exclude<FastifyServerOptions['logg
   };
 }
 
-export async function buildApp({ db, config, logger }: AppDeps): Promise<FastifyInstance> {
+export async function buildApp({ db, config, logger, socketSessionCheckMs }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: logger ?? loggerOptions(config.logLevel),
     // Trust exactly N proxy hops (Liara's router), so request.ip is the phone, not a spoofable header value.
@@ -87,8 +89,10 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
     if (session.refreshed && token) setSessionCookie(reply, config, token, session.expiresAt);
   });
 
-  const realtime: Realtime = attachRealtime(app, { db, config });
-  app.addHook('onClose', () => realtime.close());
+  const realtime: Realtime = attachRealtime(app, { db, config, sessionCheckMs: socketSessionCheckMs });
+  // preClose, not onClose: Fastify's own close waits for every connection, and open websockets
+  // would hold it (and the process) forever.
+  app.addHook('preClose', () => realtime.close());
 
   app.get('/healthz', { config: { public: true } }, async () => {
     await db.execute(sql`select 1`);

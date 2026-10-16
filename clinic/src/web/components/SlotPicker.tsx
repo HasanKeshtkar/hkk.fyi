@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DayResponse } from '../../shared/api';
 import { addDays, SLOT_MS, type IsoDate } from '../../shared/time';
 import { api } from '../lib/api';
@@ -27,39 +27,54 @@ export function SlotPicker(props: {
   const [picked, setPicked] = useState<string | null>(null);
   const [calendar, setCalendar] = useState(false);
 
-  const [reload, setReload] = useState(0);
-
-  // Answers can come back out of order when the user steps through days quickly: only the
-  // answer for the date on screen is used.
-  useEffect(() => {
-    let live = true;
-    setDay(null);
-    setError(null);
-    setPicked(null);
-    void api.day(date).then((res) => {
-      if (!live) return;
-      if (res.ok) setDay(res.data);
-      else setError(genericMessage(res));
+  // Answers can come back out of order (stepping through days quickly, a live change during a
+  // re-read): only the answer to the newest request is used.
+  const seq = useRef(0);
+  const latest = useRef<Promise<boolean>>(Promise.resolve(true));
+  const dateRef = useRef(date);
+  dateRef.current = date;
+  const load = useCallback((d: IsoDate, fresh: boolean): Promise<boolean> => {
+    const mine = ++seq.current;
+    if (fresh) {
+      setDay(null);
+      setError(null);
+      setPicked(null);
+    }
+    const p = api.day(d).then((res): boolean | Promise<boolean> => {
+      if (mine !== seq.current) return latest.current;
+      if (res.ok) {
+        setDay(res.data);
+        setError(null);
+      } else {
+        setError(genericMessage(res));
+      }
+      return res.ok;
     });
-    return () => {
-      live = false;
-    };
-  }, [date, reload]);
-
-  // Someone else may book a slot while she is choosing: keep the list current.
-  useEffect(() => {
-    const again = () => setReload((n) => n + 1);
-    const offA = connection.on('appointment', again);
-    const offS = connection.on('schedule', again);
-    return () => {
-      offA();
-      offS();
-    };
+    latest.current = p;
+    return p;
   }, []);
+
+  useEffect(() => {
+    void load(date, true);
+  }, [date, load]);
+
+  // Someone else may book a slot while she is choosing, or while the phone was cut off: keep
+  // the list current (the connection turns 'online' only after this re-read too).
+  useEffect(() => {
+    const again = () => void load(dateRef.current, false);
+    const offs = [
+      connection.on('appointment', again),
+      connection.on('schedule', again),
+      connection.onResync(() => load(dateRef.current, false)),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [load]);
 
   const now = Date.now();
   const taken = new Set(day?.appointments.map((a) => a.startAt));
   const free = (day?.slots ?? []).filter((s) => !taken.has(s) && new Date(s).getTime() + SLOT_MS > now);
+  // A choice that was just taken by someone else (or fell outside the hours) is dropped.
+  const chosen = picked !== null && free.includes(picked) ? picked : null;
 
   return (
     <div>
@@ -89,7 +104,7 @@ export function SlotPicker(props: {
       {error ? (
         <div className="alert alert-error">
           {error}{' '}
-          <button type="button" className="link-btn" onClick={() => setReload((n) => n + 1)}>
+          <button type="button" className="link-btn" onClick={() => void load(date, true)}>
             دوباره
           </button>
         </div>
@@ -104,7 +119,7 @@ export function SlotPicker(props: {
               type="button"
               key={s}
               className="free-slot"
-              aria-pressed={picked === s}
+              aria-pressed={chosen === s}
               onClick={() => setPicked(s)}
             >
               {timeLabel(s)}
@@ -116,10 +131,10 @@ export function SlotPicker(props: {
         <button
           type="button"
           className="btn btn-primary"
-          disabled={!picked || props.disabled}
-          onClick={() => picked && props.onPick(picked)}
+          disabled={!chosen || props.disabled}
+          onClick={() => chosen && props.onPick(chosen)}
         >
-          {picked ? props.pickLabel(picked) : 'یک ساعت خالی انتخاب کنید'}
+          {chosen ? props.pickLabel(chosen) : 'یک ساعت خالی انتخاب کنید'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={props.onBack}>
           برگشت

@@ -30,6 +30,7 @@ export class DayStore {
   private view: DayView;
   private listeners = new Set<() => void>();
   private seq = 0;
+  private latest: Promise<boolean> = Promise.resolve(true);
   private inflight: { seq: number; buffer: AppointmentDto[] } | null = null;
   /** newest version seen per appointment id, from any source */
   private seen = new Map<string, number>();
@@ -54,30 +55,40 @@ export class DayStore {
   }
 
   /** Shows another date (or reloads the current one when `date` is unchanged and data is missing). */
-  setDate(date: string): Promise<void> {
-    if (date === this.view.date && this.view.data) return Promise.resolve();
+  setDate(date: string): Promise<boolean> {
+    if (date === this.view.date && this.view.data) return Promise.resolve(true);
     this.set({ date, data: date === this.view.date ? this.view.data : null, error: null });
     return this.refresh();
   }
 
-  /** Re-reads the whole day from the server. */
-  async refresh(): Promise<void> {
+  /**
+   * Re-reads the whole day from the server. Resolves true once the screen shows a read that
+   * started after this call; if a newer re-read supersedes this one, with that one's outcome.
+   */
+  refresh(): Promise<boolean> {
+    const p = this.read();
+    this.latest = p;
+    return p;
+  }
+
+  private async read(): Promise<boolean> {
     const seq = ++this.seq;
     const date = this.view.date;
     this.inflight = { seq, buffer: [] };
     this.set({ loading: true });
     const res = await this.fetchDay(date);
-    if (seq !== this.seq) return; // superseded by a newer request
+    if (seq !== this.seq) return this.latest; // superseded: the newer request decides
     const buffer = this.inflight?.buffer ?? [];
     this.inflight = null;
     if (!res.ok) {
       this.set({ loading: false, error: res.kind === 'network' ? 'network' : 'server' });
-      return;
+      return false;
     }
     let data = res.data;
     for (const a of data.appointments) this.noteSeen(a);
     for (const a of buffer) data = this.merge(data, a);
     this.set({ data, loading: false, error: null });
+    return true;
   }
 
   /** Applies a newer state of one appointment (write result, conflict payload, or realtime event). */

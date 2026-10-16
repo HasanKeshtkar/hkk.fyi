@@ -53,14 +53,7 @@ export function DayScreen() {
   // Re-read the whole day whenever we may have missed something (every (re)connect and every
   // return to the foreground); in between, apply each change the server pushes.
   const refresh = useCallback(() => void store.refresh(), [store]);
-  useEffect(
-    () =>
-      connection.onResync(async () => {
-        await store.refresh();
-        return store.getView().error === null;
-      }),
-    [store],
-  );
+  useEffect(() => connection.onResync(() => store.refresh()), [store]);
   useEffect(() => connection.on('appointment', (e) => store.applyAppointment(e.appointment)), [store]);
   useEffect(() => connection.on('schedule', () => void store.refresh()), [store]);
 

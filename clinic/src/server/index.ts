@@ -21,6 +21,8 @@ async function shutdown(signal: string) {
   if (closing) return;
   closing = true;
   app.log.info({ signal }, 'shutting down');
+  // Never hang: if something still holds the process, leave anyway.
+  setTimeout(() => process.exit(1), 10_000).unref();
   try {
     await app.close();
     await pool.end();

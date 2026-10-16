@@ -27,32 +27,39 @@ export function RequireSession({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [state, setState] = useState<MeResponse | 'loading' | 'offline'>('loading');
 
+  // The session is gone: close its realtime channel too (it must not keep hearing patient data,
+  // nor be reused by whoever signs in next), then go to the login screen.
+  const signedOut = useCallback(() => {
+    connection.stop();
+    router.replace('/login/');
+  }, [router]);
+
   const load = useCallback(async (): Promise<boolean> => {
     const res = await api.me();
     if (res.ok) {
       setState(res.data);
       return true;
     }
-    if (res.kind === 'http' && res.status === 401) router.replace('/login/');
+    if (res.kind === 'http' && res.status === 401) signedOut();
     else setState((s) => (s === 'loading' ? 'offline' : s));
     return false;
-  }, [router]);
+  }, [signedOut]);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => router.replace('/login/'));
+    setUnauthorizedHandler(signedOut);
     void load();
     const off = connection.onResync(load);
     return () => {
       off();
       setUnauthorizedHandler(null);
     };
-  }, [load, router]);
+  }, [load, signedOut]);
 
   // The realtime channel opens once we know who is signed in.
   const signedIn = typeof state === 'object';
   useEffect(() => {
-    if (signedIn) connection.start(() => router.replace('/login/'));
-  }, [signedIn, router]);
+    if (signedIn) connection.start(signedOut);
+  }, [signedIn, signedOut]);
 
   const value = useMemo<SessionValue | null>(() => {
     if (state === 'loading' || state === 'offline') return null;
@@ -62,14 +69,13 @@ export function RequireSession({ children }: { children: ReactNode }) {
       logout: async () => {
         const res = await api.logout();
         if (res.ok || (res.kind === 'http' && res.status === 401)) {
-          connection.stop();
-          router.replace('/login/');
+          signedOut();
           return;
         }
         showToast('خروج انجام نشد؛ اتصال برقرار نیست. دوباره امتحان کنید.', 'error');
       },
     };
-  }, [state, router]);
+  }, [state, signedOut]);
 
   if (state === 'loading') return <div className="splash" aria-busy="true">در حال بارگذاری…</div>;
   if (state === 'offline')

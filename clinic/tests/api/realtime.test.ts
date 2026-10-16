@@ -8,6 +8,7 @@ import type { ApiResult, AppointmentDto, DayResponse, NotificationDto, ServerEve
 import { instantAt } from '../../src/shared/time.js';
 import { DayStore } from '../../src/web/lib/day-store.js';
 import { openTestDb, resetData } from '../helpers/db.js';
+import { hashToken } from '../../src/server/auth/sessions.js';
 import { call, login, makeApp, setRealPasswords, TEST_ORIGIN } from '../helpers/app.js';
 
 const { pool, db } = openTestDb(10);
@@ -23,7 +24,7 @@ const at = (t: string) => instantAt(SAT, t).toISOString();
 beforeEach(async () => {
   await resetData(pool, db);
   await setRealPasswords(pool);
-  ({ app } = await makeApp(db));
+  ({ app } = await makeApp(db, {}, { socketSessionCheckMs: 100 }));
   await app.listen({ port: 0, host: '127.0.0.1' });
   url = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
   doc = await login(app, 'doctor');
@@ -32,8 +33,12 @@ beforeEach(async () => {
 
 afterEach(async () => {
   sockets.splice(0).forEach((s) => s.disconnect());
-  await app.close();
+  if (!closed) await app.close();
+  closed = false;
 });
+let closed = false;
+
+const sessionIdOf = (cookie: string) => hashToken(cookie.slice(cookie.indexOf('=') + 1));
 
 afterAll(async () => {
   await pool.end();
@@ -111,6 +116,56 @@ describe('who may connect', () => {
     await gone;
     await settle();
     expect(b.connected).toBe(true);
+  });
+});
+
+describe('sessions that end without a logout request', () => {
+  it('a socket whose session was deleted (password reset) is dropped and hears nothing more', async () => {
+    const s = open(sec);
+    const d = open(doc);
+    await Promise.all([connected(s), connected(d)]);
+    const appts = collect(s, 'appointment');
+    const notes = collect(s, 'notification');
+    const gone = new Promise((r) => s.once('disconnect', r));
+    await pool.query('delete from sessions where id = $1', [sessionIdOf(sec)]);
+    await gone;
+    await book(doc, '14:00', 'بیمار بعد از ابطال');
+    await settle();
+    expect(appts.got).toHaveLength(0);
+    expect(notes.got).toHaveLength(0);
+    expect(d.connected).toBe(true); // the doctor's session is untouched
+    expect(await refused(open(sec))).toBe('unauthorized');
+  });
+
+  it('a socket whose session expired is dropped', async () => {
+    const s = open(sec);
+    await connected(s);
+    const gone = new Promise((r) => s.once('disconnect', r));
+    await pool.query("update sessions set expires_at = now() - interval '1 second' where id = $1", [sessionIdOf(sec)]);
+    await gone;
+  });
+
+  it('the handshake does not extend a session (it cannot re-send the cookie; API calls do)', async () => {
+    const id = sessionIdOf(sec);
+    await pool.query("update sessions set last_seen_at = now() - interval '2 days' where id = $1", [id]);
+    const before = (await pool.query('select expires_at from sessions where id = $1', [id])).rows[0].expires_at;
+    await connected(open(sec));
+    const after = (await pool.query('select expires_at from sessions where id = $1', [id])).rows[0].expires_at;
+    expect(after).toEqual(before);
+    const res = await call(app, sec, 'GET', '/api/me');
+    expect(res.cookies.find((c) => c.name === '__Host-sid')).toBeDefined();
+  });
+});
+
+describe('shutdown', () => {
+  it('closing the server does not wait on open sockets: phones are dropped and reconnect elsewhere', async () => {
+    const s = open(sec);
+    await connected(s);
+    const gone = new Promise<string>((r) => s.once('disconnect', (reason) => r(reason)));
+    const closing = app.close();
+    closed = true;
+    await expect(Promise.race([closing.then(() => 'closed'), new Promise((r) => setTimeout(() => r('hung'), 3000))])).resolves.toBe('closed');
+    expect(await gone).toBe('transport close'); // not 'io server disconnect': the client retries by itself
   });
 });
 

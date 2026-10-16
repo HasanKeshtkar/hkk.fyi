@@ -132,4 +132,19 @@ describe('DayStore', () => {
     expect(store.getView()).toMatchObject({ error: 'network', loading: false });
     expect(names(store)).toEqual(['بیمار a v1']);
   });
+
+  it('a re-read superseded by a newer one resolves with the newer one’s outcome', async () => {
+    const f = controlledFetch();
+    const store = new DayStore(f.fetchDay, SAT);
+    const first = store.refresh(); // e.g. the reconnect re-read
+    const second = store.refresh(); // e.g. a working-hours event meanwhile
+    f.respond(0, day([appt('a', 1, '14:00')])); // dropped: superseded
+    f.pending[1]!.resolve({ ok: false, kind: 'http', status: 500, error: { error: 'server_error' } });
+    await expect(first).resolves.toBe(false); // so the connection does not claim to be in step
+    await expect(second).resolves.toBe(false);
+
+    const third = store.refresh();
+    f.respond(2, day([appt('a', 1, '14:00')]));
+    await expect(third).resolves.toBe(true);
+  });
 });

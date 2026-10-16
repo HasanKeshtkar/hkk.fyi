@@ -17,6 +17,10 @@ type Resync = () => Promise<boolean> | boolean | void;
 
 const EVENTS: EventName[] = ['appointment', 'schedule', 'notification', 'notifications:read'];
 const RESYNC_RETRY_MS = 3_000;
+/** A refused handshake (server or database briefly unavailable) is not retried by socket.io itself. */
+const REFUSED_RETRY_MS = 3_000;
+/** Forced re-checks after a failed request are at most this frequent. */
+const FORCED_RECHECK_MIN_MS = 5_000;
 
 class Connection {
   private status: ConnectionStatus = 'connecting';
@@ -28,6 +32,7 @@ class Connection {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private onUnauthorized: (() => void) | null = null;
   private windowHooked = false;
+  private lastForcedRecheck = 0;
 
   get(): ConnectionStatus {
     return this.status;
@@ -68,7 +73,7 @@ class Connection {
     this.hookWindow();
     const socket = io({
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       reconnectionDelay: 1_000,
       reconnectionDelayMax: 5_000,
       timeout: 10_000,
@@ -90,12 +95,22 @@ class Connection {
       if (err.message === 'unauthorized') {
         socket.disconnect();
         this.onUnauthorized?.();
+        return;
+      }
+      // Network errors keep socket.active and use socket.io's own backoff. A refusal by the server
+      // (e.g. 'unavailable' while its database restarts) ends the attempts: try again ourselves.
+      if (!socket.active) {
+        setTimeout(() => {
+          if (this.socket === socket && !socket.active) socket.connect();
+        }, REFUSED_RETRY_MS);
       }
     });
   }
 
-  /** Closes the channel (logout). */
+  /** Closes the channel (logout, or the session was rejected); a later start() opens a new one. */
   stop(): void {
+    this.resyncRun++;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
     this.socket?.disconnect();
     this.socket = null;
     this.set('connecting');
@@ -104,8 +119,10 @@ class Connection {
   /** An API call failed for lack of a connection: writes stop until the channel is confirmed. */
   reportNetworkFailure(): void {
     if (this.status === 'online') this.set(this.networkDown() ? 'offline' : 'connecting');
-    // A fetch failed while the socket still looked fine: re-check it right away.
-    if (this.socket?.connected) {
+    // A fetch failed while the socket still looked fine: re-check it (not in a tight loop).
+    const now = Date.now();
+    if (this.socket?.connected && now - this.lastForcedRecheck >= FORCED_RECHECK_MIN_MS) {
+      this.lastForcedRecheck = now;
       this.socket.disconnect().connect();
     }
   }

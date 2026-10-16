@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, eq, gt, inArray, lt } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { sessions, users, type User } from '../db/schema.js';
 
@@ -28,7 +28,18 @@ export async function createSession(db: Db, userId: string, now = new Date()): P
   return { token, expiresAt };
 }
 
-export async function resolveSession(db: Db, token: string | undefined, now = new Date()): Promise<ResolvedSession | null> {
+/**
+ * The session a cookie token stands for, or null. With `slide` (the default) a session last seen
+ * over a day ago has its expiry pushed out; the caller must then re-send the cookie. Callers that
+ * cannot send a cookie (the realtime handshake) pass `slide: false`, so the stored expiry never
+ * runs ahead of the browser's cookie.
+ */
+export async function resolveSession(
+  db: Db,
+  token: string | undefined,
+  now = new Date(),
+  { slide = true }: { slide?: boolean } = {},
+): Promise<ResolvedSession | null> {
   if (!token || !TOKEN_FORMAT.test(token)) return null;
   const id = hashToken(token);
   const [row] = await db
@@ -38,12 +49,22 @@ export async function resolveSession(db: Db, token: string | undefined, now = ne
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, now)));
   if (!row) return null;
 
-  if (now.getTime() - row.lastSeenAt.getTime() < REFRESH_AFTER_MS) {
+  if (!slide || now.getTime() - row.lastSeenAt.getTime() < REFRESH_AFTER_MS) {
     return { id, user: row.user, expiresAt: row.expiresAt, refreshed: false };
   }
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
   await db.update(sessions).set({ lastSeenAt: now, expiresAt }).where(eq(sessions.id, id));
   return { id, user: row.user, expiresAt, refreshed: true };
+}
+
+/** Which of these session ids are still valid (not deleted, not expired). */
+export async function liveSessionIds(db: Db, ids: string[], now = new Date()): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(inArray(sessions.id, ids), gt(sessions.expiresAt, now)));
+  return new Set(rows.map((r) => r.id));
 }
 
 export async function deleteSession(db: Db, token: string | undefined): Promise<void> {

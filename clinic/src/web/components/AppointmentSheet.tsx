@@ -56,8 +56,22 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   const liveAppt = appt ? (view$.data?.appointments.find((a) => a.id === appt.id) ?? null) : null;
   const liveTaker = isCreate ? (view$.data?.appointments.find((a) => a.startAt === startAt) ?? null) : null;
   const dirty = appt !== null && (name !== appt.patientName || phone !== appt.patientPhone);
+  // Each check also runs again when a save ends: the change may have arrived while it was in flight.
   useEffect(() => {
     if (savedRef.current || busy || !appt || !liveAppt || liveAppt.version <= appt.version) return;
+    if (
+      liveAppt.updatedBy === me.id &&
+      liveAppt.startAt === startAt &&
+      liveAppt.patientName === normalizePatientName(name) &&
+      liveAppt.patientPhone === normalizeIranMobile(phone)
+    ) {
+      // Her own edit of exactly this: a save whose answer was lost went through after all.
+      savedRef.current = true;
+      props.store.applyAppointment(liveAppt);
+      showToast('تغییرات ذخیره شده است');
+      props.onClose();
+      return;
+    }
     if (dirty) {
       // Keep what she typed; saving will be refused with the fresh data (409) and explain.
       setAlert({
@@ -69,7 +83,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
       setAlert({ tone: 'info', text: `این نوبت همین الان توسط ${userName(users, liveAppt.updatedBy)} به‌روز شد.` });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveAppt?.version]);
+  }, [liveAppt?.version, busy]);
   const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
   useEffect(() => {
     if (savedRef.current || busy || !vanished) return;
@@ -78,12 +92,23 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   }, [vanished]);
   useEffect(() => {
     if (savedRef.current || busy || !liveTaker) return;
+    // Her own booking of exactly this: a save whose answer was lost went through after all.
+    if (
+      liveTaker.createdBy === me.id &&
+      liveTaker.patientName === normalizePatientName(name) &&
+      liveTaker.patientPhone === normalizeIranMobile(phone)
+    ) {
+      savedRef.current = true;
+      showToast('نوبت ثبت شده است');
+      props.onClose();
+      return;
+    }
     setAlert({
       tone: 'error',
       text: `این ساعت همین الان توسط ${userName(users, liveTaker.updatedBy)} برای «${liveTaker.patientName}» رزرو شد. ساعت دیگری انتخاب کنید.`,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveTaker?.id]);
+  }, [liveTaker?.id, busy]);
 
   function adoptCurrent(current: AppointmentDto) {
     props.store.applyAppointment(current);

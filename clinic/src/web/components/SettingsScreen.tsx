@@ -313,24 +313,31 @@ export function SettingsScreen() {
   const [busy, setBusy] = useState(false);
 
   const loadSeq = useRef(0);
-  const load = useCallback(async (): Promise<boolean> => {
-    const seq = ++loadSeq.current;
-    const res: ApiResult<{ weekly: WeeklyDayRecord[]; overrides: DateOverrideRecord[] }> = await api.schedule();
-    if (seq !== loadSeq.current) return true; // a newer re-read is under way
-    if (res.ok) {
-      // Keep each row object when nothing changed, and never let an older copy replace a newer one.
-      setWeekly((prev) =>
-        res.data.weekly.map((w) => {
-          const p = prev?.find((x) => x.weekday === w.weekday);
-          return p && p.version >= w.version ? p : w;
-        }),
-      );
-      setOverrides(res.data.overrides);
-      setError(null);
-      return true;
-    }
-    setError(genericMessage(res));
-    return false;
+  const latestLoad = useRef<Promise<boolean>>(Promise.resolve(true));
+  // Resolves with the outcome of the newest re-read (the one whose answer ends up on screen).
+  const load = useCallback((): Promise<boolean> => {
+    const read = async (): Promise<boolean> => {
+      const seq = ++loadSeq.current;
+      const res: ApiResult<{ weekly: WeeklyDayRecord[]; overrides: DateOverrideRecord[] }> = await api.schedule();
+      if (seq !== loadSeq.current) return latestLoad.current; // a newer re-read decides
+      if (res.ok) {
+        // Keep each row object when nothing changed, and never let an older copy replace a newer one.
+        setWeekly((prev) =>
+          res.data.weekly.map((w) => {
+            const p = prev?.find((x) => x.weekday === w.weekday);
+            return p && p.version >= w.version ? p : w;
+          }),
+        );
+        setOverrides(res.data.overrides);
+        setError(null);
+        return true;
+      }
+      setError(genericMessage(res));
+      return false;
+    };
+    const p = read();
+    latestLoad.current = p;
+    return p;
   }, []);
 
   useEffect(() => {

@@ -26,6 +26,11 @@ export async function resetData(): Promise<void> {
   }
 }
 
+/** A direct query on the test database. */
+export async function query(text: string, params: unknown[] = []): Promise<pg.QueryResult> {
+  return db().query(text, params);
+}
+
 export async function closeDb(): Promise<void> {
   await pool?.end();
   pool = null;

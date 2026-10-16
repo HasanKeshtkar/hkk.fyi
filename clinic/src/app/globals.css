@@ -691,6 +691,7 @@ button:disabled {
 }
 
 .toast {
+  overflow-wrap: anywhere;
   pointer-events: none;
   background: var(--ink);
   color: #fff;
@@ -1007,10 +1008,12 @@ button:disabled {
 }
 
 .note-title {
+  overflow-wrap: anywhere;
   font-weight: 700;
 }
 
 .note-body {
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 16px;
 }

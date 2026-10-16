@@ -1,7 +1,7 @@
 // Regression tests for the problems the phase 3 review found.
 import { expect, test } from '@playwright/test';
 import { E2E_ORIGIN } from './env';
-import { AUTH, book, closeDb, contextAs, nextWeekday, openDay, resetData, slot } from './helpers';
+import { AUTH, book, closeDb, contextAs, nextWeekday, openDay, query, resetData, slot } from './helpers';
 
 const SAT = nextWeekday(6);
 
@@ -75,12 +75,10 @@ test.describe('as the secretary', () => {
     await expect(page).toHaveURL(/\/settings\/$/);
   });
 
-  test('a save whose answer was lost is recognised on retry instead of reported as "taken"', async ({ page }) => {
+  test('a save whose answer was lost is recognised as hers, not reported as "taken"', async ({ page }) => {
     await openDay(page, SAT);
-    let dropped = false;
     await page.route('**/api/appointments', async (route) => {
-      if (dropped || route.request().method() !== 'POST') return route.continue();
-      dropped = true;
+      if (route.request().method() !== 'POST') return route.continue();
       await route.fetch(); // the server books it…
       await route.abort('connectionreset'); // …but the phone never hears back
     });
@@ -88,11 +86,12 @@ test.describe('as the secretary', () => {
     await page.getByLabel('نام بیمار').fill('زهرا کریمی');
     await page.getByLabel('شماره موبایل').fill('09121234567');
     await page.getByRole('button', { name: 'ذخیره نوبت' }).click();
-    await expect(page.locator('.alert[role="alert"]')).toContainText('معلوم نیست ذخیره شد');
-    await page.getByRole('button', { name: 'ذخیره نوبت' }).click();
+    // The booking reaches the phone anyway (live, or by the re-read): the sheet knows it is hers.
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByText('نوبت ثبت شده است')).toBeVisible();
     await expect(slot(page, SAT, '16:00')).toContainText('زهرا کریمی');
+    await expect(page.getByText(/رزرو شد\. ساعت دیگری انتخاب کنید/)).toHaveCount(0);
+    expect((await query("select count(*)::int as n from appointments where status <> 'cancelled'")).rows[0].n).toBe(1);
   });
 
   test('the phone number on the call button keeps its digit order', async ({ page }) => {
