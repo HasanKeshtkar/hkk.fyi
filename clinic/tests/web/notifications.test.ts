@@ -87,6 +87,15 @@ describe('notificationStore', () => {
     expect(view()).toEqual({ ids: ['b'], count: 1 });
   });
 
+  it('a superseded re-read resolves with the newer one’s outcome', async () => {
+    const first = store.load();
+    const second = store.load();
+    calls.list[0]!.resolve(ok({ items: [], count: 0 }));
+    calls.list[1]!.resolve({ ok: false, kind: 'network' });
+    await expect(first).resolves.toBe(false);
+    await expect(second).resolves.toBe(false);
+  });
+
   it('an older re-read answering last is ignored', async () => {
     const first = store.load();
     const second = store.load();

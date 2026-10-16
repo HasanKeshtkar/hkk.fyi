@@ -12,6 +12,7 @@ class NotificationStore {
   /** ids known to be read; a read is applied once, however many times it is reported */
   private read = new Set<string>();
   private loadSeq = 0;
+  private latestLoad: Promise<boolean> = Promise.resolve(true);
   /** live notifications received while a re-read is in flight (its answer may predate them) */
   private arrivedDuringLoad: NotificationDto[] | null = null;
 
@@ -27,12 +28,21 @@ class NotificationStore {
     this.listeners.forEach((l) => l());
   }
 
-  /** Re-reads the unread list; true when this phone is in step with the server. */
-  async load(): Promise<boolean> {
+  /**
+   * Re-reads the unread list; resolves true when this phone is in step with the server (if a
+   * newer re-read supersedes this one, with that one's outcome).
+   */
+  load(): Promise<boolean> {
+    const p = this.fetchList();
+    this.latestLoad = p;
+    return p;
+  }
+
+  private async fetchList(): Promise<boolean> {
     const seq = ++this.loadSeq;
     this.arrivedDuringLoad = [];
     const res = await api.notifications();
-    if (seq !== this.loadSeq) return res.ok; // a newer re-read decides
+    if (seq !== this.loadSeq) return this.latestLoad; // a newer re-read decides
     const arrived = this.arrivedDuringLoad;
     this.arrivedDuringLoad = null;
     if (!res.ok) return false;
