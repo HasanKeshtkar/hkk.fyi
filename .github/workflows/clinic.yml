@@ -102,3 +102,33 @@ jobs:
           docker exec app ls /app/backups | grep -q '^pre-restore-'
       - if: always()
         run: docker logs app
+
+  # Every push that passes all checks goes live on Liara, once Liara is connected: the app's name
+  # in clinic/liara.json ("app") and an API token in the repository secret LIARA_API_TOKEN.
+  deploy:
+    needs: [test, image]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency: liara-deploy
+    defaults:
+      run:
+        working-directory: clinic
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is Liara connected?
+        id: liara
+        env:
+          LIARA_API_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+        run: |
+          APP=$(node -p "require('./liara.json').app ?? ''")
+          if [ -z "$LIARA_API_TOKEN" ] || [ -z "$APP" ]; then
+            echo "Liara is not connected yet (secret LIARA_API_TOKEN and \"app\" in liara.json): nothing to deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy to Liara
+        if: steps.liara.outputs.ready == 'true'
+        env:
+          LIARA_API_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+        run: npx --yes @liara/cli@9.5.1 deploy --api-token "$LIARA_API_TOKEN" --no-app-logs --message "${GITHUB_SHA::7}"

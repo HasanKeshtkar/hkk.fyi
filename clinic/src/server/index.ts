@@ -5,6 +5,7 @@ import { loadConfig } from './config.js';
 import { createDb, createPool } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
 import { loadDotEnv } from './env-file.js';
+import { ensureInitialData } from './initial-data.js';
 
 loadDotEnv();
 const config = loadConfig(process.env);
@@ -12,6 +13,7 @@ const pool = createPool(config.databaseUrl, 10);
 await runMigrations(pool);
 const db = createDb(pool);
 const app = await buildApp({ db, config });
+await ensureInitialData(db, process.env, app.log);
 
 const purge = () => purgeExpiredSessions(db).catch((err) => app.log.warn({ errName: (err as Error).name }, 'session purge failed'));
 void purge();

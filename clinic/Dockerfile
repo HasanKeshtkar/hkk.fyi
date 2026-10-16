@@ -23,11 +23,14 @@ FROM ${NODE_IMAGE}
 # su-exec to run the app as an unprivileged user; bash for `liara app shell` (its default shell).
 RUN apk add --no-cache postgresql18-client su-exec bash
 WORKDIR /app
+# Liara defaults: one proxy in front, backups on the disk liara.json mounts at /app/backups.
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     WEB_ROOT=/app/out \
-    MIGRATIONS_DIR=/app/drizzle
+    MIGRATIONS_DIR=/app/drizzle \
+    TRUST_PROXY_HOPS=1 \
+    BACKUP_DIR=/app/backups
 COPY --from=runtime-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/out ./out
