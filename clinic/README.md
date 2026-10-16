@@ -1,7 +1,7 @@
 # سیستم نوبت‌دهی مطب
 
 اپ موبایل (PWA) نوبت‌دهی برای دو کاربر: دکتر و منشی.
-وضعیت فعلی: **فاز ۱ — دیتابیس، constraint ها و تست همزمانی.**
+وضعیت فعلی: **فاز ۳ — صفحه‌های موبایل** (فاز ۴: همگام‌سازی لحظه‌ای و نوتیف؛ فاز ۵: PWA و استقرار).
 
 ## پیش‌نیاز
 - Node.js 22
@@ -16,12 +16,24 @@ npm run db:seed               # ساخت دو کاربر + ساعت کاری پ�
 ```
 تغییر رمزها از روی env: `npm run db:seed -- --reset-passwords`
 
+## اجرای محلی
+```bash
+npm run build:web             # ساخت صفحه‌ها در out/
+npm start                     # سرور: API + صفحه‌ها روی PORT (پیش‌فرض ۳۰۰۰)
+```
+برای کار روی ظاهر با بارگذاری خودکار: `npm run dev` (API روی ۳۰۰۰) و در ترمینال دیگر `npm run dev:web` (صفحه‌ها روی ۳۰۰۱؛ در این حالت `APP_ORIGIN=http://localhost:3001`).
+
 ## تست
 ```bash
 npm test                      # دیتابیس TEST_DATABASE_URL را پاک و از نو می‌سازد
 npm run typecheck
 ```
 نام دیتابیس تست باید با `_test` تمام شود؛ در غیر این صورت تست‌ها اجرا نمی‌شوند.
+
+تست مرورگر (Chromium در اندازه گوشی ۳۶۰px، با دیتابیس جدا `E2E_DATABASE_URL`):
+```bash
+npm run build:web && npx playwright test
+```
 
 ## تضمین‌های سطح دیتابیس
 | قانون | پیاده‌سازی |
@@ -42,6 +54,10 @@ drizzle/                 migration های SQL (تولید با npm run db:genera
 src/shared/              کد مشترک کلاینت و سرور (نرمال‌سازی شماره و اسم)
 src/server/db/           schema، اتصال، migration runner
 src/server/appointments/ ثبت / ویرایش و جابه‌جایی / لغو نوبت
+src/server/schedule/     ساعت کاری هفتگی و روزهای خاص
+src/app/                 صفحه‌ها (Next.js، خروجی استاتیک)
+src/web/                 اجزای صفحه و منطق سمت گوشی (همگام‌سازی روز، اتصال)
+e2e/                     تست‌های مرورگر (Playwright)
 scripts/                 migrate و seed
 tests/                   تست‌های constraint، همزمانی و سرویس
 ```

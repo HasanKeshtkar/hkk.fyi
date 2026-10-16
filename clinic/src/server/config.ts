@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
 
 export interface Config {
@@ -12,6 +14,8 @@ export interface Config {
   cookieName: string;
   cookieSecure: boolean;
   loginRateLimit: { max: number; windowMs: number };
+  /** The built web app (next build → out/); null serves the API only. */
+  webRoot: string | null;
 }
 
 function parseOrigin(raw: string): string {
@@ -21,6 +25,13 @@ function parseOrigin(raw: string): string {
   return url.origin;
 }
 
+function resolveWebRoot(configured: string | undefined): string | null {
+  const dir = path.resolve(configured ?? 'out');
+  if (existsSync(path.join(dir, 'index.html'))) return dir;
+  if (configured) throw new Error(`WEB_ROOT ${dir} has no index.html (run npm run build:web)`);
+  return null;
+}
+
 const Env = z.object({
   DATABASE_URL: z.string().min(1),
   APP_ORIGIN: z.string().min(1),
@@ -28,6 +39,8 @@ const Env = z.object({
   HOST: z.string().default('0.0.0.0'),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1000).default(5),
+  WEB_ROOT: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -48,6 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     // __Host- pins the cookie to this exact host over HTTPS with no Domain attribute.
     cookieName: cookieSecure ? '__Host-sid' : 'sid',
     cookieSecure,
-    loginRateLimit: { max: 5, windowMs: 15 * 60 * 1000 },
+    loginRateLimit: { max: e.LOGIN_RATE_LIMIT_MAX, windowMs: 15 * 60 * 1000 },
+    webRoot: resolveWebRoot(e.WEB_ROOT),
   };
 }

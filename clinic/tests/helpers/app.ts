@@ -19,6 +19,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     cookieName: '__Host-sid',
     cookieSecure: true,
     loginRateLimit: { max: 5, windowMs: 15 * 60 * 1000 },
+    webRoot: null,
     ...overrides,
   };
 }

@@ -5,6 +5,7 @@ loadDotEnv();
 
 export default defineConfig({
   test: {
+    include: ['tests/**/*.test.ts'],
     globalSetup: './tests/global-setup.ts',
     // DB tests share one database; run files one after another.
     fileParallelism: false,

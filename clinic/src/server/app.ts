@@ -9,6 +9,7 @@ import type { Config } from './config.js';
 import type { Db } from './db/client.js';
 import type { User } from './db/schema.js';
 import { errorHandler, HttpError } from './http/errors.js';
+import { securityHeaders, webRoutes } from './http/web.js';
 import { scheduleRoutes } from './schedule/routes.js';
 
 declare module 'fastify' {
@@ -60,8 +61,8 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
   app.setErrorHandler(errorHandler);
-  app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
   app.decorateRequest('user', null);
+  securityHeaders(app, config);
 
   // Both guards decide from the matched route, never from the raw URL: the router decodes
   // percent-escapes and absolute-form targets, so '/%61pi/day' still runs the /api/day handler.
@@ -92,5 +93,7 @@ export async function buildApp({ db, config, logger }: AppDeps): Promise<Fastify
   authRoutes(app, { db, config });
   appointmentRoutes(app, { db });
   scheduleRoutes(app, { db });
+  if (config.webRoot) await webRoutes(app, config.webRoot);
+  else app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
   return app;
 }

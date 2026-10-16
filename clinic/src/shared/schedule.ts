@@ -1,4 +1,4 @@
-import { instantAt, minutesOf, SLOT_MINUTES, SLOT_MS, weekdayOf, type IsoDate, type WallTime } from './time.js';
+import { instantAt, minutesOf, SLOT_MINUTES, SLOT_MS, weekdayOf, type IsoDate, type WallTime } from './time';
 
 export interface WeeklyDay {
   weekday: number;

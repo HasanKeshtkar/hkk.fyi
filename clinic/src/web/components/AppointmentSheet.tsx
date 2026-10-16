@@ -1,0 +1,317 @@
+'use client';
+
+import { useRef, useState, type FormEvent } from 'react';
+import type { AppointmentDto } from '../../shared/api';
+import { normalizePatientName } from '../../shared/patient-name';
+import { normalizeIranMobile } from '../../shared/phone';
+import { clinicDateOf } from '../../shared/time';
+import { api, type ApiResult } from '../lib/api';
+import type { DayStore } from '../lib/day-store';
+import { jalaliLongLabel, phoneLabel, timeLabel } from '../lib/format';
+import { useConnection } from '../lib/hooks';
+import { FIELD_MESSAGES, genericMessage, messageFor, userName } from '../lib/messages';
+import { useSession } from '../lib/session';
+import { BottomSheet, ConfirmDialog } from './Overlays';
+import { SlotPicker } from './SlotPicker';
+import { showToast } from './Toasts';
+import { IconClock, IconPhone, IconTrash } from './icons';
+
+export type SheetTarget = { kind: 'create'; startAt: string } | { kind: 'edit'; appointment: AppointmentDto };
+
+type Alert = { tone: 'error' | 'warn' | 'info'; text: string } | null;
+
+/**
+ * New appointment (name + phone + save), or an existing one: edit, call, move, cancel.
+ * Every outcome the server can return is handled here, including someone else's change
+ * landing first (409): the screen then shows the fresh data and says who changed it.
+ */
+export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; onClose: () => void }) {
+  const { users } = useSession();
+  const online = useConnection() === 'online';
+  const [appt, setAppt] = useState<AppointmentDto | null>(props.target.kind === 'edit' ? props.target.appointment : null);
+  const [startAt, setStartAt] = useState(props.target.kind === 'create' ? props.target.startAt : props.target.appointment.startAt);
+  const [name, setName] = useState(appt?.patientName ?? '');
+  const [phone, setPhone] = useState(appt?.patientPhone ?? '');
+  const [errors, setErrors] = useState<{ patientName?: string; patientPhone?: string }>({});
+  const [alert, setAlert] = useState<Alert>(null);
+  const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<'form' | 'pick'>('form');
+  const [confirm, setConfirm] = useState<null | { kind: 'cancel' } | { kind: 'move'; to: string }>(null);
+  const [closedForGood, setClosedForGood] = useState(false); // the appointment was cancelled by someone else
+  const phoneRef = useRef<HTMLInputElement>(null);
+
+  const isCreate = props.target.kind === 'create';
+  const canWrite = online && !busy && !closedForGood;
+
+  function adoptCurrent(current: AppointmentDto) {
+    props.store.applyAppointment(current);
+    setAppt(current);
+    setStartAt(current.startAt);
+    setName(current.patientName);
+    setPhone(current.patientPhone);
+    setErrors({});
+  }
+
+  /** Common handling of a failed write. */
+  function onFailure(res: Exclude<ApiResult<unknown>, { ok: true }>) {
+    if (res.kind === 'network') {
+      setAlert({
+        tone: 'warn',
+        text: 'ارتباط وسط کار قطع شد و معلوم نیست ذخیره شد یا نه. فهرست نوبت‌ها دوباره خوانده می‌شود؛ قبل از تکرار، فهرست را نگاه کنید.',
+      });
+      void props.store.refresh();
+      return;
+    }
+    const e = res.error;
+    switch (e.error) {
+      case 'slot_taken': {
+        if (e.existing) props.store.applyAppointment(e.existing);
+        const who = e.existing ? userName(users, e.existing.updatedBy) : 'کاربر دیگر';
+        const patient = e.existing ? ` برای «${e.existing.patientName}»` : '';
+        setAlert({ tone: 'error', text: `این ساعت همین الان توسط ${who}${patient} رزرو شد. ساعت دیگری انتخاب کنید.` });
+        return;
+      }
+      case 'version_conflict':
+        if (e.current) adoptCurrent(e.current);
+        setAlert({
+          tone: 'warn',
+          text: `این نوبت همین الان توسط ${userName(users, e.current?.updatedBy)} تغییر کرده است. اطلاعات جدید نمایش داده شد؛ اگر لازم است دوباره ویرایش کنید.`,
+        });
+        return;
+      case 'cancelled':
+        if (e.current) props.store.applyAppointment(e.current);
+        setClosedForGood(true);
+        setAlert({ tone: 'error', text: `این نوبت قبلاً توسط ${userName(users, e.current?.updatedBy)} لغو شده است.` });
+        return;
+      case 'not_found':
+        setClosedForGood(true);
+        setAlert({ tone: 'error', text: 'این نوبت دیگر وجود ندارد.' });
+        void props.store.refresh();
+        return;
+      case 'day_closed':
+      case 'outside_hours':
+        setAlert({ tone: 'error', text: `${messageFor(e)} ساعت کاری ممکن است همین الان تغییر کرده باشد.` });
+        void props.store.refresh();
+        return;
+      case 'validation':
+        if (e.field === 'patientName' || e.field === 'patientPhone') {
+          setErrors({ [e.field]: FIELD_MESSAGES[e.field] });
+          return;
+        }
+        setAlert({ tone: 'error', text: messageFor(e) });
+        return;
+      default:
+        setAlert({ tone: 'error', text: genericMessage(res) });
+    }
+  }
+
+  function validate(): { name: string; phone: string } | null {
+    const n = normalizePatientName(name);
+    const p = normalizeIranMobile(phone);
+    const next: typeof errors = {};
+    if (n === null) next.patientName = FIELD_MESSAGES.patientName;
+    if (p === null) next.patientPhone = FIELD_MESSAGES.patientPhone;
+    setErrors(next);
+    return n !== null && p !== null ? { name: n, phone: p } : null;
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!canWrite) return;
+    const v = validate();
+    if (!v) return;
+    setAlert(null);
+    setBusy(true);
+    try {
+      if (isCreate) {
+        const res = await api.createAppointment({ startAt, patientName: v.name, patientPhone: v.phone });
+        if (!res.ok) return onFailure(res);
+        props.store.applyAppointment(res.data);
+        showToast('نوبت ثبت شد');
+        props.onClose();
+      } else if (appt) {
+        if (v.name === appt.patientName && v.phone === appt.patientPhone) return props.onClose();
+        const res = await api.updateAppointment(appt.id, {
+          version: appt.version,
+          patientName: v.name,
+          patientPhone: v.phone,
+        });
+        if (!res.ok) return onFailure(res);
+        props.store.applyAppointment(res.data);
+        showToast('تغییرات ذخیره شد');
+        props.onClose();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doCancel() {
+    if (!appt || !canWrite) return;
+    setBusy(true);
+    try {
+      const res = await api.cancelAppointment(appt.id, appt.version);
+      setConfirm(null);
+      if (!res.ok) return onFailure(res);
+      props.store.applyAppointment(res.data);
+      showToast('نوبت لغو شد');
+      props.onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doMove(to: string) {
+    if (!appt || !canWrite) return;
+    setBusy(true);
+    try {
+      const res = await api.updateAppointment(appt.id, { version: appt.version, startAt: to });
+      setConfirm(null);
+      setView('form');
+      if (!res.ok) return onFailure(res);
+      props.store.applyAppointment(res.data);
+      showToast(`نوبت به ${jalaliLongLabel(clinicDateOf(new Date(to)))} ساعت ${timeLabel(to)} منتقل شد`);
+      props.onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const when = `${jalaliLongLabel(clinicDateOf(new Date(startAt)))} — ساعت ${timeLabel(startAt)}`;
+  const title = isCreate ? 'نوبت جدید' : 'نوبت';
+
+  if (view === 'pick') {
+    return (
+      <BottomSheet title={isCreate ? 'انتخاب ساعت دیگر' : 'تغییر ساعت نوبت'} subtitle={appt?.patientName} onClose={props.onClose}>
+        <SlotPicker
+          initialDate={clinicDateOf(new Date(startAt))}
+          disabled={!canWrite}
+          pickLabel={(s) => (isCreate ? `انتخاب ساعت ${timeLabel(s)}` : `انتقال به ساعت ${timeLabel(s)}`)}
+          onPick={(s) => {
+            if (isCreate) {
+              setStartAt(s);
+              setAlert(null);
+              setView('form');
+            } else {
+              setConfirm({ kind: 'move', to: s });
+            }
+          }}
+          onBack={() => setView('form')}
+        />
+        {confirm?.kind === 'move' ? (
+          <ConfirmDialog
+            message={`نوبت «${appt?.patientName}» به ${jalaliLongLabel(clinicDateOf(new Date(confirm.to)))} ساعت ${timeLabel(confirm.to)} منتقل شود؟`}
+            confirmLabel="بله، منتقل شود"
+            busy={busy}
+            onConfirm={() => void doMove(confirm.to)}
+            onCancel={() => setConfirm(null)}
+          />
+        ) : null}
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <BottomSheet title={title} subtitle={when} onClose={props.onClose}>
+      {!online ? (
+        <div className="alert alert-warn">اتصال برقرار نیست؛ تا وصل شدن، ذخیره و تغییر ممکن نیست.</div>
+      ) : null}
+      {alert ? (
+        <div className={`alert alert-${alert.tone}`} role="alert">
+          {alert.text}
+        </div>
+      ) : null}
+      <form onSubmit={(e) => void onSubmit(e)} noValidate>
+        <div className="field">
+          <label htmlFor="patient-name">نام بیمار</label>
+          <input
+            id="patient-name"
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus={isCreate}
+            autoComplete="off"
+            enterKeyHint="next"
+            maxLength={120}
+            disabled={closedForGood}
+            aria-invalid={errors.patientName ? true : undefined}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                phoneRef.current?.focus();
+              }
+            }}
+          />
+          {errors.patientName ? <span className="field-error">{errors.patientName}</span> : null}
+        </div>
+        <div className="field">
+          <label htmlFor="patient-phone">شماره موبایل</label>
+          <input
+            id="patient-phone"
+            ref={phoneRef}
+            className="input input-ltr"
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            enterKeyHint="done"
+            placeholder="09xxxxxxxxx"
+            maxLength={20}
+            value={phone}
+            disabled={closedForGood}
+            onChange={(e) => setPhone(e.target.value)}
+            aria-invalid={errors.patientPhone ? true : undefined}
+          />
+          {errors.patientPhone ? <span className="field-error">{errors.patientPhone}</span> : null}
+        </div>
+        <div className="sheet-actions">
+          <button type="submit" className="btn btn-primary" disabled={!canWrite}>
+            {busy ? 'در حال ذخیره…' : isCreate ? 'ذخیره نوبت' : 'ذخیره تغییرات'}
+          </button>
+          {isCreate && alert?.tone === 'error' ? (
+            <button type="button" className="btn btn-secondary" disabled={!online} onClick={() => setView('pick')}>
+              <IconClock />
+              انتخاب ساعت دیگر
+            </button>
+          ) : null}
+          {!isCreate && appt && !closedForGood ? (
+            <>
+              <a className="btn btn-secondary" href={`tel:${appt.patientPhone}`}>
+                <IconPhone />
+                تماس با {phoneLabel(appt.patientPhone)}
+              </a>
+              <button type="button" className="btn btn-secondary" disabled={!canWrite} onClick={() => setView('pick')}>
+                <IconClock />
+                تغییر ساعت
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger-outline"
+                disabled={!canWrite}
+                onClick={() => setConfirm({ kind: 'cancel' })}
+              >
+                <IconTrash />
+                لغو نوبت
+              </button>
+            </>
+          ) : null}
+          {closedForGood ? (
+            <button type="button" className="btn btn-secondary" onClick={props.onClose}>
+              بستن
+            </button>
+          ) : null}
+        </div>
+      </form>
+      {confirm?.kind === 'cancel' && appt ? (
+        <ConfirmDialog
+          message={`نوبت «${appt.patientName}» در ${when} لغو شود؟`}
+          confirmLabel="بله، لغو شود"
+          cancelLabel="نه"
+          danger
+          busy={busy}
+          onConfirm={() => void doCancel()}
+          onCancel={() => setConfirm(null)}
+        />
+      ) : null}
+    </BottomSheet>
+  );
+}

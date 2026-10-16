@@ -1,7 +1,7 @@
 // Request schemas and response shapes shared by the server and the web client.
 import { z } from 'zod';
-import type { DateOverrideRecord, DaySchedule, WeeklyDayRecord } from './schedule.js';
-import { isHalfHourTime, isIsoDate } from './time.js';
+import type { DateOverrideRecord, DaySchedule, WeeklyDayRecord } from './schedule';
+import { isHalfHourTime, isIsoDate } from './time';
 
 export type Role = 'doctor' | 'secretary';
 
