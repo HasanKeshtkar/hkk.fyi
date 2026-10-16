@@ -2,6 +2,7 @@ import type {
   ApiError,
   ApiResult,
   AppointmentDto,
+  BackupsResponse,
   DayResponse,
   MeResponse,
   NotificationsResponse,
@@ -73,6 +74,7 @@ export const api = {
     request<void>('DELETE', `/api/schedule/overrides/${date}?version=${version}`),
 
   notifications: () => request<NotificationsResponse>('GET', '/api/notifications'),
+  backups: () => request<BackupsResponse>('GET', '/api/backups'),
   markNotificationsRead: (body: { all: true } | { ids: string[] }) =>
     request<{ ids: string[] }>('POST', '/api/notifications/read', body),
 };

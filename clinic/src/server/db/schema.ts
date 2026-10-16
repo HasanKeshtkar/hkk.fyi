@@ -161,8 +161,8 @@ export const auditLog = pgTable(
     at: timestamptz('at').notNull().defaultNow(),
   },
   (t) => [
-    check('audit_log_entity_valid', sql`entity in ('appointment', 'weekly_schedule', 'date_override')`),
-    check('audit_log_action_valid', sql`action in ('create', 'update', 'cancel', 'delete')`),
+    check('audit_log_entity_valid', sql`entity in ('appointment', 'weekly_schedule', 'date_override', 'backup')`),
+    check('audit_log_action_valid', sql`action in ('create', 'update', 'cancel', 'delete', 'download')`),
     index('audit_log_entity_idx').on(t.entity, t.entityId),
     index('audit_log_at_idx').on(t.at),
   ],

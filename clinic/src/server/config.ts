@@ -16,6 +16,8 @@ export interface Config {
   loginRateLimit: { max: number; windowMs: number };
   /** The built web app (next build → out/); null serves the API only. */
   webRoot: string | null;
+  /** Daily backups (BACKUP_DIR); null when not configured. */
+  backup: { dir: string; keep: number; hour: number } | null;
 }
 
 function parseOrigin(raw: string): string {
@@ -41,6 +43,9 @@ const Env = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1000).default(5),
   WEB_ROOT: z.string().optional(),
+  BACKUP_DIR: z.string().optional(),
+  BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(30),
+  BACKUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -63,5 +68,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     cookieSecure,
     loginRateLimit: { max: e.LOGIN_RATE_LIMIT_MAX, windowMs: 15 * 60 * 1000 },
     webRoot: resolveWebRoot(e.WEB_ROOT),
+    backup: e.BACKUP_DIR?.trim()
+      ? { dir: path.resolve(e.BACKUP_DIR.trim()), keep: e.BACKUP_KEEP, hour: e.BACKUP_HOUR }
+      : null,
   };
 }

@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyServerOptions } from 'fastify';
 import { sql } from 'drizzle-orm';
 import { appointmentRoutes } from './appointments/routes.js';
+import { backupRoutes } from './backup/routes.js';
 import { authRoutes, setSessionCookie } from './auth/routes.js';
 import { resolveSession } from './auth/sessions.js';
 import type { Config } from './config.js';
@@ -103,6 +104,7 @@ export async function buildApp({ db, config, logger, socketSessionCheckMs }: App
   appointmentRoutes(app, { db, realtime });
   scheduleRoutes(app, { db, realtime });
   notificationRoutes(app, { db, realtime });
+  backupRoutes(app, { db, config });
   if (config.webRoot) await webRoutes(app, config.webRoot);
   else app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'not_found' }));
   return app;

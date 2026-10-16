@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
+import { AppShell } from '../web/components/AppShell';
 import { ToastHost } from '../web/components/Toasts';
 import './globals.css';
 
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
   title: 'نوبت‌دهی مطب',
   description: 'نوبت‌دهی مطب دندان‌پزشکی',
   robots: { index: false, follow: false },
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -36,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {children}
         <ToastHost />
+        <AppShell />
       </body>
     </html>
   );

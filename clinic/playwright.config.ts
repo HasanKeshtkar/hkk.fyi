@@ -19,6 +19,8 @@ export default defineConfig({
     isMobile: true,
     hasTouch: true,
     trace: 'retain-on-failure',
+    // Off except in the PWA tests: requests a service worker makes bypass page.route().
+    serviceWorkers: 'block',
     // This container ships its own Chromium; CI installs Playwright's.
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
   },

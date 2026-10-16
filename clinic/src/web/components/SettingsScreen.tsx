@@ -11,6 +11,8 @@ import { fa, jalaliLongLabel, WEEK_ORDER, WEEKDAY_NAMES, wallTimeLabel } from '.
 import { useConnection } from '../lib/hooks';
 import { genericMessage, messageFor, userName } from '../lib/messages';
 import { useSession } from '../lib/session';
+import { BackupCard } from './BackupCard';
+import { InstallCard } from './InstallCard';
 import { ConnectionPill, OfflineBanner } from './ConnectionPill';
 import { JalaliCalendar } from './JalaliCalendar';
 import { NotificationBell } from './Notifications';
@@ -442,6 +444,10 @@ export function SettingsScreen() {
             افزودن روز خاص
           </button>
         </section>
+
+        <InstallCard />
+
+        <BackupCard />
 
         <section className="card">
           <p className="card-sub" style={{ marginBottom: 8 }}>

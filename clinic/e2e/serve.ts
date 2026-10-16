@@ -4,7 +4,11 @@ import { createDb, createPool } from '../src/server/db/client.js';
 import { DEFAULT_WEEKLY_SCHEDULE } from '../src/server/db/defaults.js';
 import { runMigrations } from '../src/server/db/migrate.js';
 import { users, weeklySchedule } from '../src/server/db/schema.js';
-import { E2E_DATABASE_URL, E2E_NAMES, E2E_ORIGIN, E2E_PASSWORDS, E2E_PORT } from './env.js';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { backupFileName } from '../src/server/backup/backup.js';
+import { clinicTimeOf } from '../src/shared/time.js';
+import { E2E_BACKUP_DIR, E2E_DATABASE_URL, E2E_NAMES, E2E_ORIGIN, E2E_PASSWORDS, E2E_PORT } from './env.js';
 
 const dbName = new URL(E2E_DATABASE_URL).pathname.slice(1);
 if (!dbName.endsWith('_test')) throw new Error(`refusing to wipe ${dbName}: name must end in _test`);
@@ -32,5 +36,11 @@ Object.assign(process.env, {
   WEB_ROOT: 'out',
   LOG_LEVEL: 'warn',
   LOGIN_RATE_LIMIT_MAX: '100',
+  BACKUP_DIR: E2E_BACKUP_DIR,
+  // No backup of its own during the run: the daily one is 12 hours away, and a recent file means no catch-up.
+  BACKUP_HOUR: String((Number(clinicTimeOf(new Date()).slice(0, 2)) + 12) % 24),
 });
+rmSync(E2E_BACKUP_DIR, { recursive: true, force: true });
+mkdirSync(E2E_BACKUP_DIR, { recursive: true });
+writeFileSync(path.join(E2E_BACKUP_DIR, backupFileName('clinic-', new Date())), 'placeholder');
 await import('../src/server/index.js');

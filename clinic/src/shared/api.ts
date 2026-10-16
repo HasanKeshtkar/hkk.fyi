@@ -59,6 +59,22 @@ export interface NotificationsResponse {
   count: number;
 }
 
+export interface BackupInfo {
+  name: string;
+  bytes: number;
+  /** ISO instant it was written */
+  at: string;
+}
+
+export interface BackupsResponse {
+  /** daily backups are configured on the server */
+  enabled: boolean;
+  /** newest daily backup */
+  latest: BackupInfo | null;
+  /** no daily backup for more than a day and a half: something is wrong */
+  stale: boolean;
+}
+
 /** Realtime events (socket.io), server → client. */
 export interface ServerEvents {
   appointment: (e: { appointment: AppointmentDto; action: 'create' | 'update' | 'cancel'; by: string }) => void;

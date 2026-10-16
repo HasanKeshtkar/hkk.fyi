@@ -30,4 +30,13 @@ describe('loadConfig', () => {
   it('has no default domain', () => {
     expect(() => loadConfig({ ...base })).toThrow();
   });
+
+  it('backs up daily only when BACKUP_DIR is set (default: keep 30, at 03:00 clinic time)', () => {
+    const o = { ...base, APP_ORIGIN: 'https://clinic.hkk.fyi' };
+    expect(loadConfig(o).backup).toBeNull();
+    expect(loadConfig({ ...o, BACKUP_DIR: '/app/backups' }).backup).toEqual({ dir: '/app/backups', keep: 30, hour: 3 });
+    expect(loadConfig({ ...o, BACKUP_DIR: '/b', BACKUP_KEEP: '7', BACKUP_HOUR: '23' }).backup).toEqual({ dir: '/b', keep: 7, hour: 23 });
+    expect(() => loadConfig({ ...o, BACKUP_DIR: '/b', BACKUP_HOUR: '24' })).toThrow();
+    expect(() => loadConfig({ ...o, BACKUP_DIR: '/b', BACKUP_KEEP: '0' })).toThrow();
+  });
 });
