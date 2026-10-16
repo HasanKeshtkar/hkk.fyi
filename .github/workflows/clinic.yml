@@ -89,12 +89,16 @@ jobs:
           # The server runs as the unprivileged user, not root.
           docker exec app sh -c 'ps -o user,args | grep "[d]ist/server.mjs"' | grep -q '^node'
           docker exec app pg_dump --version
+          docker exec app bash -c 'echo bash ok'   # `liara app shell` opens /bin/bash
           docker exec -e SEED_DOCTOR_PASSWORD=doctor-pass-123 -e SEED_SECRETARY_PASSWORD=secretary-pass-123 app node dist/seed.mjs
           docker exec -u node app node dist/backup.mjs
-          FILE=$(ls "$RUNNER_TEMP/backups" | grep '^clinic-.*\.dump$' | head -1)
+          # The folder is the app user's alone (chmod 700): look from inside the container.
+          FILE=$(docker exec app ls /app/backups | grep '^clinic-.*\.dump$' | head -1)
+          test -n "$FILE"
           docker exec -u node app psql postgres://postgres:postgres@127.0.0.1:5432/clinic_image_test -c "delete from weekly_schedule"
           docker exec -u node app node dist/restore.mjs "/app/backups/$FILE" --yes
           test "$(docker exec app psql postgres://postgres:postgres@127.0.0.1:5432/clinic_image_test -Atc 'select count(*) from weekly_schedule')" = 7
-          ls -l "$RUNNER_TEMP/backups"
+          docker exec app ls -l /app/backups
+          docker exec app ls /app/backups | grep -q '^pre-restore-'
       - if: always()
         run: docker logs app

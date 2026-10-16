@@ -1,5 +1,6 @@
 // Idempotent: creates the two users and the default weekly hours only where missing.
-// `npm run db:seed -- --reset-passwords` re-hashes both passwords from the env.
+// `npm run db:seed -- --reset-passwords` re-hashes both passwords from the env;
+// add `--only=doctor` or `--only=secretary` to change just that one (only its password is needed).
 import { eq } from 'drizzle-orm';
 import { hashPassword, PASSWORD_MIN_LENGTH } from '../src/server/auth/password.js';
 import { createDb, createPool } from '../src/server/db/client.js';
@@ -17,15 +18,18 @@ function required(name: string): string {
 
 const url = required('DATABASE_URL');
 const resetPasswords = process.argv.includes('--reset-passwords');
+const only = process.argv.find((a) => a.startsWith('--only='))?.slice('--only='.length);
+if (only !== undefined && only !== 'doctor' && only !== 'secretary') {
+  console.error('--only must be doctor or secretary');
+  process.exit(1);
+}
 
 const accounts = [
-  { role: 'doctor', name: process.env.SEED_DOCTOR_NAME?.trim() || 'دکتر', password: required('SEED_DOCTOR_PASSWORD') },
-  {
-    role: 'secretary',
-    name: process.env.SEED_SECRETARY_NAME?.trim() || 'منشی',
-    password: required('SEED_SECRETARY_PASSWORD'),
-  },
-] as const;
+  { role: 'doctor', name: process.env.SEED_DOCTOR_NAME?.trim() || 'دکتر', passwordVar: 'SEED_DOCTOR_PASSWORD' },
+  { role: 'secretary', name: process.env.SEED_SECRETARY_NAME?.trim() || 'منشی', passwordVar: 'SEED_SECRETARY_PASSWORD' },
+]
+  .filter((a) => !only || a.role === only)
+  .map((a) => ({ role: a.role as 'doctor' | 'secretary', name: a.name, password: required(a.passwordVar) }));
 
 for (const a of accounts) {
   if (a.password.length < PASSWORD_MIN_LENGTH) {

@@ -22,7 +22,7 @@ export function backupRoutes(app: FastifyInstance, { db, config }: { db: Db; con
   });
 
   // The file holds every patient's name and phone: each download is recorded.
-  app.get<{ Params: { name: string } }>('/api/backups/:name', async (req, reply) => {
+  app.get<{ Params: { name: string } }>('/api/backups/:name', { exposeHeadRoute: false }, async (req, reply) => {
     const file = config.backup ? await openBackup(config.backup.dir, req.params.name) : null;
     if (!file) throw new HttpError(404, { error: 'not_found' });
     await db.insert(auditLog).values({

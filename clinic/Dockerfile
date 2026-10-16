@@ -20,8 +20,8 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 # 3. The image that runs.
 FROM ${NODE_IMAGE}
 # pg_dump / pg_restore / psql for backups (version 18 handles every older server too);
-# su-exec to run the app as an unprivileged user.
-RUN apk add --no-cache postgresql18-client su-exec
+# su-exec to run the app as an unprivileged user; bash for `liara app shell` (its default shell).
+RUN apk add --no-cache postgresql18-client su-exec bash
 WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
@@ -34,5 +34,6 @@ COPY --from=build /app/out ./out
 COPY drizzle ./drizzle
 COPY package.json docker-entrypoint.sh ./
 EXPOSE 3000
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Through sh: works even if the upload lost the file's executable bit.
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
 CMD ["node", "dist/server.mjs"]
