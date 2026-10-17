@@ -91,6 +91,26 @@ test.describe('as the secretary', () => {
     await doctorCtx.close();
   });
 
+  test('cancelled by the other person while she is choosing a new time: she is told, nothing is left dead', async ({ page, browser }) => {
+    await openDay(page, SAT);
+    await book(page, SAT, '14:00', 'علی', '09121234567');
+    await slot(page, SAT, '14:00').getByRole('button').click();
+    await page.getByRole('button', { name: 'تغییر ساعت' }).click();
+    const doctorCtx = await contextAs(browser, 'doctor');
+    const doctor = await doctorCtx.newPage();
+    const { id, version } = (await query('select id, version from appointments')).rows[0];
+    const res = await doctor.request.fetch(`/api/appointments/${id}/cancel`, {
+      method: 'POST',
+      data: { version },
+      headers: { origin: E2E_ORIGIN },
+    });
+    expect(res.status()).toBe(200);
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toContainText(`این نوبت همین الان توسط ${E2E_NAMES.doctor} لغو شد`);
+    await expect(sheet.getByRole('button', { name: 'تغییر ساعت' })).toHaveCount(0);
+    await doctorCtx.close();
+  });
+
   test('closing a weekday whose hidden hours were left the wrong way round still saves', async ({ page }) => {
     await page.goto('/settings/');
     const mon = page.locator('.week-row[data-weekday="1"]');

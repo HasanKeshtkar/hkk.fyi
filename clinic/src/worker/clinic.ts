@@ -54,6 +54,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 /** A phone stays trusted this long after it was last used (400 days: the longest a browser keeps a cookie). */
 const DEVICE_TTL_MS = 400 * 24 * 60 * 60 * 1000;
+const LEGACY_DEVICE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const STALE_BACKUP_MS = 36 * 60 * 60 * 1000;
 const DAILY_BACKUP_MIN_GAP_MS = 20 * 60 * 60 * 1000;
 const DEFAULT_WEEKLY = [
@@ -348,8 +349,10 @@ export class Clinic extends DurableObject<Env> {
       // Every app start: a trusted phone stays trusted while it is used. A phone becomes trusted
       // by typing the password, or here if it was signed in before trusted phones existed (a
       // session alone must not make a phone trusted: the trust outlives the session).
+      // The exception for older sessions lasts 30 days: phones in use have opened the app by then.
       const since = Number(one<{ value: string }>(this.sql, "SELECT value FROM meta WHERE key = 'trusted_devices_since'")?.value ?? 0);
-      if (s!.createdAt < since || (await this.trustedDevice(req, s!.user.role))) {
+      const legacy = s!.createdAt < since && Date.now() < since + LEGACY_DEVICE_WINDOW_MS;
+      if (legacy || (await this.trustedDevice(req, s!.user.role))) {
         out.headers.append('set-cookie', await this.trustDevice(req, s!.user));
       }
       return out;

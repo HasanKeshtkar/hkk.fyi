@@ -114,6 +114,11 @@ describe('login', () => {
     // Opening it again keeps the same record.
     await call(`${cookie}; ${device.split(';')[0]}`, 'GET', '/api/me');
     expect(await sql('SELECT count(*) AS n FROM trusted_devices')).toEqual([{ n: 1 }]);
+    // The exception for older sessions ends 30 days after trusted phones began.
+    await sql("UPDATE meta SET value = '1' WHERE key = 'trusted_devices_since'");
+    await sql('UPDATE sessions SET created_at = 0');
+    expect((await call(cookie, 'GET', '/api/me')).headers.getSetCookie()).toEqual([]);
+    await sql("UPDATE meta SET value = ? WHERE key = 'trusted_devices_since'", String(Date.now()));
   });
 
   it('logout ends the session', async () => {

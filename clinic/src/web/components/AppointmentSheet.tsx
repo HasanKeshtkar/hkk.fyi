@@ -102,6 +102,13 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     if (online && lost && liveAppt && !(lost.kind === 'move' && liveAppt.startAt === lost.to)) lostRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, liveAppt?.version]);
+  // Closed for good (cancelled, or moved away by her own lost write): leave the slot picker and any
+  // open confirmation, so the explanation is on screen and no dead button is left.
+  useEffect(() => {
+    if (!closedForGood) return;
+    setConfirm(null);
+    setView('form');
+  }, [closedForGood]);
   const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
   useEffect(() => {
     // Also checked when a save ends: it may have vanished while one was in flight. Not over a
