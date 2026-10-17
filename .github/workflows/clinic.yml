@@ -80,13 +80,10 @@ jobs:
           elif [ "$changed" -ne 1 ]; then
             echo "::error::Could not compare with the newest commit of $GITHUB_REF_NAME."
             exit 1
-          elif [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
-            # A re-run (e.g. to apply a new password) of a run that is no longer the newest.
-            echo "::error::This is not the newest version of the app: re-run the newest clinic run in Actions instead."
-            exit 1
           else
-            echo "::warning::A newer commit changes the app; its own run deploys it. Not deploying $GITHUB_SHA."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+            # Shown as a failure, so nobody takes this run for a deploy (e.g. of a new password).
+            echo "::error::Not deployed: a newer version of the app is on $GITHUB_REF_NAME. Its own run deploys it; if that run did not deploy, re-run that one."
+            exit 1
           fi
       - if: steps.cf.outputs.ready == 'true'
         run: npm ci && npm run build:web

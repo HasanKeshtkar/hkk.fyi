@@ -106,22 +106,50 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   useEffect(() => {
     // Also checked when a save ends: it may have vanished while one was in flight. Not over a
     // more precise message already shown (e.g. who cancelled it).
-    if (savedRef.current || busy || !vanished || closedForGood) return;
+    if (savedRef.current || busy || !vanished || closedForGood || !appt) return;
     const lost = lostRef.current;
-    // A move within this day would have kept it in the list: then it was not hers.
-    if (lost && (lost.kind === 'cancel' || clinicDateOf(new Date(lost.to)) !== view$.date)) {
-      // Most likely her own cancel or move to another day, whose answer was lost.
-      setClosedForGood(true);
-      setAlert({
-        tone: 'info',
-        text:
-          lost.kind === 'cancel'
-            ? 'لغو این نوبت به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). فهرست را بررسی کنید.'
-            : `انتقال این نوبت به ${jalaliLongLabel(clinicDateOf(new Date(lost.to)))} ساعت ${timeLabel(lost.to)} به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). آن روز را بررسی کنید.`,
-      });
-      return;
-    }
-    setAlert({ tone: 'warn', text: 'این نوبت همین الان توسط کاربر دیگر جابه‌جا یا لغو شد. فهرست را بررسی کنید.' });
+    // Without an answer from the server: a guess. A move within this day would have kept it in
+    // the list, so then it was not hers.
+    const guess = () => {
+      if (lost && (lost.kind === 'cancel' || clinicDateOf(new Date(lost.to)) !== view$.date)) {
+        setClosedForGood(true);
+        setAlert({
+          tone: 'info',
+          text:
+            lost.kind === 'cancel'
+              ? 'لغو این نوبت به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). فهرست را بررسی کنید.'
+              : `انتقال این نوبت به ${jalaliLongLabel(clinicDateOf(new Date(lost.to)))} ساعت ${timeLabel(lost.to)} به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). آن روز را بررسی کنید.`,
+        });
+      } else {
+        setAlert({ tone: 'warn', text: 'این نوبت همین الان توسط کاربر دیگر جابه‌جا یا لغو شد. فهرست را بررسی کنید.' });
+      }
+    };
+    // Ask the server what became of it: cancelled or moved, by whom, and to when.
+    let current = true;
+    void api.appointment(appt.id).then((res) => {
+      if (!current || savedRef.current) return;
+      if (!res.ok) return guess();
+      const a = res.data;
+      const byHer =
+        lost !== null && a.updatedBy === me.id && (lost.kind === 'cancel' ? a.status === 'cancelled' : a.startAt === lost.to);
+      const where = `${jalaliLongLabel(clinicDateOf(new Date(a.startAt)))} ساعت ${timeLabel(a.startAt)}`;
+      if (a.status === 'cancelled') {
+        setClosedForGood(true);
+        setAlert(
+          byHer
+            ? { tone: 'info', text: 'نوبت لغو شده است (فقط جواب سرور نرسیده بود).' }
+            : { tone: 'warn', text: `این نوبت همین الان توسط ${userName(users, a.updatedBy)} لغو شد.` },
+        );
+      } else if (byHer) {
+        setClosedForGood(true);
+        setAlert({ tone: 'info', text: `نوبت به ${where} منتقل شده است (فقط جواب سرور نرسیده بود).` });
+      } else {
+        setAlert({ tone: 'warn', text: `این نوبت همین الان توسط ${userName(users, a.updatedBy)} به ${where} منتقل شد.` });
+      }
+    });
+    return () => {
+      current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vanished, busy]);
   useEffect(() => {

@@ -99,9 +99,14 @@ describe('login', () => {
     expect((await from('192.0.2.3', 'nope', device)).status).toBe(401);
   });
 
-  it('a phone already signed in becomes trusted when the app opens (also sessions from before trusted devices)', async () => {
+  it('a phone signed in before trusted phones existed becomes trusted when the app opens; a session alone does not', async () => {
     const cookie = await login('doctor');
     await sql('DELETE FROM trusted_devices');
+    // A session from now (e.g. a stolen session cookie without the phone's own cookie): nothing.
+    expect((await call(cookie, 'GET', '/api/me')).headers.getSetCookie()).toEqual([]);
+    expect(await sql('SELECT count(*) AS n FROM trusted_devices')).toEqual([{ n: 0 }]);
+    // A session from before trusted phones existed: the phone becomes trusted.
+    await sql('UPDATE sessions SET created_at = 0');
     const me = await call(cookie, 'GET', '/api/me');
     const device = me.headers.getSetCookie().find((c) => c.startsWith('__Host-dev-doctor='))!;
     expect(device).toMatch(/Max-Age=34560000$/);

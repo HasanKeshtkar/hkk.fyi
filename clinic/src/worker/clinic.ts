@@ -22,7 +22,15 @@ import {
 } from '../shared/api';
 import { checkSlotAgainstHours, slotStarts } from '../shared/schedule';
 import { addDays, clinicToday, instantAt } from '../shared/time';
-import { appointmentDto, cancelAppointment, createAppointment, listActiveBetween, updateAppointment, type WriteResult } from './appointments';
+import {
+  appointmentDto,
+  cancelAppointment,
+  createAppointment,
+  listActiveBetween,
+  updateAppointment,
+  type AppointmentRow,
+  type WriteResult,
+} from './appointments';
 import {
   addressKey,
   hashPassword,
@@ -63,6 +71,7 @@ type UserRow = { id: string; role: 'doctor' | 'secretary'; name: string; passwor
 interface Session {
   id: string;
   user: UserDto;
+  createdAt: number;
   /** set when the expiry was just extended: the cookie must be re-sent */
   refresh: { token: string; expiresAt: number } | null;
 }
@@ -111,6 +120,8 @@ export class Clinic extends DurableObject<Env> {
         now,
       );
     }
+    // Sessions older than this were signed in before trusted phones existed (see GET /api/me).
+    this.sql.exec("INSERT INTO meta (key, value) VALUES ('trusted_devices_since', ?) ON CONFLICT(key) DO NOTHING", String(now));
     // Passwords are compared once per deploy (hashing is deliberately slow), or always when no
     // deploy id is set (local runs).
     const deployId = this.env.DEPLOY_ID ?? '';
@@ -251,9 +262,9 @@ export class Clinic extends DurableObject<Env> {
     if (!isTokenFormat(token)) return null;
     const id = await hashToken(token);
     const now = Date.now();
-    const row = one<{ id: string; last_seen_at: number; uid: string; name: string; role: 'doctor' | 'secretary' }>(
+    const row = one<{ id: string; created_at: number; last_seen_at: number; uid: string; name: string; role: 'doctor' | 'secretary' }>(
       this.sql,
-      'SELECT s.id, s.last_seen_at, u.id AS uid, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?',
+      'SELECT s.id, s.created_at, s.last_seen_at, u.id AS uid, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?',
       id,
       now,
     );
@@ -264,7 +275,7 @@ export class Clinic extends DurableObject<Env> {
       this.sql.exec('UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?', now, expiresAt, id);
       refresh = { token, expiresAt };
     }
-    return { id, user: { id: row.uid, name: row.name, role: row.role }, refresh };
+    return { id, user: { id: row.uid, name: row.name, role: row.role }, createdAt: row.created_at, refresh };
   }
 
   private routes(): void {
@@ -334,9 +345,13 @@ export class Clinic extends DurableObject<Env> {
 
     this.on('GET', '/api/me', async (req, _p, s) => {
       const out = json({ user: s!.user, users: this.users() } satisfies MeResponse);
-      // Every app start: a phone signed in already (also from before trusted devices existed)
-      // is trusted, and stays so while it is used.
-      out.headers.append('set-cookie', await this.trustDevice(req, s!.user));
+      // Every app start: a trusted phone stays trusted while it is used. A phone becomes trusted
+      // by typing the password, or here if it was signed in before trusted phones existed (a
+      // session alone must not make a phone trusted: the trust outlives the session).
+      const since = Number(one<{ value: string }>(this.sql, "SELECT value FROM meta WHERE key = 'trusted_devices_since'")?.value ?? 0);
+      if (s!.createdAt < since || (await this.trustedDevice(req, s!.user.role))) {
+        out.headers.append('set-cookie', await this.trustDevice(req, s!.user));
+      }
       return out;
     });
 
@@ -355,6 +370,14 @@ export class Clinic extends DurableObject<Env> {
         })),
       };
       return json(body);
+    });
+
+    // One appointment, whatever its state: a phone whose change got no answer asks what became of it.
+    this.on('GET', '/api/appointments/:id', (_req, p) => {
+      const { id } = IdParams.parse(p);
+      const row = one<AppointmentRow>(this.sql, 'SELECT * FROM appointments WHERE id = ?', id);
+      if (!row) throw new HttpError(404, { error: 'not_found' });
+      return json(appointmentDto(row));
     });
 
     this.on('POST', '/api/appointments', async (req, _p, s) => {

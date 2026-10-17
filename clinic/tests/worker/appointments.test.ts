@@ -152,3 +152,15 @@ describe('at the same moment', () => {
     expect([x.status, y.status]).toEqual([409, 409]);
   });
 });
+
+describe('one appointment', () => {
+  it('can be read whatever its state (a phone that lost an answer asks what became of it)', async () => {
+    const a = (await book(sec, '14:00')).body;
+    await call(doc, 'POST', `/api/appointments/${a.id}/cancel`, { version: 1 });
+    const res = await call(sec, 'GET', `/api/appointments/${a.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: a.id, status: 'cancelled', updatedBy: ids.doctor.id });
+    expect((await call(sec, 'GET', '/api/appointments/nope')).status).toBe(404);
+    expect((await call(null, 'GET', `/api/appointments/${a.id}`)).status).toBe(401);
+  });
+});

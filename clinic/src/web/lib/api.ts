@@ -57,6 +57,7 @@ export const api = {
   day: (date: string) => request<DayResponse>('GET', `/api/day?date=${encodeURIComponent(date)}`),
   createAppointment: (body: { startAt: string; patientName: string; patientPhone: string }) =>
     request<AppointmentDto>('POST', '/api/appointments', body),
+  appointment: (id: string) => request<AppointmentDto>('GET', `/api/appointments/${encodeURIComponent(id)}`),
   updateAppointment: (
     id: string,
     body: { version: number; startAt?: string; patientName?: string; patientPhone?: string },
