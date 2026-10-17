@@ -38,7 +38,9 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<'form' | 'pick'>('form');
   const [confirm, setConfirm] = useState<null | { kind: 'cancel' } | { kind: 'move'; to: string }>(null);
-  const [closedForGood, setClosedForGood] = useState(false); // the appointment was cancelled by someone else
+  const [closedForGood, setClosedForGood] = useState(false); // the appointment is cancelled or moved away
+  /** Her cancel or move whose answer was lost: it may have gone through. */
+  const lostRef = useRef<null | { kind: 'cancel' } | { kind: 'move'; to: string }>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
 
   const isCreate = props.target.kind === 'create';
@@ -59,6 +61,15 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   // Each check also runs again when a save ends: the change may have arrived while it was in flight.
   useEffect(() => {
     if (savedRef.current || busy || !appt || !liveAppt || liveAppt.version <= appt.version) return;
+    const lost = lostRef.current;
+    if (lost?.kind === 'move' && liveAppt.updatedBy === me.id && liveAppt.startAt === lost.to) {
+      // Her own move, whose answer was lost, went through after all.
+      savedRef.current = true;
+      props.store.applyAppointment(liveAppt);
+      showToast(`نوبت به ${jalaliLongLabel(clinicDateOf(new Date(lost.to)))} ساعت ${timeLabel(lost.to)} منتقل شده است`);
+      props.onClose();
+      return;
+    }
     if (
       liveAppt.updatedBy === me.id &&
       liveAppt.startAt === startAt &&
@@ -86,10 +97,25 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
   }, [liveAppt?.version, busy]);
   const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
   useEffect(() => {
-    if (savedRef.current || busy || !vanished) return;
+    // Also checked when a save ends: it may have vanished while one was in flight. Not over a
+    // more precise message already shown (e.g. who cancelled it).
+    if (savedRef.current || busy || !vanished || closedForGood) return;
+    const lost = lostRef.current;
+    if (lost) {
+      // Most likely her own cancel or move (to another day), whose answer was lost.
+      setClosedForGood(true);
+      setAlert({
+        tone: 'info',
+        text:
+          lost.kind === 'cancel'
+            ? 'لغو این نوبت به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). فهرست را بررسی کنید.'
+            : `انتقال این نوبت به ${jalaliLongLabel(clinicDateOf(new Date(lost.to)))} ساعت ${timeLabel(lost.to)} به احتمال زیاد انجام شده است (فقط جواب سرور نرسید). آن روز را بررسی کنید.`,
+      });
+      return;
+    }
     setAlert({ tone: 'warn', text: 'این نوبت همین الان توسط کاربر دیگر جابه‌جا یا لغو شد. فهرست را بررسی کنید.' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vanished]);
+  }, [vanished, busy]);
   useEffect(() => {
     if (savedRef.current || busy || !liveTaker) return;
     // Her own booking of exactly this: a save whose answer was lost went through after all.
@@ -191,6 +217,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     if (!v) return;
     setAlert(null);
     setBusy(true);
+    lostRef.current = null;
     try {
       if (isCreate) {
         const res = await api.createAppointment({ startAt, patientName: v.name, patientPhone: v.phone });
@@ -234,6 +261,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     try {
       const res = await api.cancelAppointment(appt.id, appt.version);
       setConfirm(null);
+      lostRef.current = !res.ok && res.kind === 'network' ? { kind: 'cancel' } : null;
       if (!res.ok) return onFailure(res);
       savedRef.current = true;
       props.store.applyAppointment(res.data);
@@ -251,6 +279,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
       const res = await api.updateAppointment(appt.id, { version: appt.version, startAt: to });
       setConfirm(null);
       setView('form');
+      lostRef.current = !res.ok && res.kind === 'network' ? { kind: 'move', to } : null;
       if (!res.ok) return onFailure(res);
       savedRef.current = true;
       props.store.applyAppointment(res.data);
@@ -287,6 +316,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
             message={`نوبت «${appt?.patientName}» به ${jalaliLongLabel(clinicDateOf(new Date(confirm.to)))} ساعت ${timeLabel(confirm.to)} منتقل شود؟`}
             confirmLabel="بله، منتقل شود"
             busy={busy}
+            write
             onConfirm={() => void doMove(confirm.to)}
             onCancel={() => setConfirm(null)}
           />
@@ -392,6 +422,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
           cancelLabel="نه"
           danger
           busy={busy}
+          write
           onConfirm={() => void doCancel()}
           onCancel={() => setConfirm(null)}
         />

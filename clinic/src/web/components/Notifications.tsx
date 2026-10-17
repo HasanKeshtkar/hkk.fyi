@@ -6,6 +6,7 @@ import { clinicDateOf, clinicToday } from '../../shared/time';
 import { chime, unlockSoundOnFirstTouch } from '../lib/chime';
 import { connection } from '../lib/connection';
 import { fa, phoneLabel } from '../lib/format';
+import { useConnection } from '../lib/hooks';
 import { describeNotification } from '../lib/messages';
 import { notificationStore } from '../lib/notifications';
 import { useSession } from '../lib/session';
@@ -68,6 +69,7 @@ export function NotificationBell() {
   const router = useRouter();
   const { items, count } = useNotifications();
   const [open, setOpen] = useState(false);
+  const online = useConnection() === 'online';
   if (me.role !== 'secretary') return null;
 
   const goTo = (startAt: string) => {
@@ -116,7 +118,12 @@ export function NotificationBell() {
           </ul>
           {items.length > 0 ? (
             <div className="sheet-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => void notificationStore.markRead('all')}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!online}
+                onClick={() => void notificationStore.markRead('all')}
+              >
                 همه را خواندم
               </button>
             </div>

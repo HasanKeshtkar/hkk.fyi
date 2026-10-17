@@ -39,9 +39,10 @@ jobs:
 
   # Needs the repository secrets CLOUDFLARE_API_TOKEN, SEED_DOCTOR_PASSWORD and
   # SEED_SECRETARY_PASSWORD (see clinic/README.md). Until the token is there, it does nothing.
+  # Only the clinic's release branch goes live; every other branch is only tested.
   deploy:
     needs: test
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/ccr-be786f2b-2eug68'
     runs-on: ubuntu-latest
     concurrency:
       group: cloudflare-deploy
@@ -63,6 +64,10 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "Cloudflare is not connected yet (no CLOUDFLARE_API_TOKEN secret): nothing to deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ "$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)" != "$GITHUB_SHA" ]; then
+            # A newer push is on its way (or already live): never put an older commit over it.
+            echo "$GITHUB_SHA is no longer the newest commit of $GITHUB_REF_NAME: not deploying it."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -90,9 +95,19 @@ jobs:
           echo "::add-mask::$CLOUDFLARE_API_TOKEN"
           export CLOUDFLARE_API_TOKEN
           # The two passwords go up as Worker secrets (never in a file in the repository or a log).
+          # Spaces or line breaks pasted around one are dropped; one the server would refuse
+          # stops the deploy here, so a password change never silently does nothing.
           node -e '
             const s = {};
-            for (const k of ["SEED_DOCTOR_PASSWORD", "SEED_SECRETARY_PASSWORD"]) if (process.env[k]) s[k] = process.env[k];
+            for (const k of ["SEED_DOCTOR_PASSWORD", "SEED_SECRETARY_PASSWORD"]) {
+              const v = (process.env[k] ?? "").trim();
+              if (v === "") continue;
+              if (v.length < 8 || /[\r\n]/.test(v)) {
+                console.error(`::error::The ${k} secret must be one line of at least 8 characters. Set it again in Settings > Secrets and variables > Actions, then re-run.`);
+                process.exit(1);
+              }
+              s[k] = v;
+            }
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/secrets.json", JSON.stringify(s));
           '
           # A new id for every run and re-run: the server re-checks the passwords once per id, and

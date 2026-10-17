@@ -24,6 +24,7 @@ import { checkSlotAgainstHours, slotStarts } from '../shared/schedule';
 import { addDays, clinicToday, instantAt } from '../shared/time';
 import { appointmentDto, cancelAppointment, createAppointment, listActiveBetween, updateAppointment, type WriteResult } from './appointments';
 import {
+  addressKey,
   hashPassword,
   hashToken,
   isTokenFormat,
@@ -137,6 +138,10 @@ export class Clinic extends DurableObject<Env> {
         continue;
       }
       if (existing.name !== name) this.sql.exec('UPDATE users SET name = ? WHERE id = ?', name, existing.id);
+      if (checkPasswords && password !== '' && password.length < PASSWORD_MIN_LENGTH) {
+        // CI refuses such a password before deploying; this is for anything that slips past it.
+        console.error(JSON.stringify({ msg: `${a.role} password NOT changed: shorter than ${PASSWORD_MIN_LENGTH}` }));
+      }
       if (checkPasswords && password.length >= PASSWORD_MIN_LENGTH && !(await verifyPassword(existing.password_hash, password))) {
         const hash = await hashPassword(password);
         this.ctx.storage.transactionSync(() => {
@@ -231,8 +236,11 @@ export class Clinic extends DurableObject<Env> {
 
     // ---- auth
     this.on('POST', '/api/auth/login', async (req) => {
+      // Two limits, both checked before the (deliberately slow) password check: attempts per
+      // address, and failures per account from all addresses together.
       const max = Number(this.env.LOGIN_RATE_LIMIT_MAX ?? 5) || 5;
-      const ip = req.headers.get('cf-connecting-ip') ?? 'unknown';
+      const maxFailures = Number(this.env.LOGIN_FAILURE_MAX ?? 10) || 10;
+      const ip = addressKey(req.headers.get('cf-connecting-ip') ?? 'unknown');
       const now = Date.now();
       this.sql.exec('DELETE FROM login_attempts WHERE at < ?', now - LOGIN_WINDOW_MS);
       const tries = one<{ n: number }>(this.sql, 'SELECT count(*) AS n FROM login_attempts WHERE ip = ?', ip)!.n;
@@ -240,10 +248,21 @@ export class Clinic extends DurableObject<Env> {
       this.sql.exec('INSERT INTO login_attempts (ip, at) VALUES (?, ?)', ip, now);
 
       const body = LoginBody.parse(await readJson(req));
+      this.sql.exec('DELETE FROM login_failures WHERE at < ?', Date.now() - LOGIN_WINDOW_MS);
+      const failures = one<{ n: number }>(this.sql, 'SELECT count(*) AS n FROM login_failures WHERE role = ?', body.role)!.n;
+      if (failures >= maxFailures) throw new HttpError(429, { error: 'rate_limited' });
+      // Counted as a failure until it succeeds, so attempts running at the same time count too.
+      const failure = one<{ id: number }>(
+        this.sql,
+        'INSERT INTO login_failures (role, at) VALUES (?, ?) RETURNING rowid AS id',
+        body.role,
+        Date.now(),
+      )!.id;
       const user = one<UserRow>(this.sql, 'SELECT * FROM users WHERE role = ?', body.role);
       // Verifying against a throwaway hash when the role has no account keeps the timing the same.
       const ok = await verifyPassword(user?.password_hash ?? (await this.dummyHash()), body.password);
       if (!user || !ok) throw new HttpError(401, { error: 'invalid_credentials' });
+      this.sql.exec('DELETE FROM login_failures WHERE rowid = ?', failure);
 
       const token = newToken();
       const expiresAt = Date.now() + SESSION_TTL_MS;
@@ -491,7 +510,7 @@ export class Clinic extends DurableObject<Env> {
     // Empties everything and creates the two accounts afresh (TEST_MODE only).
     this.on('POST', '/api/test/reset', async (req) => {
       const body = (await readJson(req)) as { keepSessions?: boolean };
-      const tables = ['backup_chunks', 'backups', 'notifications', 'audit_log', 'appointments', 'date_overrides', 'weekly_schedule', 'counters', 'login_attempts'];
+      const tables = ['backup_chunks', 'backups', 'notifications', 'audit_log', 'appointments', 'date_overrides', 'weekly_schedule', 'counters', 'login_attempts', 'login_failures'];
       this.ctx.storage.transactionSync(() => {
         for (const t of tables) this.sql.exec(`DELETE FROM ${t}`);
         if (!body.keepSessions) {

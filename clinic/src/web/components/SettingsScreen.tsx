@@ -77,10 +77,13 @@ function WeekRow(props: { saved: WeeklyDayRecord; onSaved: (r: WeeklyDayRecord) 
   async function save() {
     setBusy(true);
     setMessage(null);
+    // Closing a day whose (now hidden) hours were left inverted: keep the saved hours instead,
+    // which the server accepts.
+    const hours = !draft.isOpen && minutesOf(draft.endTime) <= minutesOf(draft.startTime) ? base : draft;
     const res = await api.setWeekday(draft.weekday, {
       isOpen: draft.isOpen,
-      startTime: draft.startTime,
-      endTime: draft.endTime,
+      startTime: hours.startTime,
+      endTime: hours.endTime,
       version: base.version || null,
     });
     setBusy(false);
@@ -476,6 +479,7 @@ export function SettingsScreen() {
           confirmLabel="بله، حذف شود"
           danger
           busy={busy}
+          write
           onConfirm={() => void remove(removing)}
           onCancel={() => setRemoving(null)}
         />

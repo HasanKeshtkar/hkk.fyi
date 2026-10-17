@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { E2E_NAMES, E2E_PASSWORDS } from './env';
+import { addDays } from '../src/shared/time';
 import { AUTH, book, closeDb, contextAs, nextWeekday, openDay, resetData, slot, slotIso } from './helpers';
 
 const SAT = nextWeekday(6);
-const MON = nextWeekday(1);
+const MON = addDays(SAT, 2); // the Monday after SAT (also when today is Saturday or Sunday)
 const THU = nextWeekday(4);
 
 test.beforeEach(async () => {
@@ -88,7 +89,7 @@ test.describe('as the secretary', () => {
     await page.getByRole('button', { name: 'تغییر ساعت' }).click();
     for (let d = SAT; d !== MON; ) {
       await page.getByRole('dialog').getByRole('button', { name: 'روز بعد' }).click();
-      d = (await import('../src/shared/time')).addDays(d, 1);
+      d = addDays(d, 1);
     }
     await page.getByRole('dialog').getByRole('button', { name: '۰۸:۳۰', exact: true }).click();
     await page.getByRole('button', { name: 'انتقال به ساعت ۰۸:۳۰' }).click();

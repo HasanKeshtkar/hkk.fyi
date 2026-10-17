@@ -100,11 +100,14 @@ class NotificationStore {
   }
 
   async markRead(ids: string[] | 'all'): Promise<void> {
-    // Everything listed now is read once the server answers (by this request, or already by
-    // another phone); one that arrives after the server's update stays unread.
+    // 'all' is everything listed here, i.e. what she has seen: one that came in meanwhile and is
+    // not listed yet stays unread (the server is sent ids, never "all").
     const asked = ids === 'all' ? this.items.map((n) => n.id) : ids;
-    const res = await api.markNotificationsRead(ids === 'all' ? { all: true } : { ids });
-    if (res.ok) this.removeRead([...asked, ...res.data.ids]);
+    for (let i = 0; i < asked.length; i += 200) {
+      const part = asked.slice(i, i + 200);
+      const res = await api.markNotificationsRead({ ids: part });
+      if (res.ok) this.removeRead([...part, ...res.data.ids]);
+    }
   }
 
   /** Sign-out: forget everything (the next user starts empty). */

@@ -117,6 +117,12 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (name, seq)
   ) STRICT;
   `,
+  `
+  -- Failed logins per account, from any address (changing addresses gets round the per-address
+  -- limit, not this one).
+  CREATE TABLE login_failures (role TEXT NOT NULL, at INTEGER NOT NULL) STRICT;
+  CREATE INDEX login_failures_idx ON login_failures(role, at);
+  `,
 ];
 
 /** Applies the migrations not yet applied. Runs inside the object's constructor, before any request. */

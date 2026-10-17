@@ -10,8 +10,10 @@ export interface Env {
   SEED_DOCTOR_PASSWORD?: string;
   SEED_SECRETARY_NAME?: string;
   SEED_SECRETARY_PASSWORD?: string;
-  /** Logins allowed per IP per 15 minutes (default 5). */
+  /** Logins allowed per address (IPv4, or IPv6 /64) per 15 minutes (default 5). */
   LOGIN_RATE_LIMIT_MAX?: string;
+  /** Failed logins allowed per account per 15 minutes, from all addresses together (default 10). */
+  LOGIN_FAILURE_MAX?: string;
   /** Daily backups kept (default 30). */
   BACKUP_KEEP?: string;
   /** Set by CI on every deploy (the commit): passwords from SEED_* are compared once per deploy. */

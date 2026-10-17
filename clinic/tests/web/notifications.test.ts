@@ -91,19 +91,21 @@ describe('notificationStore', () => {
     expect(view()).toEqual({ ids: ['b'], count: 1 });
   });
 
-  it('more than 50 unread: “mark all read” during a re-read ends at zero, not at the unlisted remainder', async () => {
+  it('more than 50 unread: “mark all read” marks the 50 she sees; the other 10 are listed next, even during a re-read', async () => {
     const fifty = Array.from({ length: 50 }, (_, i) => note(`n${i}`));
+    const ten = Array.from({ length: 10 }, (_, i) => note(`x${i}`));
     await loadWith(fifty, 60);
     const p = store.load();
     const m = store.markRead('all');
-    calls.read[0]!.resolve(ok({ ids: [...fifty.map((n) => n.id), ...Array.from({ length: 10 }, (_, i) => `x${i}`)] }));
+    expect(calls.read[0]!.body).toEqual({ ids: fifty.map((n) => n.id) });
+    calls.read[0]!.resolve(ok({ ids: fifty.map((n) => n.id) }));
     await m;
-    expect(view().count).toBe(0);
+    expect(view()).toEqual({ ids: [], count: 10 });
     calls.list[1]!.resolve(ok({ items: fifty, count: 60 })); // taken before the mark-all
     await new Promise((r) => setTimeout(r, 0));
-    calls.list[2]!.resolve(ok({ items: [], count: 0 }));
+    calls.list[2]!.resolve(ok({ items: ten, count: 10 }));
     await expect(p).resolves.toBe(true);
-    expect(view()).toEqual({ ids: [], count: 0 });
+    expect(view()).toEqual({ ids: ten.map((n) => n.id), count: 10 });
   });
 
   it('a read that a newer list already reflects is not counted down again', async () => {
@@ -152,10 +154,10 @@ describe('notificationStore', () => {
     expect(view()).toEqual({ ids: ['a', 'b'], count: 2 });
   });
 
-  it('“mark all read” keeps a notification that arrived after the server marked the others', async () => {
+  it('“mark all read” marks what is listed, by id: one that arrives meanwhile stays unread', async () => {
     await loadWith([note('a')]);
     const p = store.markRead('all');
-    expect(calls.read[0]!.body).toEqual({ all: true });
+    expect(calls.read[0]!.body).toEqual({ ids: ['a'] }); // never "all": the server may hold one not listed yet
     store.add(note('late'));
     calls.read[0]!.resolve(ok({ ids: ['a'] }));
     await p;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useConnection } from '../lib/hooks';
 import { IconClose } from './icons';
 
 // ---------------------------------------------------------------------------------------------
@@ -142,22 +143,28 @@ export function ConfirmDialog(props: {
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  /** Confirming writes to the server: possible only while online (the connection can drop while it is open). */
+  write?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   useEscape(props.onCancel);
   useBackToClose(props.onCancel);
+  const blocked = useConnection() !== 'online' && !!props.write;
   return (
     <>
       <div className="backdrop dialog-backdrop" onClick={props.onCancel} />
       <div className="dialog" role="alertdialog" aria-modal="true">
         <p>{props.message}</p>
+        {blocked && <div className="alert alert-warn">اتصال برقرار نیست؛ تا وصل شدن صبر کنید.</div>}
         <div className="btn-row">
           <button
             type="button"
             className={`btn ${props.danger ? 'btn-danger' : 'btn-primary'}`}
-            onClick={props.onConfirm}
-            disabled={props.busy}
+            onClick={() => {
+              if (!blocked) props.onConfirm();
+            }}
+            disabled={props.busy || blocked}
           >
             {props.confirmLabel}
           </button>

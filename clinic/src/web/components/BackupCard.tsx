@@ -103,6 +103,7 @@ export function BackupCard() {
           confirmLabel="بله، برگردان"
           danger
           busy={busy}
+          write
           onConfirm={() => void restore(confirm)}
           onCancel={() => setConfirm(null)}
         />

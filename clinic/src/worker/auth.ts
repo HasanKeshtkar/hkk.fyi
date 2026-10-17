@@ -56,6 +56,23 @@ export async function verifyPassword(stored: string, password: string): Promise<
   }
 }
 
+/**
+ * What the login limit counts by: an IPv4 address as is, an IPv6 address by its /64 (one
+ * customer's block: the rest of the address is theirs to change at will).
+ */
+export function addressKey(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (mapped) return mapped[1]!;
+  const halves = ip.toLowerCase().split('::');
+  if (halves.length > 2) return ip;
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const groups = halves.length === 2 ? [...head, ...Array<string>(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head;
+  if (groups.length !== 8 || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return ip;
+  return `${groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
+
 export function newToken(): string {
   return b64url(crypto.getRandomValues(new Uint8Array(32)));
 }

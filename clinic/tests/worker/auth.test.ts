@@ -42,6 +42,36 @@ describe('login', () => {
     expect(res.body).toEqual({ error: 'rate_limited' });
   });
 
+  it('an IPv6 address counts by its /64: changing the rest of the address does not reset the limit', async () => {
+    const from = (ip: string, password: string) =>
+      fetch(`${ORIGIN}/api/auth/login`, {
+        method: 'POST',
+        headers: { origin: ORIGIN, 'content-type': 'application/json', 'cf-connecting-ip': ip },
+        body: JSON.stringify({ role: 'doctor', password }),
+      });
+    for (let i = 1; i <= 5; i++) expect((await from(`2001:db8:1:2::${i}`, 'nope')).status).toBe(401);
+    expect((await from('2001:0db8:0001:0002:ffff:0:0:99', PASSWORDS.doctor)).status).toBe(429);
+    // Another customer's block is a different address.
+    expect((await from('2001:db8:1:3::1', PASSWORDS.doctor)).status).toBe(200);
+  });
+
+  it('failed logins per account are limited too, whatever the address (10 per 15 minutes)', async () => {
+    const from = (ip: string, role: string, password: string) =>
+      fetch(`${ORIGIN}/api/auth/login`, {
+        method: 'POST',
+        headers: { origin: ORIGIN, 'content-type': 'application/json', 'cf-connecting-ip': ip },
+        body: JSON.stringify({ role, password }),
+      });
+    for (let i = 1; i <= 10; i++) expect((await from(`198.51.100.${i}`, 'doctor', 'nope')).status).toBe(401);
+    // Even the right password, from a new address: the account is resting (no slow check runs).
+    expect((await from('198.51.100.50', 'doctor', PASSWORDS.doctor)).status).toBe(429);
+    // The other account, and sessions already signed in, are not affected.
+    expect((await from('198.51.100.51', 'secretary', PASSWORDS.secretary)).status).toBe(200);
+    // A successful login does not count as a failure.
+    await sql('DELETE FROM login_failures');
+    for (let i = 0; i < 12; i++) expect((await from(`203.0.113.${i}`, 'secretary', PASSWORDS.secretary)).status).toBe(200);
+  });
+
   it('logout ends the session', async () => {
     const cookie = await login('doctor');
     expect((await call(cookie, 'GET', '/api/me')).status).toBe(200);

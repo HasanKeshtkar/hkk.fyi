@@ -1,7 +1,8 @@
 // Backups inside the Durable Object: a JSON copy of the clinic's data, taken daily (cron) and
 // before every restore, kept in 500 000-character chunks (rows here are limited to 2 MB).
 // A restore replaces appointments, notifications and working hours in one transaction; accounts,
-// sessions and the audit log are left as they are (the restore itself is audited).
+// sessions and the audit log are left as they are (the restore itself is audited). Backups hold
+// no password hashes.
 import { clinicDateOf, clinicTimeOf } from '../shared/time';
 import { all, one, type Sql } from './db/sql';
 import { HttpError } from './http';
@@ -13,6 +14,8 @@ const NAME = /^(?:clinic|pre-restore)-\d{4}-\d{2}-\d{2}_\d{4}(?:-\d+)?\.json$/;
 const DATA_TABLES = ['weekly_schedule', 'date_overrides', 'appointments', 'notifications'] as const;
 /** Saved for the record but not restored. */
 const KEPT_TABLES = ['users', 'audit_log', 'counters'] as const;
+/** What a backup holds of a table: everything, except the password hashes (never restored). */
+const SELECT: Record<string, string> = { users: 'SELECT id, role, name, created_at FROM users' };
 const PRE_RESTORE_KEEP = 10;
 
 export interface BackupInfo {
@@ -47,7 +50,7 @@ export function listBackups(sql: Sql): BackupInfo[] {
 /** Writes a backup of the current data (call inside a transaction, or on its own). */
 export function writeBackup(sql: Sql, kind: 'daily' | 'pre-restore', keep: number, now = new Date()): BackupInfo {
   const tables: BackupFile['tables'] = {};
-  for (const t of [...KEPT_TABLES, ...DATA_TABLES]) tables[t] = all(sql, `SELECT * FROM ${t}`);
+  for (const t of [...KEPT_TABLES, ...DATA_TABLES]) tables[t] = all(sql, SELECT[t] ?? `SELECT * FROM ${t}`);
   const text = JSON.stringify({ format: FORMAT, version: 1, createdAt: now.toISOString(), tables } satisfies BackupFile);
 
   const base = baseName(kind === 'daily' ? 'clinic' : 'pre-restore', now);
@@ -55,8 +58,14 @@ export function writeBackup(sql: Sql, kind: 'daily' | 'pre-restore', keep: numbe
   for (let n = 2; one(sql, 'SELECT 1 AS x FROM backups WHERE name = ?', name); n++) name = `${base}-${n}.json`;
   const bytes = new TextEncoder().encode(text).length;
   sql.exec('INSERT INTO backups (name, kind, bytes, created_at) VALUES (?, ?, ?, ?)', name, kind, bytes, now.getTime());
-  for (let i = 0, seq = 0; i < text.length; i += CHUNK_CHARS, seq++) {
-    sql.exec('INSERT INTO backup_chunks (name, seq, data) VALUES (?, ?, ?)', name, seq, text.slice(i, i + CHUNK_CHARS));
+  for (let i = 0, seq = 0; i < text.length; seq++) {
+    let end = Math.min(i + CHUNK_CHARS, text.length);
+    // Never between the two halves of a character outside the BMP (an emoji): a lone half is
+    // stored as a replacement character.
+    const last = text.charCodeAt(end - 1);
+    if (end < text.length && last >= 0xd800 && last <= 0xdbff) end--;
+    sql.exec('INSERT INTO backup_chunks (name, seq, data) VALUES (?, ?, ?)', name, seq, text.slice(i, end));
+    i = end;
   }
 
   // Keep the newest `keep` of this kind.
@@ -101,6 +110,10 @@ export function restoreBackup(storage: DurableObjectStorage, userId: string, nam
   }
   return storage.transactionSync(() => {
     const safety = writeBackup(sql, 'pre-restore', keep);
+    // Versions must never repeat either: a phone still holding a version handed out before the
+    // restore must get a conflict, and live changes after it must look newer than anything seen.
+    const maxVersion = (t: string) => one<{ m: number }>(sql, `SELECT coalesce(max(version), 0) AS m FROM ${t}`)!.m;
+    const offsets = { appointments: maxVersion('appointments'), weekly_schedule: maxVersion('weekly_schedule') };
     for (const t of [...DATA_TABLES].reverse()) sql.exec(`DELETE FROM ${t}`);
     for (const t of DATA_TABLES) {
       for (const row of file.tables[t] ?? []) {
@@ -112,7 +125,8 @@ export function restoreBackup(storage: DurableObjectStorage, userId: string, nam
         );
       }
     }
-    // Override versions must never repeat: continue from the higher of the two counters.
+    for (const [t, offset] of Object.entries(offsets)) sql.exec(`UPDATE ${t} SET version = version + ?`, offset);
+    // Override versions come from a counter: continue from the higher of the two.
     const saved = (file.tables.counters ?? []).find((c) => c.name === 'override_version');
     if (saved && typeof saved.value === 'number') {
       sql.exec(
