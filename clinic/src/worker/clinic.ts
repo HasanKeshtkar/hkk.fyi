@@ -34,7 +34,7 @@ import {
   SESSION_TTL_MS,
   verifyPassword,
 } from './auth';
-import { listBackups, readBackup, restoreBackup, writeBackup } from './backups';
+import { backupForDownload, listBackups, restoreBackup, writeBackup } from './backups';
 import { migrate } from './db/schema';
 import { all, one } from './db/sql';
 import { originsOf, type Env, type Origins } from './env';
@@ -44,6 +44,8 @@ import { deleteOverride, getDaySchedule, getWeekly, listOverrides, setWeeklyDay,
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+/** A phone stays trusted this long after its last sign-in (400 days: the longest a browser keeps a cookie). */
+const DEVICE_TTL_MS = 400 * 24 * 60 * 60 * 1000;
 const STALE_BACKUP_MS = 36 * 60 * 60 * 1000;
 const DAILY_BACKUP_MIN_GAP_MS = 20 * 60 * 60 * 1000;
 const DEFAULT_WEEKLY = [
@@ -147,6 +149,7 @@ export class Clinic extends DurableObject<Env> {
         this.ctx.storage.transactionSync(() => {
           this.sql.exec('UPDATE users SET password_hash = ? WHERE id = ?', hash, existing.id);
           this.sql.exec('DELETE FROM sessions WHERE user_id = ?', existing.id);
+          this.sql.exec('DELETE FROM trusted_devices WHERE user_id = ?', existing.id);
         });
       }
     }
@@ -206,6 +209,22 @@ export class Clinic extends DurableObject<Env> {
     return all<UserRow>(this.sql, 'SELECT id, role, name FROM users ORDER BY role').map((u) => ({ id: u.id, name: u.name, role: u.role }));
   }
 
+  /** The id of the trusted-device record for this phone and account, or null. */
+  private async trustedDevice(request: Request, role: string): Promise<string | null> {
+    const token = getCookie(request, this.origins.deviceCookieName);
+    if (!isTokenFormat(token)) return null;
+    const id = await hashToken(token);
+    return (
+      one<{ id: string }>(
+        this.sql,
+        'SELECT d.id FROM trusted_devices d JOIN users u ON u.id = d.user_id WHERE d.id = ? AND u.role = ? AND d.last_used_at > ?',
+        id,
+        role,
+        Date.now() - DEVICE_TTL_MS,
+      )?.id ?? null
+    );
+  }
+
   /** The session behind the request's cookie, or null. `slide` extends a session in daily use. */
   private async resolveSession(request: Request, slide: boolean): Promise<Session | null> {
     const token = getCookie(request, this.origins.cookieName);
@@ -237,7 +256,8 @@ export class Clinic extends DurableObject<Env> {
     // ---- auth
     this.on('POST', '/api/auth/login', async (req) => {
       // Two limits, both checked before the (deliberately slow) password check: attempts per
-      // address, and failures per account from all addresses together.
+      // address, and failures per account from all addresses together. A phone that has signed in
+      // to the account before is exempt from the second, so strangers cannot lock its owner out.
       const max = Number(this.env.LOGIN_RATE_LIMIT_MAX ?? 5) || 5;
       const maxFailures = Number(this.env.LOGIN_FAILURE_MAX ?? 10) || 10;
       const ip = addressKey(req.headers.get('cf-connecting-ip') ?? 'unknown');
@@ -248,9 +268,10 @@ export class Clinic extends DurableObject<Env> {
       this.sql.exec('INSERT INTO login_attempts (ip, at) VALUES (?, ?)', ip, now);
 
       const body = LoginBody.parse(await readJson(req));
+      const device = await this.trustedDevice(req, body.role);
       this.sql.exec('DELETE FROM login_failures WHERE at < ?', Date.now() - LOGIN_WINDOW_MS);
       const failures = one<{ n: number }>(this.sql, 'SELECT count(*) AS n FROM login_failures WHERE role = ?', body.role)!.n;
-      if (failures >= maxFailures) throw new HttpError(429, { error: 'rate_limited' });
+      if (failures >= maxFailures && !device) throw new HttpError(429, { error: 'rate_limited' });
       // Counted as a failure until it succeeds, so attempts running at the same time count too.
       const failure = one<{ id: number }>(
         this.sql,
@@ -276,7 +297,25 @@ export class Clinic extends DurableObject<Env> {
         expiresAt,
       );
       const res: MeResponse = { user: { id: user.id, name: user.name, role: user.role }, users: this.users() };
-      return json(res, 200, { 'set-cookie': this.cookie(token, expiresAt) });
+      const out = json(res, 200, { 'set-cookie': this.cookie(token, expiresAt) });
+      if (device) {
+        this.sql.exec('UPDATE trusted_devices SET last_used_at = ? WHERE id = ?', Date.now(), device);
+      } else {
+        const deviceToken = newToken();
+        this.sql.exec('DELETE FROM trusted_devices WHERE last_used_at < ?', Date.now() - DEVICE_TTL_MS);
+        this.sql.exec(
+          'INSERT INTO trusted_devices (id, user_id, created_at, last_used_at) VALUES (?, ?, ?, ?)',
+          await hashToken(deviceToken),
+          user.id,
+          Date.now(),
+          Date.now(),
+        );
+        out.headers.append(
+          'set-cookie',
+          sessionCookie(this.origins.deviceCookieName, this.origins.cookieSecure, deviceToken, DEVICE_TTL_MS / 1000),
+        );
+      }
+      return out;
     }, { public: true });
 
     this.on('POST', '/api/auth/logout', async (req) => {
@@ -385,7 +424,7 @@ export class Clinic extends DurableObject<Env> {
 
     // The file holds every patient's name and phone: each download is recorded.
     this.on('GET', '/api/backups/:name', (_req, p, s) => {
-      const text = readBackup(this.sql, p.name!);
+      const text = backupForDownload(this.sql, p.name!);
       if (text === null) throw new HttpError(404, { error: 'not_found' });
       this.sql.exec(
         "INSERT INTO audit_log (user_id, entity, entity_id, action, before, after, at) VALUES (?, 'backup', ?, 'download', NULL, NULL, ?)",
@@ -514,6 +553,7 @@ export class Clinic extends DurableObject<Env> {
       this.ctx.storage.transactionSync(() => {
         for (const t of tables) this.sql.exec(`DELETE FROM ${t}`);
         if (!body.keepSessions) {
+          this.sql.exec('DELETE FROM trusted_devices');
           this.sql.exec('DELETE FROM sessions');
           this.sql.exec('DELETE FROM users');
         }

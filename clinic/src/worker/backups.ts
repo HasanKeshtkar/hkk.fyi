@@ -92,6 +92,19 @@ export function readBackup(sql: Sql, name: string): string | null {
 }
 
 /**
+ * The backup as a file to download: without password hashes, also in backups written before
+ * they were left out.
+ */
+export function backupForDownload(sql: Sql, name: string): string | null {
+  const text = readBackup(sql, name);
+  if (text === null) return null;
+  const file = JSON.parse(text) as BackupFile;
+  if (!(file.tables.users ?? []).some((u) => 'password_hash' in u)) return text;
+  file.tables.users = file.tables.users!.map(({ password_hash: _, ...u }) => u);
+  return JSON.stringify(file);
+}
+
+/**
  * Replaces the clinic's data with a backup, after backing up the current data. One transaction:
  * if anything is wrong with the backup, nothing changes. Returns the safety backup.
  */
@@ -112,8 +125,13 @@ export function restoreBackup(storage: DurableObjectStorage, userId: string, nam
     const safety = writeBackup(sql, 'pre-restore', keep);
     // Versions must never repeat either: a phone still holding a version handed out before the
     // restore must get a conflict, and live changes after it must look newer than anything seen.
-    const maxVersion = (t: string) => one<{ m: number }>(sql, `SELECT coalesce(max(version), 0) AS m FROM ${t}`)!.m;
-    const offsets = { appointments: maxVersion('appointments'), weekly_schedule: maxVersion('weekly_schedule') };
+    // Restored rows go above the highest version ever handed out: the rows there now, and those
+    // removed by earlier restores (kept as a floor in counters, which restores do not replace).
+    const offsets = (['appointments', 'weekly_schedule'] as const).map((t) => {
+      const now = one<{ m: number }>(sql, `SELECT coalesce(max(version), 0) AS m FROM ${t}`)!.m;
+      const floor = one<{ value: number }>(sql, 'SELECT value FROM counters WHERE name = ?', `${t}_version_floor`)?.value ?? 0;
+      return [t, Math.max(now, floor)] as const;
+    });
     for (const t of [...DATA_TABLES].reverse()) sql.exec(`DELETE FROM ${t}`);
     for (const t of DATA_TABLES) {
       for (const row of file.tables[t] ?? []) {
@@ -125,7 +143,14 @@ export function restoreBackup(storage: DurableObjectStorage, userId: string, nam
         );
       }
     }
-    for (const [t, offset] of Object.entries(offsets)) sql.exec(`UPDATE ${t} SET version = version + ?`, offset);
+    for (const [t, offset] of offsets) {
+      sql.exec(`UPDATE ${t} SET version = version + ?`, offset);
+      sql.exec(
+        'INSERT INTO counters (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = max(value, excluded.value)',
+        `${t}_version_floor`,
+        offset,
+      );
+    }
     // Override versions come from a counter: continue from the higher of the two.
     const saved = (file.tables.counters ?? []).find((c) => c.name === 'override_version');
     if (saved && typeof saved.value === 'number') {

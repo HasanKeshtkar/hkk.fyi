@@ -14,10 +14,12 @@ describe('login', () => {
     expect(res.body.user).toMatchObject({ role: 'secretary', name: 'منشی تست' });
     expect(res.body.users.map((u: { role: string }) => u.role)).toEqual(['doctor', 'secretary']);
     expect(JSON.stringify(res.body)).not.toContain('pbkdf2');
-    const cookie = res.headers.get('set-cookie')!;
+    const [cookie, device] = res.headers.getSetCookie();
     expect(cookie).toMatch(/^__Host-sid=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=1555(1999|2000)$/); // 180 days
+    // And this phone is remembered for the account (400 days), see the failure limit below.
+    expect(device).toMatch(/^__Host-dev=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=34560000$/);
+    const token = cookie!.split(';')[0]!.split('=')[1]!;
     // Only the token's hash is stored.
-    const token = cookie.split(';')[0]!.split('=')[1]!;
     const stored = await sql<{ id: string }>('SELECT id FROM sessions');
     expect(stored).toHaveLength(1);
     expect(stored[0]!.id).not.toBe(token);
@@ -63,13 +65,32 @@ describe('login', () => {
         body: JSON.stringify({ role, password }),
       });
     for (let i = 1; i <= 10; i++) expect((await from(`198.51.100.${i}`, 'doctor', 'nope')).status).toBe(401);
-    // Even the right password, from a new address: the account is resting (no slow check runs).
+    // Even the right password, from a phone that never signed in: the account is resting (no slow check runs).
     expect((await from('198.51.100.50', 'doctor', PASSWORDS.doctor)).status).toBe(429);
     // The other account, and sessions already signed in, are not affected.
     expect((await from('198.51.100.51', 'secretary', PASSWORDS.secretary)).status).toBe(200);
     // A successful login does not count as a failure.
     await sql('DELETE FROM login_failures');
     for (let i = 0; i < 12; i++) expect((await from(`203.0.113.${i}`, 'secretary', PASSWORDS.secretary)).status).toBe(200);
+  });
+
+  it('a phone that signed in before is not locked out by strangers’ failed guesses', async () => {
+    const from = (ip: string, password: string, cookie?: string) =>
+      fetch(`${ORIGIN}/api/auth/login`, {
+        method: 'POST',
+        headers: { origin: ORIGIN, 'content-type': 'application/json', 'cf-connecting-ip': ip, ...(cookie ? { cookie } : {}) },
+        body: JSON.stringify({ role: 'doctor', password }),
+      });
+    const first = await from('192.0.2.1', PASSWORDS.doctor);
+    const device = first.headers.getSetCookie()[1]!.split(';')[0]!;
+    await call(first.headers.getSetCookie()[0]!.split(';')[0]!, 'POST', '/api/auth/logout', {});
+    for (let i = 1; i <= 10; i++) expect((await from(`198.51.100.${i}`, 'nope')).status).toBe(401);
+    expect((await from('198.51.100.60', PASSWORDS.doctor)).status).toBe(429); // a new phone waits
+    const back = await from('192.0.2.2', PASSWORDS.doctor, device); // hers signs in
+    expect(back.status).toBe(200);
+    expect(back.headers.getSetCookie()).toHaveLength(1); // already remembered
+    // The password still has to be right.
+    expect((await from('192.0.2.3', 'nope', device)).status).toBe(401);
   });
 
   it('logout ends the session', async () => {

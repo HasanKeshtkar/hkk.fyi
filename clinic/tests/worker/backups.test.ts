@@ -111,6 +111,33 @@ describe('backups', () => {
     expect((await call(sec, 'PUT', '/api/schedule/weekly/6', { isOpen: false, startTime: '15:00', endTime: '19:00', version: 2 })).status).toBe(409);
   });
 
+  it('versions stay above all ever handed out, even after restoring a backup with no appointments', async () => {
+    const empty = await backupNow();
+    const a = (await book(doc, '14:00', 'علی')).body;
+    const name = await backupNow();
+    await call(sec, 'PATCH', `/api/appointments/${a.id}`, { version: 1, patientPhone: '09120000002' });
+    await call(sec, 'PATCH', `/api/appointments/${a.id}`, { version: 2, patientName: 'علی رضایی' }); // v3 on her phone
+    await call(doc, 'POST', `/api/backups/${empty}/restore`, {});
+    await call(doc, 'POST', `/api/backups/${name}/restore`, {});
+    const restored = (await call(doc, 'GET', '/api/day?date=2026-10-17')).body.appointments[0];
+    expect(restored.version).toBeGreaterThan(3);
+    expect((await call(sec, 'PATCH', `/api/appointments/${a.id}`, { version: 3, patientName: 'علی رضایی' })).status).toBe(409);
+  });
+
+  it('a backup written before hashes were left out is downloaded without them', async () => {
+    const old = JSON.stringify({
+      format: 'clinic-backup',
+      version: 1,
+      createdAt: '2026-10-16T23:30:00.000Z',
+      tables: { users: [{ id: 'u1', role: 'doctor', name: 'دکتر', password_hash: 'pbkdf2-sha256$100000$a$b', created_at: 0 }], appointments: [] },
+    });
+    await sql("INSERT INTO backups (name, kind, bytes, created_at) VALUES ('clinic-2026-10-17_0300.json', 'daily', ?, 0)", old.length);
+    await sql("INSERT INTO backup_chunks (name, seq, data) VALUES ('clinic-2026-10-17_0300.json', 0, ?)", old);
+    const file = (await call(sec, 'GET', '/api/backups/clinic-2026-10-17_0300.json')).body;
+    expect(file.tables.users).toEqual([{ id: 'u1', role: 'doctor', name: 'دکتر', created_at: 0 }]);
+    expect(JSON.stringify(file)).not.toContain('pbkdf2');
+  });
+
   it('restoring an unknown backup changes nothing', async () => {
     await book(doc, '14:00');
     expect((await call(sec, 'POST', '/api/backups/clinic-2026-01-01_0300.json/restore', {})).status).toBe(404);

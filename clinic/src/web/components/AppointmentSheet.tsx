@@ -95,14 +95,21 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveAppt?.version, busy]);
+  // Back online, everything has been re-read: if the appointment is still there unchanged, her
+  // cancel or move whose answer was lost did not happen after all.
+  useEffect(() => {
+    if (online && lostRef.current && appt && liveAppt && liveAppt.version === appt.version) lostRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, liveAppt?.version]);
   const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
   useEffect(() => {
     // Also checked when a save ends: it may have vanished while one was in flight. Not over a
     // more precise message already shown (e.g. who cancelled it).
     if (savedRef.current || busy || !vanished || closedForGood) return;
     const lost = lostRef.current;
-    if (lost) {
-      // Most likely her own cancel or move (to another day), whose answer was lost.
+    // A move within this day would have kept it in the list: then it was not hers.
+    if (lost && (lost.kind === 'cancel' || clinicDateOf(new Date(lost.to)) !== view$.date)) {
+      // Most likely her own cancel or move to another day, whose answer was lost.
       setClosedForGood(true);
       setAlert({
         tone: 'info',
@@ -257,11 +264,12 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   async function doCancel() {
     if (!appt || !canWrite) return;
+    const listed = liveAppt !== null; // if it is gone already, a later vanish is not her doing
     setBusy(true);
     try {
       const res = await api.cancelAppointment(appt.id, appt.version);
       setConfirm(null);
-      lostRef.current = !res.ok && res.kind === 'network' ? { kind: 'cancel' } : null;
+      lostRef.current = !res.ok && res.kind === 'network' && listed ? { kind: 'cancel' } : null;
       if (!res.ok) return onFailure(res);
       savedRef.current = true;
       props.store.applyAppointment(res.data);
@@ -274,12 +282,13 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   async function doMove(to: string) {
     if (!appt || !canWrite) return;
+    const listed = liveAppt !== null;
     setBusy(true);
     try {
       const res = await api.updateAppointment(appt.id, { version: appt.version, startAt: to });
       setConfirm(null);
       setView('form');
-      lostRef.current = !res.ok && res.kind === 'network' ? { kind: 'move', to } : null;
+      lostRef.current = !res.ok && res.kind === 'network' && listed ? { kind: 'move', to } : null;
       if (!res.ok) return onFailure(res);
       savedRef.current = true;
       props.store.applyAppointment(res.data);

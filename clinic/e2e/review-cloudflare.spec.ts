@@ -1,8 +1,11 @@
 // Regression tests for the problems the review of the Cloudflare version found (client side).
 import { expect, test } from '@playwright/test';
-import { AUTH, backupNow, book, closeDb, contextAs, nextWeekday, openDay, query, resetData, slot } from './helpers';
+import { addDays } from '../src/shared/time';
+import { E2E_ORIGIN } from './env';
+import { AUTH, backupNow, book, closeDb, contextAs, nextWeekday, openDay, query, resetData, slot, slotIso } from './helpers';
 
 const SAT = nextWeekday(6);
+const MON = addDays(SAT, 2);
 
 test.beforeEach(async () => {
   await resetData();
@@ -29,6 +32,31 @@ test.describe('as the secretary', () => {
     await expect(sheet).not.toContainText('توسط کاربر دیگر');
     await expect(sheet.getByRole('button', { name: 'لغو نوبت' })).toHaveCount(0);
     expect((await query('select status from appointments')).rows).toEqual([{ status: 'cancelled' }]);
+  });
+
+  test('a cancel that never reached the server is not taken for hers when the other person then moves it', async ({ page, browser }) => {
+    await openDay(page, SAT);
+    await book(page, SAT, '14:00', 'علی', '09121234567');
+    await page.route('**/api/appointments/*/cancel', (route) => route.abort('connectionreset'), { times: 1 });
+    await slot(page, SAT, '14:00').getByRole('button').click();
+    await page.getByRole('button', { name: 'لغو نوبت' }).click();
+    await page.getByRole('button', { name: 'بله، لغو شود' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toContainText('معلوم نیست ذخیره شد یا نه');
+    await expect(page.getByTestId('connection')).toHaveText('آنلاین'); // re-read: it is still there
+    // The doctor moves it to Monday.
+    const doctorCtx = await contextAs(browser, 'doctor');
+    const doctor = await doctorCtx.newPage();
+    const { id, version } = (await query('select id, version from appointments')).rows[0];
+    const res = await doctor.request.fetch(`/api/appointments/${id}`, {
+      method: 'PATCH',
+      data: { version, startAt: slotIso(MON, '08:00') },
+      headers: { origin: E2E_ORIGIN },
+    });
+    expect(res.status()).toBe(200);
+    await expect(sheet).toContainText('توسط کاربر دیگر جابه‌جا یا لغو شد');
+    await expect(sheet).not.toContainText('به احتمال زیاد');
+    await doctorCtx.close();
   });
 
   test('closing a weekday whose hidden hours were left the wrong way round still saves', async ({ page }) => {

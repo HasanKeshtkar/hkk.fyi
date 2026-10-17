@@ -108,6 +108,8 @@ class NotificationStore {
       const res = await api.markNotificationsRead({ ids: part });
       if (res.ok) this.removeRead([...part, ...res.data.ids]);
     }
+    // More unread than the list holds (it shows the newest 50): list the next ones.
+    if (ids === 'all' && this.count > this.items.length) await this.load();
   }
 
   /** Sign-out: forget everything (the next user starts empty). */

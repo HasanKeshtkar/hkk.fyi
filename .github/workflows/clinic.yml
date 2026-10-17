@@ -57,7 +57,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: clinic/package-lock.json
-      - name: Is Cloudflare connected?
+      - name: Is Cloudflare connected, and is this the newest app?
         id: cf
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -65,12 +65,27 @@ jobs:
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "Cloudflare is not connected yet (no CLOUDFLARE_API_TOKEN secret): nothing to deploy."
             echo "ready=false" >> "$GITHUB_OUTPUT"
-          elif [ "$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)" != "$GITHUB_SHA" ]; then
-            # A newer push is on its way (or already live): never put an older commit over it.
-            echo "$GITHUB_SHA is no longer the newest commit of $GITHUB_REF_NAME: not deploying it."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+            exit 0
+          fi
+          # Never put an older app over a newer one: skip only if a newer commit on the branch
+          # changes the app (its own run deploys it). Commits that touch other files do not count.
+          git fetch --quiet --depth=1 origin "$GITHUB_REF_NAME"
+          set +e
+          git diff --quiet "$GITHUB_SHA" FETCH_HEAD -- clinic .github/workflows/clinic.yml
+          changed=$?
+          set -e
+          if [ "$changed" -eq 0 ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [ "$changed" -ne 1 ]; then
+            echo "::error::Could not compare with the newest commit of $GITHUB_REF_NAME."
+            exit 1
+          elif [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+            # A re-run (e.g. to apply a new password) of a run that is no longer the newest.
+            echo "::error::This is not the newest version of the app: re-run the newest clinic run in Actions instead."
+            exit 1
+          else
+            echo "::warning::A newer commit changes the app; its own run deploys it. Not deploying $GITHUB_SHA."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.cf.outputs.ready == 'true'
         run: npm ci && npm run build:web
@@ -111,7 +126,7 @@ jobs:
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/secrets.json", JSON.stringify(s));
           '
           # A new id for every run and re-run: the server re-checks the passwords once per id, and
-          # "Re-run all jobs" (same commit) is how a changed password is applied.
+          # "Re-run all jobs" of the newest run (or a commit to clinic/redeploy.txt) applies a changed one.
           npx wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json" --var "DEPLOY_ID:$GITHUB_SHA.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
           rm -f "$RUNNER_TEMP/secrets.json"
       - name: Is it up?

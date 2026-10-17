@@ -26,6 +26,8 @@ export interface Origins {
   list: string[];
   canonical: string;
   cookieName: string;
+  /** The cookie that marks a phone that has signed in before. */
+  deviceCookieName: string;
   cookieSecure: boolean;
   https: boolean;
 }
@@ -45,5 +47,12 @@ export function originsOf(env: Env): Origins {
   const https = canonical.protocol === 'https:';
   // Browsers accept Secure cookies on http://localhost; only a plain-http LAN address goes without.
   const cookieSecure = https || isLocalhost;
-  return { list, canonical: list[0]!, cookieName: cookieSecure ? '__Host-sid' : 'sid', cookieSecure, https };
+  return {
+    list,
+    canonical: list[0]!,
+    cookieName: cookieSecure ? '__Host-sid' : 'sid',
+    deviceCookieName: cookieSecure ? '__Host-dev' : 'dev',
+    cookieSecure,
+    https,
+  };
 }

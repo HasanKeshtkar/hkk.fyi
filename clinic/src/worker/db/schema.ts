@@ -123,6 +123,18 @@ export const MIGRATIONS: string[] = [
   CREATE TABLE login_failures (role TEXT NOT NULL, at INTEGER NOT NULL) STRICT;
   CREATE INDEX login_failures_idx ON login_failures(role, at);
   `,
+  `
+  -- Phones that have signed in to an account before (a long-lived cookie; only its SHA-256 is
+  -- stored). They are exempt from the per-account failure limit, so a stranger's failed guesses
+  -- cannot lock the doctor or the secretary out of their own phones.
+  CREATE TABLE trusted_devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX trusted_devices_user_idx ON trusted_devices(user_id);
+  `,
 ];
 
 /** Applies the migrations not yet applied. Runs inside the object's constructor, before any request. */

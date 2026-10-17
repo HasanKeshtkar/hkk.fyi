@@ -99,12 +99,15 @@ describe('notificationStore', () => {
     const m = store.markRead('all');
     expect(calls.read[0]!.body).toEqual({ ids: fifty.map((n) => n.id) });
     calls.read[0]!.resolve(ok({ ids: fifty.map((n) => n.id) }));
-    await m;
-    expect(view()).toEqual({ ids: [], count: 10 });
-    calls.list[1]!.resolve(ok({ items: fifty, count: 60 })); // taken before the mark-all
     await new Promise((r) => setTimeout(r, 0));
-    calls.list[2]!.resolve(ok({ items: ten, count: 10 }));
+    calls.list[1]!.resolve(ok({ items: fifty, count: 60 })); // taken before the mark-all
+    // Every re-read after that sees the server as it is now.
+    for (let i = 2; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      calls.list[i]?.resolve(ok({ items: ten, count: 10 }));
+    }
     await expect(p).resolves.toBe(true);
+    await m;
     expect(view()).toEqual({ ids: ten.map((n) => n.id), count: 10 });
   });
 
@@ -152,6 +155,18 @@ describe('notificationStore', () => {
     calls.list[0]!.resolve(ok({ items: [], count: 0 }));
     await first;
     expect(view()).toEqual({ ids: ['a', 'b'], count: 2 });
+  });
+
+  it('more than 50 unread: after “mark all read”, the next ones are listed at once', async () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => note(`n${i}`));
+    const ten = Array.from({ length: 10 }, (_, i) => note(`x${i}`));
+    await loadWith(fifty, 60);
+    const m = store.markRead('all');
+    calls.read[0]!.resolve(ok({ ids: fifty.map((n) => n.id) }));
+    await new Promise((r) => setTimeout(r, 0));
+    calls.list[1]!.resolve(ok({ items: ten, count: 10 }));
+    await m;
+    expect(view()).toEqual({ ids: ten.map((n) => n.id), count: 10 });
   });
 
   it('“mark all read” marks what is listed, by id: one that arrives meanwhile stays unread', async () => {
