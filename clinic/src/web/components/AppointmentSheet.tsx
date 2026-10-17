@@ -95,10 +95,11 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveAppt?.version, busy]);
-  // Back online, everything has been re-read: if the appointment is still there unchanged, her
-  // cancel or move whose answer was lost did not happen after all.
+  // Back online, everything has been re-read: if the appointment is still listed (and not at the
+  // time she moved it to), her cancel or move whose answer was lost did not happen after all.
   useEffect(() => {
-    if (online && lostRef.current && appt && liveAppt && liveAppt.version === appt.version) lostRef.current = null;
+    const lost = lostRef.current;
+    if (online && lost && liveAppt && !(lost.kind === 'move' && liveAppt.startAt === lost.to)) lostRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, liveAppt?.version]);
   const vanished = !isCreate && appt !== null && view$.data !== null && liveAppt === null;
@@ -264,7 +265,8 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   async function doCancel() {
     if (!appt || !canWrite) return;
-    const listed = liveAppt !== null; // if it is gone already, a later vanish is not her doing
+    // Sent for the version that is listed: otherwise the server refuses it, and a later vanish is not her doing.
+    const listed = liveAppt !== null && liveAppt.version === appt.version;
     setBusy(true);
     try {
       const res = await api.cancelAppointment(appt.id, appt.version);
@@ -282,7 +284,7 @@ export function AppointmentSheet(props: { target: SheetTarget; store: DayStore; 
 
   async function doMove(to: string) {
     if (!appt || !canWrite) return;
-    const listed = liveAppt !== null;
+    const listed = liveAppt !== null && liveAppt.version === appt.version;
     setBusy(true);
     try {
       const res = await api.updateAppointment(appt.id, { version: appt.version, startAt: to });

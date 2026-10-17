@@ -17,7 +17,7 @@ describe('login', () => {
     const [cookie, device] = res.headers.getSetCookie();
     expect(cookie).toMatch(/^__Host-sid=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=1555(1999|2000)$/); // 180 days
     // And this phone is remembered for the account (400 days), see the failure limit below.
-    expect(device).toMatch(/^__Host-dev=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=34560000$/);
+    expect(device).toMatch(/^__Host-dev-secretary=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure; Max-Age=34560000$/);
     const token = cookie!.split(';')[0]!.split('=')[1]!;
     // Only the token's hash is stored.
     const stored = await sql<{ id: string }>('SELECT id FROM sessions');
@@ -75,22 +75,40 @@ describe('login', () => {
   });
 
   it('a phone that signed in before is not locked out by strangers’ failed guesses', async () => {
-    const from = (ip: string, password: string, cookie?: string) =>
+    const from = (ip: string, password: string, cookie?: string, role = 'doctor') =>
       fetch(`${ORIGIN}/api/auth/login`, {
         method: 'POST',
         headers: { origin: ORIGIN, 'content-type': 'application/json', 'cf-connecting-ip': ip, ...(cookie ? { cookie } : {}) },
-        body: JSON.stringify({ role: 'doctor', password }),
+        body: JSON.stringify({ role, password }),
       });
     const first = await from('192.0.2.1', PASSWORDS.doctor);
     const device = first.headers.getSetCookie()[1]!.split(';')[0]!;
+    expect(device).toMatch(/^__Host-dev-doctor=/);
+    // The same phone signs in to the other account too: each account has its own cookie.
+    const other = await from('192.0.2.1', PASSWORDS.secretary, device, 'secretary');
+    expect(other.headers.getSetCookie()[1]).toMatch(/^__Host-dev-secretary=/);
     await call(first.headers.getSetCookie()[0]!.split(';')[0]!, 'POST', '/api/auth/logout', {});
     for (let i = 1; i <= 10; i++) expect((await from(`198.51.100.${i}`, 'nope')).status).toBe(401);
     expect((await from('198.51.100.60', PASSWORDS.doctor)).status).toBe(429); // a new phone waits
     const back = await from('192.0.2.2', PASSWORDS.doctor, device); // hers signs in
     expect(back.status).toBe(200);
-    expect(back.headers.getSetCookie()).toHaveLength(1); // already remembered
+    // Same cookie, fresh lifetime: a phone in use stays trusted.
+    expect(back.headers.getSetCookie()[1]!.split(';')[0]).toBe(device);
+    expect(back.headers.getSetCookie()[1]).toMatch(/Max-Age=34560000$/);
     // The password still has to be right.
     expect((await from('192.0.2.3', 'nope', device)).status).toBe(401);
+  });
+
+  it('a phone already signed in becomes trusted when the app opens (also sessions from before trusted devices)', async () => {
+    const cookie = await login('doctor');
+    await sql('DELETE FROM trusted_devices');
+    const me = await call(cookie, 'GET', '/api/me');
+    const device = me.headers.getSetCookie().find((c) => c.startsWith('__Host-dev-doctor='))!;
+    expect(device).toMatch(/Max-Age=34560000$/);
+    expect(await sql('SELECT count(*) AS n FROM trusted_devices')).toEqual([{ n: 1 }]);
+    // Opening it again keeps the same record.
+    await call(`${cookie}; ${device.split(';')[0]}`, 'GET', '/api/me');
+    expect(await sql('SELECT count(*) AS n FROM trusted_devices')).toEqual([{ n: 1 }]);
   });
 
   it('logout ends the session', async () => {
@@ -104,10 +122,11 @@ describe('login', () => {
 
   it('a session in daily use slides forward and the cookie is re-sent; an expired one is refused', async () => {
     const cookie = await login('secretary');
-    expect((await call(cookie, 'GET', '/api/me')).headers.get('set-cookie')).toBeNull(); // used today: nothing to do
+    const sessionCookies = (res: { headers: Headers }) => res.headers.getSetCookie().filter((c) => c.startsWith('__Host-sid='));
+    expect(sessionCookies(await call(cookie, 'GET', '/api/me'))).toEqual([]); // used today: nothing to do
     await sql('UPDATE sessions SET last_seen_at = last_seen_at - 2 * 86400000');
     const res = await call(cookie, 'GET', '/api/me');
-    expect(res.headers.get('set-cookie')).toMatch(/Max-Age=1555\d{4}$/);
+    expect(sessionCookies(res)).toEqual([expect.stringMatching(/Max-Age=1555\d{4}$/)]);
     await sql('UPDATE sessions SET expires_at = ?', Date.now() - 1000);
     expect((await call(cookie, 'GET', '/api/me')).status).toBe(401);
   });

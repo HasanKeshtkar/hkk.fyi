@@ -71,7 +71,8 @@ jobs:
           # changes the app (its own run deploys it). Commits that touch other files do not count.
           git fetch --quiet --depth=1 origin "$GITHUB_REF_NAME"
           set +e
-          git diff --quiet "$GITHUB_SHA" FETCH_HEAD -- clinic .github/workflows/clinic.yml
+          # (paths from the repository root: this step runs in clinic/)
+          git diff --quiet "$GITHUB_SHA" FETCH_HEAD -- :/clinic :/.github/workflows/clinic.yml
           changed=$?
           set -e
           if [ "$changed" -eq 0 ]; then

@@ -44,7 +44,7 @@ import { deleteOverride, getDaySchedule, getWeekly, listOverrides, setWeeklyDay,
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-/** A phone stays trusted this long after its last sign-in (400 days: the longest a browser keeps a cookie). */
+/** A phone stays trusted this long after it was last used (400 days: the longest a browser keeps a cookie). */
 const DEVICE_TTL_MS = 400 * 24 * 60 * 60 * 1000;
 const STALE_BACKUP_MS = 36 * 60 * 60 * 1000;
 const DAILY_BACKUP_MIN_GAP_MS = 20 * 60 * 60 * 1000;
@@ -209,20 +209,40 @@ export class Clinic extends DurableObject<Env> {
     return all<UserRow>(this.sql, 'SELECT id, role, name FROM users ORDER BY role').map((u) => ({ id: u.id, name: u.name, role: u.role }));
   }
 
-  /** The id of the trusted-device record for this phone and account, or null. */
-  private async trustedDevice(request: Request, role: string): Promise<string | null> {
-    const token = getCookie(request, this.origins.deviceCookieName);
+  /** One trusted-device cookie per account, so signing in to the other account on the same phone keeps both. */
+  private deviceCookieName(role: string): string {
+    return `${this.origins.deviceCookieName}-${role}`;
+  }
+
+  /** This phone's trusted-device record for the account, or null. */
+  private async trustedDevice(request: Request, role: string): Promise<{ id: string; token: string } | null> {
+    const token = getCookie(request, this.deviceCookieName(role));
     if (!isTokenFormat(token)) return null;
-    const id = await hashToken(token);
-    return (
-      one<{ id: string }>(
-        this.sql,
-        'SELECT d.id FROM trusted_devices d JOIN users u ON u.id = d.user_id WHERE d.id = ? AND u.role = ? AND d.last_used_at > ?',
-        id,
-        role,
-        Date.now() - DEVICE_TTL_MS,
-      )?.id ?? null
+    const row = one<{ id: string }>(
+      this.sql,
+      'SELECT d.id FROM trusted_devices d JOIN users u ON u.id = d.user_id WHERE d.id = ? AND u.role = ? AND d.last_used_at > ?',
+      await hashToken(token),
+      role,
+      Date.now() - DEVICE_TTL_MS,
     );
+    return row ? { id: row.id, token } : null;
+  }
+
+  /** Marks this phone as trusted for the account, or keeps it so; returns the cookie (with a fresh lifetime). */
+  private async trustDevice(request: Request, user: { id: string; role: string }): Promise<string> {
+    const known = await this.trustedDevice(request, user.role);
+    const now = Date.now();
+    let token: string;
+    if (known) {
+      this.sql.exec('UPDATE trusted_devices SET last_used_at = ? WHERE id = ?', now, known.id);
+      token = known.token;
+    } else {
+      token = newToken();
+      const id = await hashToken(token);
+      this.sql.exec('DELETE FROM trusted_devices WHERE last_used_at < ?', now - DEVICE_TTL_MS);
+      this.sql.exec('INSERT INTO trusted_devices (id, user_id, created_at, last_used_at) VALUES (?, ?, ?, ?)', id, user.id, now, now);
+    }
+    return sessionCookie(this.deviceCookieName(user.role), this.origins.cookieSecure, token, DEVICE_TTL_MS / 1000);
   }
 
   /** The session behind the request's cookie, or null. `slide` extends a session in daily use. */
@@ -298,23 +318,7 @@ export class Clinic extends DurableObject<Env> {
       );
       const res: MeResponse = { user: { id: user.id, name: user.name, role: user.role }, users: this.users() };
       const out = json(res, 200, { 'set-cookie': this.cookie(token, expiresAt) });
-      if (device) {
-        this.sql.exec('UPDATE trusted_devices SET last_used_at = ? WHERE id = ?', Date.now(), device);
-      } else {
-        const deviceToken = newToken();
-        this.sql.exec('DELETE FROM trusted_devices WHERE last_used_at < ?', Date.now() - DEVICE_TTL_MS);
-        this.sql.exec(
-          'INSERT INTO trusted_devices (id, user_id, created_at, last_used_at) VALUES (?, ?, ?, ?)',
-          await hashToken(deviceToken),
-          user.id,
-          Date.now(),
-          Date.now(),
-        );
-        out.headers.append(
-          'set-cookie',
-          sessionCookie(this.origins.deviceCookieName, this.origins.cookieSecure, deviceToken, DEVICE_TTL_MS / 1000),
-        );
-      }
+      out.headers.append('set-cookie', await this.trustDevice(req, user));
       return out;
     }, { public: true });
 
@@ -328,7 +332,13 @@ export class Clinic extends DurableObject<Env> {
       return json({ ok: true }, 200, { 'set-cookie': this.cookie('', 0) });
     }, { public: true });
 
-    this.on('GET', '/api/me', (_req, _p, s) => json({ user: s!.user, users: this.users() } satisfies MeResponse));
+    this.on('GET', '/api/me', async (req, _p, s) => {
+      const out = json({ user: s!.user, users: this.users() } satisfies MeResponse);
+      // Every app start: a phone signed in already (also from before trusted devices existed)
+      // is trusted, and stays so while it is used.
+      out.headers.append('set-cookie', await this.trustDevice(req, s!.user));
+      return out;
+    });
 
     // ---- appointments
     this.on('GET', '/api/day', (req) => {
